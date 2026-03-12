@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -17,9 +18,11 @@ from google.oauth2.service_account import Credentials
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-BUILD_ID = "build-2026-03-10-1147"
+BUILD_ID = "build-2026-03-12-1200"
 LOCAL_DB_PATH = Path("haplogroup_info_ru.json")
 EMOJI_MAP_PATH = Path("haplogroup_emoji_map.json")
+YFULL_LINKS_PATH = Path("yfull_links.json")
+USAGE_DB_PATH = Path("usage_stats.sqlite3")
 KIT_GROUP_PREFIXES = (
     "G2A2B2A",
     "G2A2B",
@@ -76,6 +79,7 @@ class SheetsClient:
         )
         self.local_db = self._load_json(LOCAL_DB_PATH)
         self.emoji_map = self._load_json(EMOJI_MAP_PATH)
+        self.yfull_links = self._load_yfull_links(YFULL_LINKS_PATH)
         if not self.emoji_map:
             self.emoji_map = self._default_emoji_map()
 
@@ -151,7 +155,31 @@ class SheetsClient:
             return {str(k).upper(): str(v) for k, v in raw.items()}
         except Exception as exc:
             logger.warning("Failed to load %s: %s", path, exc)
+
             return {}
+    @staticmethod
+    def _load_yfull_links(path: Path) -> dict[str, dict[str, str]]:
+        empty = {"by_subclade": {}, "by_terminal": {}}
+        if not path.exists():
+            return empty
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8-sig"))
+        except Exception as exc:
+            logger.warning("Failed to load %s: %s", path, exc)
+            return empty
+
+        return {
+            "by_subclade": {
+                " ".join(str(k).strip().upper().split()): str(v)
+                for k, v in raw.get("by_subclade", {}).items()
+                if str(k).strip() and str(v).strip()
+            },
+            "by_terminal": {
+                " ".join(str(k).strip().upper().split()): str(v)
+                for k, v in raw.get("by_terminal", {}).items()
+                if str(k).strip() and str(v).strip()
+            },
+        }
 
     @staticmethod
     def _default_emoji_map() -> dict[str, str]:
@@ -176,6 +204,42 @@ class SheetsClient:
             if key and key in self.emoji_map:
                 return self.emoji_map[key]
         return "?"
+
+    @staticmethod
+    def _normalize_subclade_key(value: str) -> str:
+        return " ".join(value.strip().upper().split())
+
+    @staticmethod
+    def _extract_terminal_snp(value: str) -> str:
+        cleaned = " ".join(value.strip().split())
+        if not cleaned:
+            return ""
+        parts = [part.strip() for part in cleaned.split(">") if part.strip() and part.strip() != "..."]
+        if parts:
+            return parts[-1]
+        return cleaned.split()[-1]
+
+    def _get_yfull_link(self, general_group: str, subclade: str) -> str:
+        if not subclade:
+            return ""
+
+        by_subclade = self.yfull_links.get("by_subclade", {})
+        by_terminal = self.yfull_links.get("by_terminal", {})
+
+        candidates = [self._normalize_subclade_key(subclade)]
+        if general_group:
+            candidates.append(self._normalize_subclade_key(f"{general_group} {subclade}"))
+            candidates.append(self._normalize_subclade_key(f"{general_group} - {subclade}"))
+
+        for candidate in candidates:
+            if candidate and candidate in by_subclade:
+                return by_subclade[candidate]
+
+        terminal_snp = self._normalize_subclade_key(self._extract_terminal_snp(subclade))
+        if terminal_snp and terminal_snp in by_terminal:
+            return by_terminal[terminal_snp]
+
+        return ""
 
     @staticmethod
     def _looks_russian(text: str) -> bool:
@@ -244,27 +308,26 @@ class SheetsClient:
     def get_groups_by_name(self, name: str) -> list[str]:
         rows = self.worksheet.get_all_values()
         if not rows:
-            return ["Таблица пустая."]
+            return ["??????? ??????."]
 
         headers = rows[0]
-        name_idx = self._find_col_index(headers, ("name", "имя", "фамилия"))
-        haplo_idx = self._find_col_index(headers, ("гаплогруппа", "haplogroup"))
+        name_idx = self._find_col_index(headers, ("name", "???", "???????"))
+        haplo_idx = self._find_col_index(headers, ("???????????", "haplogroup"))
         kit_idx = self._find_col_index(headers, ("kit number", "kit", "????? ????"))
         ancestor_idx = self._find_col_index(
             headers,
             (
                 "paternal ancestor name",
                 "paternal ancestor",
-                "предок по отцовской линии",
-                "отцовский предок",
-                "происхождение",
+                "?????? ?? ????????? ?????",
+                "????????? ??????",
+                "?????????????",
             ),
         )
 
         if name_idx is None or haplo_idx is None:
-            return ["Не найдены нужные колонки: Name/Имя/Фамилия и/или Гаплогруппа."]
+            return ["?? ??????? ?????? ???????: Name/???/??????? ?/??? ???????????."]
 
-        # Build normalized rows with their current group context, then query.
         current_general = ""
         current_subclade = ""
         entries: list[dict[str, str]] = []
@@ -293,11 +356,9 @@ class SheetsClient:
 
         input_name = self._normalize(name)
         targets = [entry for entry in entries if self._normalize(entry["name"]) == input_name]
-
         if not targets:
             return []
 
-        # Merge entries by subclade only (as requested).
         grouped_targets: dict[str, list[dict[str, str]]] = {}
         for target in targets:
             merge_key = target["subclade"]
@@ -307,14 +368,13 @@ class SheetsClient:
         for group in grouped_targets.values():
             target = group[0]
             if not target["haplo"]:
-                results.append("Найдено имя, но в таблице пустое поле 'гаплогруппа'.")
+                results.append("??????? ???, ?? ? ??????? ?????? ???? '???????????'.")
                 continue
 
             haplo_with_group = target["haplo"]
             if target["general"]:
                 haplo_with_group = f"{target['haplo']} ({target['general']})"
 
-            # Merge origins for identical haplogroup+subclade entries.
             origin_seen: set[str] = set()
             origins: list[str] = []
             for item in group:
@@ -328,7 +388,6 @@ class SheetsClient:
                 origins.append(origin)
             origin_display = ", ".join(origins) if origins else "-"
 
-            # Collect other surnames in the same subclade/group; skip placeholders.
             seen: set[str] = set()
             same_group: list[str] = []
             for entry in entries:
@@ -347,20 +406,97 @@ class SheetsClient:
 
             haplo_emoji = self._emoji_for_haplogroup(target["haplo"], target["general"])
             haplo_display = f"{haplo_emoji} {haplo_with_group}".strip()
+            yfull_link = self._get_yfull_link(target["general"], target["subclade"])
 
             result = (
-                f"<b>Фамилия:</b> {html.escape(target['name'])}\n"
-                f"<b>Происхождение:</b> {html.escape(origin_display)}\n\n"
-                f"<b>Гаплогруппа:</b> {html.escape(haplo_display)}\n"
-                f"<b>Субклад:</b> {html.escape(target['subclade'] or '-')}\n\n"
+                f"\U0001f464 <b>{html.escape(target['name'])}</b>\n\n"
+                f"\U0001f4cd <b>\u041f\u0440\u043e\u0438\u0441\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0435</b>\n{html.escape(origin_display)}\n\n"
+                f"\U0001f9ec <b>\u0413\u0430\u043f\u043b\u043e\u0433\u0440\u0443\u043f\u043f\u0430</b>\n{html.escape(haplo_display)}\n\n"
+                f"\U0001f33f <b>\u0421\u0443\u0431\u043a\u043b\u0430\u0434</b>\n<code>{html.escape(target['subclade'] or '-')}</code>\n\n"
             )
 
+            if yfull_link:
+                result += (
+                    f"\U0001f517 <b>YFull</b>\n"
+                    f'<a href="{html.escape(yfull_link, quote=True)}">\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0432\u0435\u0442\u0432\u044c</a>\n\n'
+                )
+            else:
+                result += "\U0001f517 <b>YFull</b>\n\u041d\u0435\u0442 \u043f\u0440\u044f\u043c\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u044b\n\n"
+
             if same_group:
-                result += f"<b>Также в этом субкладе:</b> {html.escape(', '.join(same_group))}\n"
+                result += f"\U0001f465 <b>\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u044f</b>\n{html.escape(', '.join(same_group))}\n"
+
 
             results.append(result)
 
         return results
+
+
+class UsageStore:
+    def __init__(self, db_path: Path) -> None:
+        self.db_path = db_path
+        self._init_db()
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.db_path)
+
+    def _init_db(self) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS usage_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    user_id INTEGER,
+                    username TEXT,
+                    full_name TEXT,
+                    chat_id INTEGER,
+                    chat_type TEXT,
+                    query TEXT,
+                    success INTEGER NOT NULL
+                )
+                """
+            )
+
+    def record_lookup(self, update: Update, query: str, success: bool) -> None:
+        user = update.effective_user
+        chat = update.effective_chat
+        full_name = " ".join(
+            part for part in [getattr(user, "first_name", "") or "", getattr(user, "last_name", "") or ""] if part
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO usage_events (user_id, username, full_name, chat_id, chat_type, query, success)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    getattr(user, "id", None),
+                    getattr(user, "username", None),
+                    full_name or None,
+                    getattr(chat, "id", None),
+                    getattr(chat, "type", None),
+                    query,
+                    1 if success else 0,
+                ),
+            )
+
+    def get_summary(self) -> dict[str, int]:
+        with self._connect() as conn:
+            total = conn.execute("SELECT COUNT(*) FROM usage_events").fetchone()[0]
+            success = conn.execute("SELECT COUNT(*) FROM usage_events WHERE success = 1").fetchone()[0]
+            unique_users = conn.execute(
+                "SELECT COUNT(DISTINCT user_id) FROM usage_events WHERE user_id IS NOT NULL"
+            ).fetchone()[0]
+            today = conn.execute(
+                "SELECT COUNT(*) FROM usage_events WHERE date(created_at, 'localtime') = date('now', 'localtime')"
+            ).fetchone()[0]
+        return {
+            "total": total,
+            "success": success,
+            "unique_users": unique_users,
+            "today": today,
+        }
 
 
 def get_required_env(name: str, *aliases: str) -> str:
@@ -398,20 +534,41 @@ async def build_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def handle_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str) -> None:
     sheets: SheetsClient = context.application.bot_data["sheets"]
+    usage_store: UsageStore = context.application.bot_data["usage_store"]
 
     try:
         values = sheets.get_groups_by_name(name)
     except Exception as exc:
         logger.exception("Sheets read error")
-        await update.message.reply_text(f"Ошибка чтения таблицы: {exc}", do_quote=False)
+        usage_store.record_lookup(update, name, success=False)
+        await update.message.reply_text(f"?????? ?????? ???????: {exc}", do_quote=False)
         return
 
     if not values:
-        await update.message.reply_text("Напишите фамилию на русском", do_quote=False)
+        usage_store.record_lookup(update, name, success=False)
+        await update.message.reply_text("\u0424\u0430\u043c\u0438\u043b\u0438\u044f \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0437\u0430\u043d\u043e\u0432\u043e.", do_quote=False)
         return
+
+    usage_store.record_lookup(update, name, success=True)
 
     for value in values:
         await update.message.reply_text(value, parse_mode="HTML", do_quote=False)
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        return
+
+    usage_store: UsageStore = context.application.bot_data["usage_store"]
+    stats = usage_store.get_summary()
+    text = (
+        "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u0431\u043e\u0442\u0430\n\n"
+        f"\u0412\u0441\u0435\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432: {stats['total']}\n"
+        f"\u0423\u0441\u043f\u0435\u0448\u043d\u044b\u0445 \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432: {stats['success']}\n"
+        f"\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439: {stats['unique_users']}\n"
+        f"\u0417\u0430\u043f\u0440\u043e\u0441\u043e\u0432 \u0441\u0435\u0433\u043e\u0434\u043d\u044f: {stats['today']}"
+    )
+    await update.message.reply_text(text, do_quote=False)
 
 
 async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -454,11 +611,15 @@ def main() -> None:
         worksheet_name=worksheet_name,
     )
 
+    usage_store = UsageStore(USAGE_DB_PATH)
+
     app = Application.builder().token(bot_token).build()
     app.bot_data["sheets"] = sheets
+    app.bot_data["usage_store"] = usage_store
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("build", build_command))
+    app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("find", find_command))
     app.add_handler(CommandHandler("f", find_command))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, text_lookup_command))
