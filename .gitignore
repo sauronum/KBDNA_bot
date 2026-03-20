@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 service_account.json
 .env
+g25_feature/runs/
