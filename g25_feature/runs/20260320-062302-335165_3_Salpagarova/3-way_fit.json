@@ -1,0 +1,50 @@
+{
+  "target": "Salpagarova",
+  "panel_name": "3-way",
+  "group_column": "group",
+  "distance": 0.020755,
+  "sources": 75,
+  "iterations": 250,
+  "groups": {
+    "Maikop": 0.67756,
+    "Steppe": 0.259868,
+    "YR": 0.062571
+  },
+  "top_references": [
+    {
+      "reference": "Maikop:LateMaikopSA6002",
+      "group": "Maikop",
+      "weight": 0.449642
+    },
+    {
+      "reference": "Steppe:Sintashta:I1008",
+      "group": "Steppe",
+      "weight": 0.22527
+    },
+    {
+      "reference": "Maikop:LateMaikopMK5004",
+      "group": "Maikop",
+      "weight": 0.146655
+    },
+    {
+      "reference": "Maikop:NovosvobodnayaI6266",
+      "group": "Maikop",
+      "weight": 0.081264
+    },
+    {
+      "reference": "YR:JXNTM23_noUDG",
+      "group": "YR",
+      "weight": 0.042796
+    },
+    {
+      "reference": "Steppe:Sintashta:I0986",
+      "group": "Steppe",
+      "weight": 0.034598
+    },
+    {
+      "reference": "YR:LGM41_noUDG",
+      "group": "YR",
+      "weight": 0.019776
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "target": "Dotdaeva",
+  "panel_name": "4-way",
+  "group_column": "group",
+  "distance": 0.017067,
+  "sources": 101,
+  "iterations": 250,
+  "groups": {
+    "Maikop": 0.515015,
+    "Yamnaya": 0.279337,
+    "Anatolia_BA": 0.146083,
+    "YR": 0.059564
+  },
+  "top_references": [
+    {
+      "reference": "Maikop:LateMaikopSA6002",
+      "group": "Maikop",
+      "weight": 0.307402
+    },
+    {
+      "reference": "Yamnaya:I0438",
+      "group": "Yamnaya",
+      "weight": 0.151792
+    },
+    {
+      "reference": "Anatolia_BA:Turkey_EBA:I5743",
+      "group": "Anatolia_BA",
+      "weight": 0.146083
+    },
+    {
+      "reference": "Maikop:LateMaikopMK5004",
+      "group": "Maikop",
+      "weight": 0.10874
+    },
+    {
+      "reference": "Maikop:NovosvobodnayaI6268",
+      "group": "Maikop",
+      "weight": 0.062664
+    },
+    {
+      "reference": "YR:JXNTM23_noUDG",
+      "group": "YR",
+      "weight": 0.059564
+    },
+    {
+      "reference": "Yamnaya:I7489",
+      "group": "Yamnaya",
+      "weight": 0.052852
+    },
+    {
+      "reference": "Maikop:NovosvobodnayaI6266",
+      "group": "Maikop",
+      "weight": 0.036209
+    },
+    {
+      "reference": "Yamnaya:Russia_Kalmykia_EBA_Yamnaya.SG:RISE546_noUDG.SG",
+      "group": "Yamnaya",
+      "weight": 0.024169
+    },
+    {
+      "reference": "Yamnaya:ZO2002",
+      "group": "Yamnaya",
+      "weight": 0.019791
+    },
+    {
+      "reference": "Yamnaya:I11446",
+      "group": "Yamnaya",
+      "weight": 0.016666
+    },
+    {
+      "reference": "Yamnaya:I3141_enhanced",
+      "group": "Yamnaya",
+      "weight": 0.014067
+    }
+  ]
+}

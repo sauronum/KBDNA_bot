@@ -1,0 +1,26 @@
+
+Admixture calculation models: K36
+
+Calcuation is started...
+
+K36
+Armenian: 3.45%
+Central Euro: 3.05%
+East African: 0.72%
+East Asian: 0.73%
+East Balkan: 3.81%
+Fennoscandian: 1.08%
+French: 1.21%
+Iberian: 0.38%
+Italian: 3.33%
+Malayan: 0.29%
+North African: 0.62%
+North Atlantic: 0.16%
+North Caucasian: 46.98%
+North Sea: 8.00%
+Siberian: 4.18%
+South Central Asian: 6.50%
+West Caucasian: 15.11%
+West Med: 0.40%
+
+
