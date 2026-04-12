@@ -15,16 +15,30 @@ from typing import Optional
 import gspread
 from dotenv import load_dotenv
 from google.oauth2.service_account import Credentials
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, ApplicationHandlerStop, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 from g25_feature.command_service import G25CommandError, G25CommandService
 
-BUILD_ID = "build-2026-03-20-1700"
+BUILD_ID = "build-2026-04-09-1950"
 LOCAL_DB_PATH = Path("haplogroup_info_ru.json")
 EMOJI_MAP_PATH = Path("haplogroup_emoji_map.json")
 YFULL_LINKS_PATH = Path("yfull_links.json")
 USAGE_DB_PATH = Path("usage_stats.sqlite3")
 G25_ACCESS_PATH = Path("g25_access.json")
+PANEL_COMMAND = "panel"
+PANEL_CALLBACK_PREFIX = "panel"
+PANEL2_COMMAND = "panel2"
+PANEL2_CALLBACK_PREFIX = "panel2"
+G25MENU_COMMAND = "g25menu"
+G25MENU_CALLBACK_PREFIX = "g25menu"
+
+LOOKUP_START_TEXT = (
+    "Привет! Я ищу фамилии в базе KBDNA.\n\n"
+    "Отправьте фамилию одним сообщением или используйте <code>/f Фамилия</code>.\n"
+    "В ответ я покажу найденные совпадения и данные по ним.\n\n"
+    f"Версия: {BUILD_ID}"
+)
+
 KIT_GROUP_PREFIXES = (
     "G2A2B2A",
     "G2A2B",
@@ -87,7 +101,24 @@ class SheetsClient:
 
     @staticmethod
     def _normalize(value: str) -> str:
-        return value.strip().lower()
+        cleaned = value.strip().lower()
+        cleaned = cleaned.translate(
+            str.maketrans(
+                {
+                    "ё": "е",
+                    "–": "-",
+                    "—": "-",
+                    "−": "-",
+                    "‑": "-",
+                    "ʼ": "'",
+                    "’": "'",
+                    "`": "'",
+                }
+            )
+        )
+        cleaned = re.sub(r"\s*-\s*", "-", cleaned)
+        cleaned = " ".join(cleaned.split())
+        return cleaned
 
     @staticmethod
     def _normalize_key(value: str) -> str:
@@ -216,10 +247,69 @@ class SheetsClient:
         cleaned = " ".join(value.strip().split())
         if not cleaned:
             return ""
+
         parts = [part.strip() for part in cleaned.split(">") if part.strip() and part.strip() != "..."]
-        if parts:
-            return parts[-1]
-        return cleaned.split()[-1]
+        for part in reversed(parts):
+            base = re.split(r"\s*\(", part, maxsplit=1)[0].strip()
+            if base and not re.fullmatch(r"[xX][A-Za-z0-9-]+", base):
+                return base.split()[-1]
+
+        tokens = re.findall(r"[A-Za-z][A-Za-z0-9-]*", cleaned)
+        for token in reversed(tokens):
+            if not re.fullmatch(r"[xX][A-Za-z0-9-]+", token):
+                return token
+        return ""
+
+    @staticmethod
+    def _split_origin_parts(value: str) -> tuple[str, str]:
+        cleaned = " ".join(value.strip().split())
+        match = re.match(r"^(.+?)\s*\((.+)\)$", cleaned)
+        if not match:
+            return cleaned, ""
+        return match.group(1).strip(), match.group(2).strip()
+
+    @classmethod
+    def _format_origins(cls, origins: list[str]) -> str:
+        if not origins:
+            return "-"
+
+        ordered_bases: list[str] = []
+        detailed: dict[str, list[str]] = {}
+        plain: list[str] = []
+        plain_seen: set[str] = set()
+
+        for origin in origins:
+            base, detail = cls._split_origin_parts(origin)
+            if not base:
+                continue
+            if base not in ordered_bases:
+                ordered_bases.append(base)
+            if detail:
+                detailed.setdefault(base, [])
+                if detail not in detailed[base]:
+                    detailed[base].append(detail)
+            else:
+                key = cls._normalize(base)
+                if key not in plain_seen:
+                    plain_seen.add(key)
+                    plain.append(base)
+
+        lines: list[str] = []
+        used_plain: set[str] = set()
+        for base in ordered_bases:
+            details = detailed.get(base, [])
+            escaped_base = html.escape(base)
+            if details:
+                escaped_details = ", ".join(html.escape(detail) for detail in details)
+                lines.append(f"<b>{escaped_base}:</b> {escaped_details}")
+                used_plain.add(cls._normalize(base))
+            else:
+                key = cls._normalize(base)
+                if key not in used_plain and base in plain:
+                    lines.append(escaped_base)
+                    used_plain.add(key)
+
+        return "\n".join(lines) if lines else "-"
 
     def _get_yfull_link(self, general_group: str, subclade: str) -> str:
         if not subclade:
@@ -388,7 +478,7 @@ class SheetsClient:
                     continue
                 origin_seen.add(key)
                 origins.append(origin)
-            origin_display = ", ".join(origins) if origins else "-"
+            origin_display = self._format_origins(origins)
 
             seen: set[str] = set()
             same_group: list[str] = []
@@ -407,26 +497,28 @@ class SheetsClient:
                 same_group.append(entry["name"])
 
             haplo_emoji = self._emoji_for_haplogroup(target["haplo"], target["general"])
-            haplo_display = f"{haplo_emoji} {haplo_with_group}".strip()
+            terminal_snp = self._extract_terminal_snp(target["subclade"])
+            haplo_label = target["general"] or target["haplo"]
+            if terminal_snp:
+                haplo_label = f"{haplo_label} ({terminal_snp})"
+            haplo_display = f"{haplo_emoji} {haplo_label}".strip()
             yfull_link = self._get_yfull_link(target["general"], target["subclade"])
 
             result = (
-                f"👤 <b>{html.escape(target['name'])}</b>\n\n"
-                f"📍 <b>Происхождение</b>\n{html.escape(origin_display)}\n\n"
-                f"🧬 <b>Гаплогруппа</b>\n{html.escape(haplo_display)}\n\n"
-                f"🌿 <b>Субклад</b>\n<code>{html.escape(target['subclade'] or '-')}</code>\n\n"
+                f"👤 <b>{html.escape(target['name'].upper())}</b>\n\n"
+                f"📍 {origin_display}\n\n"
             )
 
             if yfull_link:
-                result += (
-                    f"🔗 <b>YFull</b>\n"
-                    f'<a href="{html.escape(yfull_link, quote=True)}">Открыть ветвь</a>\n\n'
-                )
+                result += f'🧬 Гаплогруппа: <a href="{html.escape(yfull_link, quote=True)}"><b>{html.escape(haplo_display)}</b></a>\n\n'
             else:
-                result += "🔗 <b>YFull</b>\nНет прямой страницы\n\n"
+                result += f"🧬 Гаплогруппа: <b>{html.escape(haplo_display)}</b>\n\n"
 
             if same_group:
-                result += f"👥 <b>Совпадения</b>\n{html.escape(', '.join(same_group))}\n"
+                result += (
+                    f"👥 <b>Совпадения</b>\n"
+                    f"<blockquote>{html.escape(', '.join(same_group))}</blockquote>\n"
+                )
 
             results.append(result)
 
@@ -435,6 +527,21 @@ class SheetsClient:
 
 
 class UsageStore:
+    @staticmethod
+    def _looks_like_surname_query(value: str) -> bool:
+        query = (value or "").strip()
+        if not query:
+            return False
+        if len(query) > 40:
+            return False
+        if "," in query or "\n" in query:
+            return False
+        if any(ch.isdigit() for ch in query):
+            return False
+        if not re.fullmatch(r"[A-Za-zА-Яа-яЁё\-\s]+", query):
+            return False
+        return True
+
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
         self._init_db()
@@ -559,8 +666,44 @@ class UsageStore:
             lookup_total = conn.execute(
                 "SELECT COUNT(*) FROM usage_events WHERE event_type = 'lookup'"
             ).fetchone()[0]
+            lookup_success = conn.execute(
+                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'lookup' AND success = 1"
+            ).fetchone()[0]
+            lookup_today = conn.execute(
+                """
+                SELECT COUNT(*) FROM usage_events
+                WHERE event_type = 'lookup' AND date(created_at, 'localtime') = date('now', 'localtime')
+                """
+            ).fetchone()[0]
+            lookup_last_7_days = conn.execute(
+                """
+                SELECT COUNT(*) FROM usage_events
+                WHERE event_type = 'lookup' AND datetime(created_at, 'localtime') >= datetime('now', '-6 days', 'localtime')
+                """
+            ).fetchone()[0]
+            lookup_unique_users = conn.execute(
+                "SELECT COUNT(DISTINCT user_id) FROM usage_events WHERE event_type = 'lookup' AND user_id IS NOT NULL"
+            ).fetchone()[0]
             g25_total = conn.execute(
                 "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25'"
+            ).fetchone()[0]
+            g25_success = conn.execute(
+                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND success = 1"
+            ).fetchone()[0]
+            g25_today = conn.execute(
+                """
+                SELECT COUNT(*) FROM usage_events
+                WHERE event_type = 'g25' AND date(created_at, 'localtime') = date('now', 'localtime')
+                """
+            ).fetchone()[0]
+            g25_last_7_days = conn.execute(
+                """
+                SELECT COUNT(*) FROM usage_events
+                WHERE event_type = 'g25' AND datetime(created_at, 'localtime') >= datetime('now', '-6 days', 'localtime')
+                """
+            ).fetchone()[0]
+            g25_unique_users = conn.execute(
+                "SELECT COUNT(DISTINCT user_id) FROM usage_events WHERE event_type = 'g25' AND user_id IS NOT NULL"
             ).fetchone()[0]
             g25_3 = conn.execute(
                 "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = '3'"
@@ -573,6 +716,12 @@ class UsageStore:
             ).fetchone()[0]
             g25_steppe = conn.execute(
                 "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = 'steppe'"
+            ).fetchone()[0]
+            g25_panel = conn.execute(
+                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = 'panel'"
+            ).fetchone()[0]
+            g25_panel2 = conn.execute(
+                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = 'panel2'"
             ).fetchone()[0]
             g25_raw = conn.execute(
                 "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND input_mode = 'raw-file'"
@@ -587,11 +736,13 @@ class UsageStore:
                 WHERE event_type = 'lookup' AND query IS NOT NULL AND TRIM(query) <> ''
                 GROUP BY query
                 ORDER BY cnt DESC, query COLLATE NOCASE ASC
-                LIMIT 5
+                LIMIT 10
                 """
             ).fetchall()
 
         success_rate = round((success / total) * 100, 1) if total else 0.0
+        lookup_success_rate = round((lookup_success / lookup_total) * 100, 1) if lookup_total else 0.0
+        g25_success_rate = round((g25_success / g25_total) * 100, 1) if g25_total else 0.0
         return {
             "total": total,
             "success": success,
@@ -600,11 +751,23 @@ class UsageStore:
             "today": today,
             "last_7_days": last_7_days,
             "lookup_total": lookup_total,
+            "lookup_success": lookup_success,
+            "lookup_success_rate": lookup_success_rate,
+            "lookup_today": lookup_today,
+            "lookup_last_7_days": lookup_last_7_days,
+            "lookup_unique_users": lookup_unique_users,
             "g25_total": g25_total,
+            "g25_success": g25_success,
+            "g25_success_rate": g25_success_rate,
+            "g25_today": g25_today,
+            "g25_last_7_days": g25_last_7_days,
+            "g25_unique_users": g25_unique_users,
             "g25_3": g25_3,
             "g25_4": g25_4,
             "g25_extract": g25_extract,
             "g25_steppe": g25_steppe,
+            "g25_panel": g25_panel,
+            "g25_panel2": g25_panel2,
             "g25_raw": g25_raw,
             "g25_text": g25_text,
             "top_queries": [(row[0], row[1]) for row in top_queries],
@@ -729,16 +892,422 @@ def get_required_env(name: str, *aliases: str) -> str:
     return value
 
 
+class CustomPanelStore:
+    def __init__(self) -> None:
+        self._states: dict[tuple[int, int], dict[str, object]] = {}
+
+    @staticmethod
+    def _key(chat_id: int, user_id: int) -> tuple[int, int]:
+        return (int(chat_id), int(user_id))
+
+    def open(self, chat_id: int, user_id: int) -> dict[str, object]:
+        key = self._key(chat_id, user_id)
+        current = self._states.get(key, {})
+        state = {
+            "selected": list(current.get("selected", [])),
+            "awaiting_input": False,
+            "message_id": current.get("message_id"),
+        }
+        self._states[key] = state
+        return state
+
+    def set_message_id(self, chat_id: int, user_id: int, message_id: int) -> None:
+        key = self._key(chat_id, user_id)
+        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
+        state["message_id"] = int(message_id)
+
+    def get(self, chat_id: int, user_id: int) -> dict[str, object] | None:
+        return self._states.get(self._key(chat_id, user_id))
+
+    def get_selected(self, chat_id: int, user_id: int) -> list[str]:
+        state = self.get(chat_id, user_id)
+        if not state:
+            return []
+        return list(state.get("selected", []))
+
+    def toggle(self, chat_id: int, user_id: int, source_key: str) -> list[str]:
+        key = self._key(chat_id, user_id)
+        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
+        selected = list(state.get("selected", []))
+        if source_key in selected:
+            selected.remove(source_key)
+        else:
+            selected.append(source_key)
+        state["selected"] = selected
+        state["awaiting_input"] = False
+        return selected
+
+    def clear(self, chat_id: int, user_id: int) -> None:
+        key = self._key(chat_id, user_id)
+        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
+        state["selected"] = []
+        state["awaiting_input"] = False
+
+    def finish(self, chat_id: int, user_id: int) -> list[str]:
+        key = self._key(chat_id, user_id)
+        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
+        state["awaiting_input"] = True
+        return list(state.get("selected", []))
+
+    def has_pending(self, chat_id: int, user_id: int) -> bool:
+        state = self.get(chat_id, user_id)
+        return bool(state and state.get("awaiting_input"))
+
+    def clear_pending(self, chat_id: int, user_id: int) -> None:
+        state = self.get(chat_id, user_id)
+        if state:
+            state["awaiting_input"] = False
+
+    def cancel(self, chat_id: int, user_id: int) -> None:
+        self._states.pop(self._key(chat_id, user_id), None)
+
+
+def _panel_source_emoji(source_key: str) -> str:
+    return {
+        "maikop": "\U0001F3D4\uFE0F",
+        "steppe_sintashta": "\U0001F40E",
+        "ulaanzhukh": "\U0001F3F9",
+        "yamnaya": "\U0001F40E",
+        "yellowriver": "\u26E9\uFE0F",
+        "anatolia_ba": "\U0001F3FA",
+        "baltic_ba": "\U0001F332",
+        "bmac": "\u2600\uFE0F",
+        "khovsgol": "\U0001F3F9",
+        "kuraaraxes": "\U0001F3D4\uFE0F",
+    }.get(source_key, "")
+
+
+def _build_panel_keyboard(service: G25CommandService, selected_keys: list[str]) -> InlineKeyboardMarkup:
+    source_defs = service.list_custom_sources()
+    rows: list[list[InlineKeyboardButton]] = []
+    for idx in range(0, len(source_defs), 2):
+        row: list[InlineKeyboardButton] = []
+        for item in source_defs[idx: idx + 2]:
+            checked = "[x] " if item["key"] in selected_keys else ""
+            emoji = _panel_source_emoji(str(item["key"]))
+            prefix = f"{emoji} " if emoji else ""
+            row.append(
+                InlineKeyboardButton(
+                    text=f"{checked}{prefix}{item['label']}",
+                    callback_data=f"{PANEL_CALLBACK_PREFIX}:toggle:{item['key']}",
+                )
+            )
+        rows.append(row)
+    rows.append(
+        [
+            InlineKeyboardButton("\u0413\u043e\u0442\u043e\u0432\u043e", callback_data=f"{PANEL_CALLBACK_PREFIX}:done"),
+            InlineKeyboardButton("\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c", callback_data=f"{PANEL_CALLBACK_PREFIX}:clear"),
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434 \u043a \u043f\u0430\u043d\u0435\u043b\u044f\u043c", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
+            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{PANEL_CALLBACK_PREFIX}:cancel"),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
+def _format_panel_selection(service: G25CommandService, selected_keys: list[str]) -> str:
+    labels: list[str] = []
+    for item in service.list_custom_sources():
+        if item["key"] not in selected_keys:
+            continue
+        emoji = _panel_source_emoji(str(item["key"]))
+        prefix = f"{emoji} " if emoji else ""
+        labels.append(f"{prefix}{item['label']}")
+    if not labels:
+        return "- \u043f\u043e\u043a\u0430 \u043d\u0438\u0447\u0435\u0433\u043e"
+    return "\n".join(f"- {label}" for label in labels)
+
+
+def _panel_builder_text(service: G25CommandService, selected_keys: list[str], ready: bool = False) -> str:
+    chosen = _format_panel_selection(service, selected_keys)
+    lines = [
+        "Конструктор панели",
+        "",
+        "Выберите древние источники кнопками ниже.",
+        "",
+        "Выбрано:",
+        chosen,
+    ]
+    if ready:
+        lines.extend([
+            "",
+            "Теперь отправьте raw-файл или G25-координаты следующим сообщением.",
+            "Если вы в группе, отправляйте их ответом на это сообщение.",
+        ])
+    return "\n".join(lines)
+def _build_panel_ready_keyboard(prefix: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434 \u043a \u043f\u0430\u043d\u0435\u043b\u044f\u043c", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
+            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{prefix}:cancel"),
+        ]]
+    )
+
+
+def _build_panel2_keyboard(service: G25CommandService, selected_keys: list[str]) -> InlineKeyboardMarkup:
+    source_defs = service.list_panel2_sources()
+    rows: list[list[InlineKeyboardButton]] = []
+    for idx in range(0, len(source_defs), 2):
+        row: list[InlineKeyboardButton] = []
+        for item in source_defs[idx: idx + 2]:
+            checked = "[x] " if item["key"] in selected_keys else ""
+            emoji = f"{item.get('emoji', '')} " if item.get("emoji") else ""
+            row.append(
+                InlineKeyboardButton(
+                    text=f"{checked}{emoji}{item['label']}",
+                    callback_data=f"{PANEL2_CALLBACK_PREFIX}:toggle:{item['key']}",
+                )
+            )
+        rows.append(row)
+    rows.append(
+        [
+            InlineKeyboardButton("\u0413\u043e\u0442\u043e\u0432\u043e", callback_data=f"{PANEL2_CALLBACK_PREFIX}:done"),
+            InlineKeyboardButton("\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c", callback_data=f"{PANEL2_CALLBACK_PREFIX}:clear"),
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434 \u043a \u043f\u0430\u043d\u0435\u043b\u044f\u043c", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
+            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{PANEL2_CALLBACK_PREFIX}:cancel"),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
+def _format_panel2_selection(service: G25CommandService, selected_keys: list[str]) -> str:
+    labels: list[str] = []
+    for item in service.list_panel2_sources():
+        if item["key"] not in selected_keys:
+            continue
+        emoji = f"{item.get('emoji', '')} " if item.get("emoji") else ""
+        labels.append(f"{emoji}{item['label']}")
+    if not labels:
+        return "- \u043f\u043e\u043a\u0430 \u043d\u0438\u0447\u0435\u0433\u043e"
+    return "\n".join(f"- {label}" for label in labels)
+
+
+def _panel2_builder_text(service: G25CommandService, selected_keys: list[str], ready: bool = False) -> str:
+    chosen = _format_panel2_selection(service, selected_keys)
+    lines = [
+        "Конструктор панели 2",
+        "",
+        "Выберите древние источники кнопками ниже.",
+        "",
+        "Выбрано:",
+        chosen,
+    ]
+    if ready:
+        lines.extend([
+            "",
+            "Теперь отправьте raw-файл или G25-координаты следующим сообщением.",
+            "Если вы в группе, отправляйте их ответом на это сообщение.",
+        ])
+    return "\n".join(lines)
+def _build_g25menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Панели", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
+            InlineKeyboardButton("Координаты", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords"),
+        ],
+        [
+            InlineKeyboardButton("Отмена", callback_data=f"{G25MENU_CALLBACK_PREFIX}:cancel"),
+        ],
+    ])
+def _g25menu_text() -> str:
+    return "\U0001F9EC \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0435\u0436\u0438\u043c G25:"
+
+
+def _build_g25panels_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Panel", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panel"),
+            InlineKeyboardButton("Panel 2", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panel2"),
+        ],
+        [
+            InlineKeyboardButton("Назад", callback_data=f"{G25MENU_CALLBACK_PREFIX}:root"),
+            InlineKeyboardButton("Отмена", callback_data=f"{G25MENU_CALLBACK_PREFIX}:cancel"),
+        ],
+    ])
+def _g25panels_text() -> str:
+    return "\U0001F9EC \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043f\u0430\u043d\u0435\u043b\u044c:"
+
+
+def _build_g25coords_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Получить G25", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords_sim"),
+        ],
+        [
+            InlineKeyboardButton("Назад", callback_data=f"{G25MENU_CALLBACK_PREFIX}:root"),
+            InlineKeyboardButton("Отмена", callback_data=f"{G25MENU_CALLBACK_PREFIX}:cancel"),
+        ],
+    ])
+def _g25coords_menu_text() -> str:
+    return "\U0001F9EC \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0442\u0438\u043f \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442:"
+
+
+def _build_g25coords_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords"),
+            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords_cancel"),
+        ],
+    ])
+
+
+def _g25coords_text() -> str:
+    return (
+        "\U0001F9EC Получение G25\n\n"
+        "Пришлите raw-файл документом. Я извлеку из него G25-координаты.\n"
+        "Если вы в группе, отправляйте файл ответом на это сообщение."
+    )
+async def _send_panel_builder_message(
+    *,
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    panel_name: str,
+    chat_id: int,
+    user_id: int,
+    edit_existing: bool = False,
+) -> None:
+    service: G25CommandService = context.application.bot_data["g25_service"]
+    if panel_name == "panel":
+        panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+        state = panel_store.open(chat_id, user_id)
+        selected = list(state.get("selected", []))
+        builder_text = _panel_builder_text(service, selected)
+        builder_markup = _build_panel_keyboard(service, selected)
+        if edit_existing:
+            await message.edit_text(builder_text, reply_markup=builder_markup)
+            panel_store.set_message_id(chat_id, user_id, message.message_id)
+        else:
+            sent = await message.reply_text(
+                builder_text,
+                reply_markup=builder_markup,
+                do_quote=False,
+            )
+            panel_store.set_message_id(chat_id, user_id, sent.message_id)
+        return
+
+    panel_store = context.application.bot_data["panel2_store"]
+    state = panel_store.open(chat_id, user_id)
+    selected = list(state.get("selected", []))
+    builder_text = _panel2_builder_text(service, selected)
+    builder_markup = _build_panel2_keyboard(service, selected)
+    if edit_existing:
+        await message.edit_text(builder_text, reply_markup=builder_markup)
+        panel_store.set_message_id(chat_id, user_id, message.message_id)
+    else:
+        sent = await message.reply_text(
+            builder_text,
+            reply_markup=builder_markup,
+            do_quote=False,
+        )
+        panel_store.set_message_id(chat_id, user_id, sent.message_id)
+
+
+def _clear_g25_pending_states(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> None:
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
+    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+    panel_store.clear_pending(chat_id, user_id)
+    panel2_store.clear_pending(chat_id, user_id)
+    coords_store.clear_pending(chat_id, user_id)
+
+
+def _cancel_g25_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> None:
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
+    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+    panel_store.cancel(chat_id, user_id)
+    panel2_store.cancel(chat_id, user_id)
+    coords_store.cancel(chat_id, user_id)
+async def g25menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.effective_user is None:
+        return
+
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    if not access_store.is_allowed(update):
+        await update.message.reply_text("G25-\u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.", do_quote=False)
+        return
+
+    await update.message.reply_text(
+        _g25menu_text(),
+        reply_markup=_build_g25menu_keyboard(),
+        do_quote=False,
+    )
+
+
+async def g25menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.data is None or query.message is None:
+        return
+    if not query.data.startswith(f"{G25MENU_CALLBACK_PREFIX}:"):
+        return
+
+    await query.answer()
+    if update.effective_chat is None or update.effective_user is None:
+        return
+
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    if not access_store.is_allowed(update):
+        await query.answer("Нет доступа к G25.", show_alert=True)
+        return
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    action = query.data.split(":", 1)[1]
+
+    if action == "root":
+        _clear_g25_pending_states(context, chat_id, user_id)
+        await query.edit_message_text(_g25menu_text(), reply_markup=_build_g25menu_keyboard())
+        return
+
+    if action == "panels":
+        _clear_g25_pending_states(context, chat_id, user_id)
+        await query.edit_message_text(_g25panels_text(), reply_markup=_build_g25panels_keyboard())
+        return
+
+    if action == "coords":
+        _clear_g25_pending_states(context, chat_id, user_id)
+        await query.edit_message_text(_g25coords_menu_text(), reply_markup=_build_g25coords_menu_keyboard())
+        return
+
+    if action == "coords_sim":
+        _clear_g25_pending_states(context, chat_id, user_id)
+        coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+        coords_store.open(chat_id, user_id)
+        coords_store.set_message_id(chat_id, user_id, query.message.message_id)
+        coords_store.finish(chat_id, user_id)
+        await query.edit_message_text(_g25coords_text(), reply_markup=_build_g25coords_keyboard())
+        return
+
+    if action in {"coords_cancel", "cancel"}:
+        _cancel_g25_menu(context, chat_id, user_id)
+        await query.edit_message_text("G25 меню закрыто.")
+        return
+
+    if action not in {"panel", "panel2"}:
+        return
+
+    _clear_g25_pending_states(context, chat_id, user_id)
+    await _send_panel_builder_message(
+        message=query.message,
+        context=context,
+        panel_name=action,
+        chat_id=chat_id,
+        user_id=user_id,
+        edit_existing=True,
+    )
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
         return
 
     await update.message.reply_text(
-        "\u041f\u0440\u0438\u0432\u0435\u0442! \u041c\u043e\u0436\u0435\u0442\u0435 \u043f\u0438\u0441\u0430\u0442\u044c \u0444\u0430\u043c\u0438\u043b\u0438\u044e \u043f\u0440\u043e\u0441\u0442\u043e \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0438\u043b\u0438 \u0447\u0435\u0440\u0435\u0437 /f <\u0424\u0430\u043c\u0438\u043b\u0438\u044f>.\n"
-        "\u042f \u0432\u0435\u0440\u043d\u0443 \u043f\u0440\u043e\u0438\u0441\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0435, \u0433\u0430\u043f\u043b\u043e\u0433\u0440\u0443\u043f\u043f\u0443 \u0438 \u0441\u0443\u0431\u043a\u043b\u0430\u0434.\n"
-        f"Версия: {BUILD_ID}",
+        LOOKUP_START_TEXT,
+        parse_mode="HTML",
         do_quote=False,
     )
+
 
 
 async def build_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -750,21 +1319,32 @@ async def build_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def handle_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str) -> None:
     sheets: SheetsClient = context.application.bot_data["sheets"]
     usage_store: UsageStore = context.application.bot_data["usage_store"]
+    normalized_name = " ".join(name.split())
 
     try:
         values = sheets.get_groups_by_name(name)
-    except Exception as exc:
+    except Exception:
         logger.exception("Sheets read error")
-        usage_store.record_lookup(update, name, success=False)
-        await update.message.reply_text(f"Ошибка чтения таблицы: {exc}", do_quote=False)
+        usage_store.record_lookup(update, normalized_name, success=False)
+        await update.message.reply_text(
+            "Не удалось получить данные из таблицы. Попробуйте чуть позже.",
+            do_quote=False,
+        )
         return
 
     if not values:
-        usage_store.record_lookup(update, name, success=False)
-        await update.message.reply_text("Фамилия не найдена. Попробуйте заново.", do_quote=False)
+        usage_store.record_lookup(update, normalized_name, success=False)
+        await update.message.reply_text(
+            (
+                f"Фамилия <b>{html.escape(normalized_name)}</b> не найдена в текущей базе.\n"
+                "Проверьте написание и попробуйте другой вариант."
+            ),
+            parse_mode="HTML",
+            do_quote=False,
+        )
         return
 
-    usage_store.record_lookup(update, name, success=True)
+    usage_store.record_lookup(update, normalized_name, success=True)
 
     for value in values:
         await update.message.reply_text(value, parse_mode="HTML", do_quote=False)
@@ -781,29 +1361,60 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     top_lines = [f"{idx}. {query} - {count}" for idx, (query, count) in enumerate(top_queries, start=1)]
     top_block = "\n".join(top_lines) if top_lines else "\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445"
 
+    if update.effective_chat is None or update.effective_chat.type != "private":
+        lines = [
+            "\U0001F50E <b>\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0444\u0430\u043c\u0438\u043b\u0438\u044f\u043c</b>",
+            "",
+            top_block,
+        ]
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML", do_quote=False)
+        return
+
     lines = [
-        "<b>\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430</b>",
+        "\U0001F50E <b>\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0444\u0430\u043c\u0438\u043b\u0438\u044f\u043c</b>",
         "",
-        f"\u0412\u0441\u0435\u0433\u043e \u0441\u043e\u0431\u044b\u0442\u0438\u0439: {stats['total']}",
-        f"\u0423\u0441\u043f\u0435\u0448\u043d\u044b\u0445: {stats['success']} ({stats['success_rate']}%)",
-        f"\u0417\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f: {stats['today']}",
-        f"\u0417\u0430 7 \u0434\u043d\u0435\u0439: {stats['last_7_days']}",
-        f"\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439: {stats['unique_users']}",
+        f"\u0412\u0441\u0435\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432: {stats['lookup_total']}",
+        f"\u0423\u0441\u043f\u0435\u0448\u043d\u044b\u0445: {stats['lookup_success']} ({stats['lookup_success_rate']}%)",
+        f"\u0417\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f: {stats['lookup_today']}",
+        f"\u0417\u0430 7 \u0434\u043d\u0435\u0439: {stats['lookup_last_7_days']}",
+        f"\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439: {stats['lookup_unique_users']}",
         "",
-        f"G25 \u0432\u0441\u0435\u0433\u043e: {stats['g25_total']}",
+        f"\U0001F3F7 \u0422\u043e\u043f \u0444\u0430\u043c\u0438\u043b\u0438\u0439\n{top_block}",
+    ]
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML", do_quote=False)
+
+
+async def g25stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        return
+
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    if not access_store.is_admin(update):
+        await update.message.reply_text("\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0443 G25.", do_quote=False)
+        return
+
+    usage_store: UsageStore = context.application.bot_data["usage_store"]
+    stats = usage_store.get_summary()
+
+    lines = [
+        "\U0001F9EC <b>\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 G25</b>",
+        "",
+        f"\u0412\u0441\u0435\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432: {stats['g25_total']}",
+        f"\u0423\u0441\u043f\u0435\u0448\u043d\u044b\u0445: {stats['g25_success']} ({stats['g25_success_rate']}%)",
+        f"\u0417\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f: {stats['g25_today']}",
+        f"\u0417\u0430 7 \u0434\u043d\u0435\u0439: {stats['g25_last_7_days']}",
+        f"\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439: {stats['g25_unique_users']}",
+        "",
         f"/3: {stats['g25_3']}",
         f"/4: {stats['g25_4']}",
         f"/g25: {stats['g25_extract']}",
         f"/steppe: {stats['g25_steppe']}",
+        f"/panel: {stats['g25_panel']}",
+        f"/panel2: {stats['g25_panel2']}",
         f"raw-\u0444\u0430\u0439\u043b\u044b: {stats['g25_raw']}",
         f"\u0433\u043e\u0442\u043e\u0432\u044b\u0435 G25: {stats['g25_text']}",
-        "",
-        f"\u041f\u043e\u0438\u0441\u043a \u043f\u043e \u0444\u0430\u043c\u0438\u043b\u0438\u044f\u043c: {stats['lookup_total']}",
-        "",
-        f"\u0422\u043e\u043f \u0444\u0430\u043c\u0438\u043b\u0438\u0439\n{top_block}",
     ]
     await update.message.reply_text("\n".join(lines), parse_mode="HTML", do_quote=False)
-
 
 async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
@@ -1039,6 +1650,439 @@ async def g25list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await update.message.reply_text(access_store.format_list(), parse_mode="HTML", do_quote=False)
 
+async def panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    if not access_store.is_allowed(update):
+        await update.message.reply_text("G25-\u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.", do_quote=False)
+        return
+
+    await _send_panel_builder_message(
+        message=update.message,
+        context=context,
+        panel_name="panel",
+        chat_id=update.effective_chat.id,
+        user_id=update.effective_user.id,
+    )
+async def panel_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.data is None:
+        return
+    if not query.data.startswith(f"{PANEL_CALLBACK_PREFIX}:"):
+        return
+
+    await query.answer()
+    if update.effective_chat is None or update.effective_user is None or query.message is None:
+        return
+
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    if not access_store.is_allowed(update):
+        await query.answer("Нет доступа к G25.", show_alert=True)
+        return
+
+    service: G25CommandService = context.application.bot_data["g25_service"]
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    state = panel_store.get(chat_id, user_id)
+    if not state or state.get("message_id") != query.message.message_id:
+        await query.answer("Это меню не для вас. Вызовите /panel сами.", show_alert=True)
+        return
+
+    parts = query.data.split(":", 2)
+    action = parts[1] if len(parts) > 1 else ""
+    source_key = parts[2] if len(parts) > 2 else ""
+
+    if action == "toggle":
+        selected = panel_store.toggle(chat_id, user_id, source_key)
+        await query.edit_message_text(
+            _panel_builder_text(service, selected),
+            reply_markup=_build_panel_keyboard(service, selected),
+        )
+        return
+
+    if action == "clear":
+        panel_store.clear(chat_id, user_id)
+        await query.edit_message_text(
+            _panel_builder_text(service, []),
+            reply_markup=_build_panel_keyboard(service, []),
+        )
+        return
+
+    if action == "back":
+        panel_store.cancel(chat_id, user_id)
+        await query.edit_message_text(_g25menu_text(), reply_markup=_build_g25menu_keyboard())
+        return
+
+    if action == "cancel":
+        _cancel_g25_menu(context, chat_id, user_id)
+        await query.edit_message_text("G25 меню закрыто.")
+        return
+
+    if action == "done":
+        selected = panel_store.finish(chat_id, user_id)
+        if not selected:
+            await query.answer("Сначала выберите хотя бы один источник.", show_alert=True)
+            return
+        await query.edit_message_text(
+            _panel_builder_text(service, selected, ready=True),
+            reply_markup=_build_panel_ready_keyboard(PANEL_CALLBACK_PREFIX),
+        )
+        return
+async def _run_custom_panel_input(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    body: str = "",
+) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    service: G25CommandService = context.application.bot_data["g25_service"]
+    usage_store: UsageStore = context.application.bot_data["usage_store"]
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    selected_keys = panel_store.get_selected(chat_id, user_id)
+    source_document = update.message.document
+    status_message = None
+    usage_query = body[:120].strip() if body else ""
+
+    try:
+        if source_document is not None:
+            status_message = await update.message.reply_text("\u0424\u0430\u0439\u043b \u043f\u043e\u043b\u0443\u0447\u0435\u043d, \u0441\u0442\u0440\u043e\u044e \u043c\u043e\u0434\u0435\u043b\u044c...", do_quote=False)
+            file_name = source_document.file_name or "input_panel.txt"
+            usage_query = file_name
+            sample_name = _build_g25_sample_name(update, Path(file_name).stem)
+            temp_dir = service.create_run_dir("panel_input", sample_name)
+            input_path = temp_dir / file_name
+            telegram_file = await source_document.get_file()
+            await telegram_file.download_to_drive(custom_path=str(input_path))
+            result = service.run_custom_from_file(selected_keys, input_path, sample_name)
+        else:
+            sample_name = _build_g25_sample_name(update)
+            usage_query = sample_name
+            result = service.run_custom_from_text(selected_keys, body, sample_name)
+    except G25CommandError as exc:
+        usage_store.record_g25(update, command="panel", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
+        await update.message.reply_text(str(exc), do_quote=False)
+        raise ApplicationHandlerStop
+    except Exception:
+        logger.exception("Custom panel command failed")
+        usage_store.record_g25(update, command="panel", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
+        await update.message.reply_text("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0444\u0430\u0439\u043b \u0438\u043b\u0438 G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0438 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0435 \u0440\u0430\u0437.", do_quote=False)
+        raise ApplicationHandlerStop
+
+    usage_store.record_g25(update, command="panel", input_mode=result.input_mode, success=True, query=result.target_name)
+
+    with result.png_path.open("rb") as handle:
+        await update.message.reply_photo(photo=handle, caption=result.summary_text, do_quote=False)
+    if source_document is not None and result.simulated_g25_line:
+        await update.message.reply_text(
+            f"G25 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b\n<code>{html.escape(result.simulated_g25_line)}</code>",
+            parse_mode="HTML",
+            do_quote=False,
+        )
+
+    panel_store.clear_pending(chat_id, user_id)
+    if status_message is not None:
+        try:
+            await status_message.edit_text("\u0420\u0430\u0441\u0447\u0435\u0442 \u0433\u043e\u0442\u043e\u0432.")
+        except Exception:
+            logger.debug("Failed to update custom panel status message", exc_info=True)
+    raise ApplicationHandlerStop
+
+
+async def _run_g25coords_input(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    body: str = "",
+) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    service: G25CommandService = context.application.bot_data["g25_service"]
+    usage_store: UsageStore = context.application.bot_data["usage_store"]
+    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    source_document = update.message.document
+    status_message = None
+    usage_query = body[:120].strip() if body else ""
+
+    try:
+        if source_document is not None:
+            status_message = await update.message.reply_text("\u0424\u0430\u0439\u043b \u043f\u043e\u043b\u0443\u0447\u0435\u043d, \u0438\u0437\u0432\u043b\u0435\u043a\u0430\u044e \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b...", do_quote=False)
+            file_name = source_document.file_name or "input_g25.txt"
+            usage_query = file_name
+            sample_name = _build_g25_sample_name(update, Path(file_name).stem)
+            run_dir = service.create_run_dir("g25", sample_name)
+            input_path = run_dir / file_name
+            telegram_file = await source_document.get_file()
+            await telegram_file.download_to_drive(custom_path=str(input_path))
+            result = service.extract_coordinates_from_file(input_path, sample_name)
+        else:
+            sample_name = _build_g25_sample_name(update)
+            usage_query = sample_name
+            result = service.extract_coordinates_from_text(body, sample_name)
+    except G25CommandError as exc:
+        usage_store.record_g25(update, command="g25", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
+        await update.message.reply_text(str(exc), do_quote=False)
+        raise ApplicationHandlerStop
+    except Exception:
+        logger.exception("G25 coords menu command failed")
+        usage_store.record_g25(update, command="g25", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
+        await update.message.reply_text(
+            "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0444\u0430\u0439\u043b \u0438\u043b\u0438 G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0438 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0435 \u0440\u0430\u0437.",
+            do_quote=False,
+        )
+        raise ApplicationHandlerStop
+
+    usage_store.record_g25(update, command="g25", input_mode=result.input_mode, success=True, query=result.target_name)
+    await update.message.reply_text(
+        f"G25 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b\n<code>{html.escape(result.simulated_g25_line)}</code>",
+        parse_mode="HTML",
+        do_quote=False,
+    )
+
+    coords_store.clear_pending(chat_id, user_id)
+    if status_message is not None:
+        try:
+            await status_message.edit_text("\u041a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0433\u043e\u0442\u043e\u0432\u044b.")
+        except Exception:
+            logger.debug("Failed to update G25 coords status message", exc_info=True)
+    raise ApplicationHandlerStop
+
+
+async def panel_document_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.message.document is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+    if coords_store.has_pending(chat_id, user_id):
+        await _run_g25coords_input(update, context)
+        return
+
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    if not panel_store.has_pending(chat_id, user_id):
+        return
+
+    await _run_custom_panel_input(update, context)
+
+
+async def panel_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.message.text is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    body = update.message.text.strip()
+    if not body or body.startswith("/"):
+        return
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+    if coords_store.has_pending(chat_id, user_id):
+        await update.message.reply_text("В режиме получения G25 отправьте raw-файл документом.", do_quote=False)
+        raise ApplicationHandlerStop
+
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    if not panel_store.has_pending(chat_id, user_id):
+        return
+
+    await _run_custom_panel_input(update, context, body=body)
+async def panel2_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    if not access_store.is_allowed(update):
+        await update.message.reply_text("G25-\u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.", do_quote=False)
+        return
+
+    await _send_panel_builder_message(
+        message=update.message,
+        context=context,
+        panel_name="panel2",
+        chat_id=update.effective_chat.id,
+        user_id=update.effective_user.id,
+    )
+async def panel2_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.data is None:
+        return
+    if not query.data.startswith(f"{PANEL2_CALLBACK_PREFIX}:"):
+        return
+
+    await query.answer()
+    if update.effective_chat is None or update.effective_user is None or query.message is None:
+        return
+
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    if not access_store.is_allowed(update):
+        await query.answer("Нет доступа к G25.", show_alert=True)
+        return
+
+    service: G25CommandService = context.application.bot_data["g25_service"]
+    panel_store: CustomPanelStore = context.application.bot_data["panel2_store"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    state = panel_store.get(chat_id, user_id)
+    if not state or state.get("message_id") != query.message.message_id:
+        await query.answer("Это меню не для вас. Вызовите /panel2 сами.", show_alert=True)
+        return
+
+    parts = query.data.split(":", 2)
+    action = parts[1] if len(parts) > 1 else ""
+    source_key = parts[2] if len(parts) > 2 else ""
+
+    if action == "toggle":
+        selected = panel_store.toggle(chat_id, user_id, source_key)
+        await query.edit_message_text(
+            _panel2_builder_text(service, selected),
+            reply_markup=_build_panel2_keyboard(service, selected),
+        )
+        return
+
+    if action == "clear":
+        panel_store.clear(chat_id, user_id)
+        await query.edit_message_text(
+            _panel2_builder_text(service, []),
+            reply_markup=_build_panel2_keyboard(service, []),
+        )
+        return
+
+    if action == "back":
+        panel_store.cancel(chat_id, user_id)
+        await query.edit_message_text(_g25menu_text(), reply_markup=_build_g25menu_keyboard())
+        return
+
+    if action == "cancel":
+        _cancel_g25_menu(context, chat_id, user_id)
+        await query.edit_message_text("G25 меню закрыто.")
+        return
+
+    if action == "done":
+        selected = panel_store.finish(chat_id, user_id)
+        if not selected:
+            await query.answer("Сначала выберите хотя бы один источник.", show_alert=True)
+            return
+        await query.edit_message_text(
+            _panel2_builder_text(service, selected, ready=True),
+            reply_markup=_build_panel_ready_keyboard(PANEL2_CALLBACK_PREFIX),
+        )
+        return
+async def _run_custom_panel2_input(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    body: str = "",
+) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    service: G25CommandService = context.application.bot_data["g25_service"]
+    usage_store: UsageStore = context.application.bot_data["usage_store"]
+    panel_store: CustomPanelStore = context.application.bot_data["panel2_store"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    selected_keys = panel_store.get_selected(chat_id, user_id)
+    source_document = update.message.document
+    status_message = None
+    usage_query = body[:120].strip() if body else ""
+
+    try:
+        if source_document is not None:
+            status_message = await update.message.reply_text("Файл получен, строю модель...", do_quote=False)
+            file_name = source_document.file_name or "input_panel2.txt"
+            usage_query = file_name
+            sample_name = _build_g25_sample_name(update, Path(file_name).stem)
+            temp_dir = service.create_run_dir("panel2_input", sample_name)
+            input_path = temp_dir / file_name
+            telegram_file = await source_document.get_file()
+            await telegram_file.download_to_drive(custom_path=str(input_path))
+            result = service.run_panel2_from_file(selected_keys, input_path, sample_name)
+        else:
+            sample_name = _build_g25_sample_name(update)
+            usage_query = sample_name
+            result = service.run_panel2_from_text(selected_keys, body, sample_name)
+    except G25CommandError as exc:
+        usage_store.record_g25(update, command="panel2", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
+        await update.message.reply_text(str(exc), do_quote=False)
+        raise ApplicationHandlerStop
+    except Exception:
+        logger.exception("Custom panel2 command failed")
+        usage_store.record_g25(update, command="panel2", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
+        await update.message.reply_text("Не удалось обработать данные. Проверьте файл или G25-координаты и попробуйте еще раз.", do_quote=False)
+        raise ApplicationHandlerStop
+
+    usage_store.record_g25(update, command="panel2", input_mode=result.input_mode, success=True, query=result.target_name)
+
+    with result.png_path.open("rb") as handle:
+        await update.message.reply_photo(photo=handle, caption=result.summary_text, do_quote=False)
+    if source_document is not None and result.simulated_g25_line:
+        await update.message.reply_text(
+            f"G25 координаты\n<code>{html.escape(result.simulated_g25_line)}</code>",
+            parse_mode="HTML",
+            do_quote=False,
+        )
+
+    panel_store.clear_pending(chat_id, user_id)
+    if status_message is not None:
+        try:
+            await status_message.edit_text("Расчет готов.")
+        except Exception:
+            logger.debug("Failed to update custom panel2 status message", exc_info=True)
+    raise ApplicationHandlerStop
+
+
+async def panel2_document_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.message.document is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+    if coords_store.has_pending(chat_id, user_id):
+        await _run_g25coords_input(update, context)
+        return
+
+    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
+    if panel2_store.has_pending(chat_id, user_id):
+        await _run_custom_panel2_input(update, context)
+        return
+
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    if panel_store.has_pending(chat_id, user_id):
+        await _run_custom_panel_input(update, context)
+        return
+
+
+async def panel2_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.message.text is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    body = update.message.text.strip()
+    if not body or body.startswith("/"):
+        return
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
+    if coords_store.has_pending(chat_id, user_id):
+        await update.message.reply_text("В режиме получения G25 отправьте raw-файл документом.", do_quote=False)
+        raise ApplicationHandlerStop
+
+    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
+    if panel2_store.has_pending(chat_id, user_id):
+        await _run_custom_panel2_input(update, context, body=body)
+        return
+
+    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
+    if panel_store.has_pending(chat_id, user_id):
+        await _run_custom_panel_input(update, context, body=body)
+        return
 async def text_lookup_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None or update.message.text is None:
         return
@@ -1071,21 +2115,38 @@ def main() -> None:
     g25_service = G25CommandService()
     usage_store = UsageStore(USAGE_DB_PATH)
     g25_access_store = G25AccessStore(G25_ACCESS_PATH, admin_ids=g25_admin_ids, admin_usernames=g25_admin_usernames)
+    panel_store = CustomPanelStore()
+    panel2_store = CustomPanelStore()
+    coords_store = CustomPanelStore()
 
     app = Application.builder().token(bot_token).build()
     app.bot_data["sheets"] = sheets
     app.bot_data["g25_service"] = g25_service
     app.bot_data["usage_store"] = usage_store
     app.bot_data["g25_access_store"] = g25_access_store
+    app.bot_data["panel_store"] = panel_store
+    app.bot_data["panel2_store"] = panel2_store
+    app.bot_data["coords_store"] = coords_store
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("build", build_command))
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("g25stats", g25stats_command))
     app.add_handler(CommandHandler("g25allow", g25allow_command))
     app.add_handler(CommandHandler("g25deny", g25deny_command))
     app.add_handler(CommandHandler("g25list", g25list_command))
+    app.add_handler(CommandHandler(G25MENU_COMMAND, g25menu_command))
+    app.add_handler(CommandHandler(PANEL_COMMAND, panel_command))
+    app.add_handler(CommandHandler(PANEL2_COMMAND, panel2_command))
+    app.add_handler(CallbackQueryHandler(panel_callback_handler, pattern=r"^panel:"))
+    app.add_handler(CallbackQueryHandler(panel2_callback_handler, pattern=r"^panel2:"))
+    app.add_handler(CallbackQueryHandler(g25menu_callback_handler, pattern=r"^g25menu:"))
     app.add_handler(CommandHandler("find", find_command))
     app.add_handler(CommandHandler("f", find_command))
+    app.add_handler(MessageHandler(filters.Document.ALL, panel2_document_input_handler), group=-1)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, panel2_text_input_handler), group=-1)
+    app.add_handler(MessageHandler(filters.Document.ALL, panel_document_input_handler), group=-1)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, panel_text_input_handler), group=-1)
     app.add_handler(
         MessageHandler(
             (filters.TEXT & filters.Regex(r"^/(?:3|4|g25|steppe)(?:@\w+)?(?:\s|$)"))

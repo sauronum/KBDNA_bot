@@ -27,6 +27,13 @@ GROUP_RENDER_ORDER = [
     "Khovsgol_Cluster",
     "YellowRiver_Cluster",
     "BMAK_Cluster",
+    "Ulaanzuukh_culture_BA",
+    "Khovsgol_BA",
+    "Yellow_River_LN",
+    "BMAC_or_Oxus_Civilization",
+    "Helmandculture",
+    "Steppe_MLBA",
+    "RUS_Angara_River_BA",
 ]
 
 GROUP_DISPLAY_ALIASES = {
@@ -40,6 +47,13 @@ GROUP_DISPLAY_ALIASES = {
     "Baltic_BA_Cluster": "Baltic BA",
     "YellowRiver_Cluster": "Yellow River",
     "YR_Cluster": "Yellow River",
+    "Ulaanzuukh_culture_BA": "Ulaanzuukh culture BA",
+    "Khovsgol_BA": "Khovsgol BA",
+    "Yellow_River_LN": "Yellow River LN",
+    "BMAC_or_Oxus_Civilization": "BMAC or Oxus Civilization",
+    "Helmandculture": "Helmandculture",
+    "Steppe_MLBA": "Steppe MLBA",
+    "RUS_Angara_River_BA": "RUS Angara River BA",
 }
 
 VISUAL_GROUP_EXCLUSIONS = {

@@ -61,6 +61,115 @@ SMALL = (232, 232, 232)
 BAR = (255, 138, 31)
 BAR_BG = (106, 106, 106)
 
+ICON_COLORS = {
+    "mountain": (121, 200, 120),
+    "horse": (224, 176, 72),
+    "temple": (220, 84, 64),
+    "sun": (244, 205, 80),
+    "leaf": (114, 205, 110),
+    "wolf": (214, 214, 214),
+    "snow": (180, 225, 255),
+    "forest": (89, 181, 111),
+}
+
+ICON_PATTERNS = {
+    "mountain": [
+        "...#...",
+        "..###..",
+        ".#####.",
+        "#######",
+        "..###..",
+        ".#####.",
+        ".......",
+    ],
+    "horse": [
+        "..###..",
+        ".#####.",
+        ".##.#..",
+        ".#####.",
+        "..#.##.",
+        ".##.##.",
+        "##...##",
+    ],
+    "temple": [
+        "..###..",
+        ".#####.",
+        "#######",
+        "..###..",
+        "..###..",
+        "#.#.#.#",
+        "#######",
+    ],
+    "sun": [
+        "..###..",
+        ".#.#.#.",
+        "#######",
+        ".#####.",
+        "#######",
+        ".#.#.#.",
+        "..###..",
+    ],
+    "leaf": [
+        "...#...",
+        "...#...",
+        "..###..",
+        ".#.#...",
+        "...#.#.",
+        "..#.#..",
+        "...#...",
+    ],
+    "wolf": [
+        ".#...#.",
+        ".#####.",
+        "#######",
+        "#######",
+        ".#####.",
+        "..###..",
+        "...#...",
+    ],
+    "snow": [
+        "#..#..#",
+        ".#.#.#.",
+        "..###..",
+        "#######",
+        "..###..",
+        ".#.#.#.",
+        "#..#..#",
+    ],
+    "forest": [
+        "...#...",
+        "..###..",
+        ".#####.",
+        "...#...",
+        "..###..",
+        ".#####.",
+        "..#.#..",
+    ],
+}
+
+ICON_IDS = {
+    "Maikop": "mountain",
+    "KuraAraxes": "mountain",
+    "Steppe": "horse",
+    "Yamnaya": "horse",
+    "Afanasievo": "horse",
+    "Anatolia_BA": "temple",
+    "Baltic_BA": "forest",
+    "Khovsgol": "mountain",
+    "AngaraRiver_BA": "snow",
+    "Ulaanzukh": "horse",
+    "YellowRiver": "temple",
+    "YR": "temple",
+    "BMAK": "sun",
+    "Ulaanzuukh_culture_BA": "wolf",
+    "Khovsgol_BA": "mountain",
+    "Yellow_River_LN": "temple",
+    "BMAC_or_Oxus_Civilization": "sun",
+    "Helmandculture": "leaf",
+    "Steppe_MLBA": "horse",
+    "RUS_Angara_River_BA": "snow",
+}
+
 
 def load_groups(json_path: Path, zero_threshold: float) -> Tuple[str, float, int, list[Tuple[str, float]]]:
     data = json.loads(json_path.read_text(encoding="utf-8-sig"))
@@ -73,6 +182,11 @@ def load_groups(json_path: Path, zero_threshold: float) -> Tuple[str, float, int
     if not groups:
         raise ValueError(f"{json_path}: no non-zero groups to render.")
     return data["target"], float(data["distance"]), int(data["sources"]), groups
+
+
+def _normalized_icon_id(raw_name: str) -> str | None:
+    normalized = raw_name[: -len("_Cluster")] if raw_name.endswith("_Cluster") else raw_name
+    return ICON_IDS.get(normalized)
 
 
 def _put_rect(buffer: bytearray, width: int, height: int, x: int, y: int, rect_w: int, rect_h: int, color: tuple[int, int, int]) -> None:
@@ -101,6 +215,21 @@ def _draw_text(buffer: bytearray, width: int, height: int, x: int, y: int, text:
     for char in text:
         _draw_char(buffer, width, height, cursor_x, y, char, color, scale)
         cursor_x += 6 * scale
+
+
+def _draw_icon(buffer: bytearray, width: int, height: int, x: int, y: int, raw_name: str, scale: int = 2) -> int:
+    icon_id = _normalized_icon_id(raw_name)
+    if not icon_id:
+        return 0
+    pattern = ICON_PATTERNS.get(icon_id)
+    color = ICON_COLORS.get(icon_id, FG)
+    if not pattern:
+        return 0
+    for py, row in enumerate(pattern):
+        for px, cell in enumerate(row):
+            if cell == '#':
+                _put_rect(buffer, width, height, x + px * scale, y + py * scale, scale, scale, color)
+    return len(pattern[0]) * scale
 
 
 def _write_png(path: Path, width: int, height: int, rgb_data: bytearray) -> None:
@@ -134,7 +263,10 @@ def render_png(
     output_path: Path,
 ) -> None:
     group_list = list(groups)
-    width = 982
+    display_labels = [display_name(name).upper() for name, _ in group_list]
+    max_label_chars = max((len(label) for label in display_labels), default=0)
+
+    width = max(982, 360 + int(max_label_chars * 12.4) + 680)
     height = 86 + (len(group_list) * 28)
     buffer = bytearray(bytes(BG) * width * height)
 
@@ -142,17 +274,19 @@ def render_png(
     meta = f"Distance: {distance:.6f} | Sources: {sources}"
     _draw_text(buffer, width, height, 16, 42, meta, SMALL, scale=2)
 
-    label_x = 82
-    bar_x = 282
-    bar_w = 680
+    percent_x = 16
+    text_x = 104
+    label_area_w = max(220, int(max_label_chars * 12.4))
+    bar_x = text_x + label_area_w + 18
+    bar_w = max(520, width - bar_x - 20)
     start_y = 70
     row_gap = 28
 
     for index, (raw_name, value) in enumerate(group_list):
         y = start_y + (index * row_gap)
         percent = f"{value * 100.0:.1f}"
-        _draw_text(buffer, width, height, 16, y + 2, percent, FG, scale=2)
-        _draw_text(buffer, width, height, label_x, y + 2, display_name(raw_name), FG, scale=2)
+        _draw_text(buffer, width, height, percent_x, y + 2, percent, FG, scale=2)
+        _draw_text(buffer, width, height, text_x, y + 2, display_name(raw_name), FG, scale=2)
         _put_rect(buffer, width, height, bar_x, y, bar_w, 12, BAR_BG)
         _put_rect(buffer, width, height, bar_x, y, int(bar_w * value), 12, BAR)
 

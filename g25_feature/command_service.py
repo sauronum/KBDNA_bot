@@ -19,6 +19,29 @@ COMMAND_RE = re.compile(r"^/(?P<command>steppe|g25|[34])(?:@\w+)?(?:\s+(?P<body>
 PANEL_DIR = Path(__file__).resolve().parent / "panels"
 RUNS_DIR = Path(__file__).resolve().parent / "runs"
 
+CUSTOM_PANEL_SOURCE_DEFS = [
+    ("maikop", "Maikop", "Maikop.txt"),
+    ("steppe_sintashta", "Steppe Sintashta", "Steppe_Sintashta.txt"),
+    ("ulaanzhukh", "Ulaanzhukh", "Ulaanzhukh.txt"),
+    ("yamnaya", "Yamnaya", "Yamnaya.txt"),
+    ("yellowriver", "Yellow River", "YellowRiver.txt"),
+    ("anatolia_ba", "Anatolia BA", "Anatolia_BA.txt"),
+    ("baltic_ba", "Baltic BA", "Baltic_BA.txt"),
+    ("bmac", "BMAC", "BMAC.txt"),
+    ("khovsgol", "Khovsgol", "Khovsgol.txt"),
+    ("kuraaraxes", "KuraAraxes", "KuraAraxes.txt"),
+]
+
+PANEL2_SOURCE_DEFS = [
+    ("ulaanzuukh_culture_ba", "Ulaanzuukh culture BA", "Ulaanzuukh_culture_BA", "Ulaanzuukh_culture_BA.txt"),
+    ("khovsgol_ba", "Khovsgol BA", "Khovsgol_BA", "Khovsgol_BA.txt"),
+    ("yellow_river_ln", "Yellow River LN", "Yellow_River_LN", "Yellow_River_LN.txt"),
+    ("bmac_or_oxus_civilization", "BMAC or Oxus Civilization", "BMAC_or_Oxus_Civilization", "BMAC_or_Oxus_Civilization.txt"),
+    ("helmandculture", "Helmandculture", "Helmandculture", "Helmandculture.txt"),
+    ("steppe_mlba", "Steppe MLBA", "Steppe_MLBA", "Steppe_MLBA.txt"),
+    ("rus_angara_river_ba", "RUS Angara River BA", "RUS_Angara_River_BA", "RUS_Angara_River_BA.txt"),
+]
+
 GROUP_EMOJI_ALIASES = {
     "Maikop": "\U0001F3D4\uFE0F",
     "KuraAraxes": "\U0001F3D4\uFE0F",
@@ -33,6 +56,13 @@ GROUP_EMOJI_ALIASES = {
     "YellowRiver": "\u26E9\uFE0F",
     "YR": "\u26E9\uFE0F",
     "BMAK": "\u2600\uFE0F",
+    "Ulaanzuukh_culture_BA": "\U0001F43A",
+    "Khovsgol_BA": "\U0001F3DE\uFE0F",
+    "Yellow_River_LN": "\u26E9\uFE0F",
+    "BMAC_or_Oxus_Civilization": "\u2600\uFE0F",
+    "Helmandculture": "\U0001F331",
+    "Steppe_MLBA": "\U0001F40E",
+    "RUS_Angara_River_BA": "\U0001F3F9",
 }
 
 
@@ -90,6 +120,23 @@ class G25CommandService:
         self.root_dir = Path(root_dir) if root_dir else Path(__file__).resolve().parent
         self.panel_dir = self.root_dir / "panels"
         self.runs_dir = self.root_dir / "runs"
+        self.custom_sources_dir = self.panel_dir / "custom_sources"
+        self.panel2_sources_dir = self.panel_dir / "panel2_sources"
+        self.custom_source_defs = [
+            {"key": key, "label": label, "file_name": file_name, "path": self.custom_sources_dir / file_name}
+            for key, label, file_name in CUSTOM_PANEL_SOURCE_DEFS
+        ]
+        self.panel2_source_defs = [
+            {
+                "key": key,
+                "label": label,
+                "group_name": group_name,
+                "file_name": file_name,
+                "path": self.panel2_sources_dir / file_name,
+                "emoji": group_emoji(group_name),
+            }
+            for key, label, group_name, file_name in PANEL2_SOURCE_DEFS
+        ]
         self.panel_configs = {
             "3": {
                 "label": "3-way",
@@ -220,14 +267,14 @@ class G25CommandService:
             raw_payload = analyze_raw_to_g25(working_input, run_dir, sample_name=sample_name)
         except FileNotFoundError as exc:
             raise G25CommandError(
-                "??? raw-?????? ?? ??????? ?????? ???? ?????????? admix. ?????? ????? ???????????? G25-??????????."
+                "Для raw-файлов на сервере должен быть установлен admix. Сейчас можно использовать G25-координаты."
             ) from exc
         except Exception as exc:
-            raise G25CommandError(f"?? ??????? ?????????? ????: {exc}") from exc
+            raise G25CommandError(f"Не удалось обработать файл: {exc}") from exc
 
         g25_line = str(raw_payload.get("simulated_g25_line", "")).strip()
         if not g25_line:
-            raise G25CommandError("?? ??????? ??????? G25-?????????? ?? ?????.")
+            raise G25CommandError("Не удалось извлечь G25-координаты из файла.")
 
         return G25CoordinatesResult(
             target_name=str(raw_payload.get("target_name") or sample_name),
@@ -271,49 +318,205 @@ class G25CommandService:
         }.get(suffix, 9)
         return (rank, member_name.lower())
 
-    def _run_panel(
+    def list_custom_sources(self) -> list[dict[str, Path | str]]:
+        return [dict(item) for item in self.custom_source_defs]
+
+    def list_panel2_sources(self) -> list[dict[str, Path | str]]:
+        return [dict(item) for item in self.panel2_source_defs]
+
+    def run_custom_from_text(self, selected_keys: list[str], body: str, sample_name: str) -> G25RunResult:
+        if not body.strip():
+            raise G25CommandError("\u041d\u0435 \u0432\u0438\u0436\u0443 \u0432\u0445\u043e\u0434\u043d\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445. \u041e\u0442\u043f\u0440\u0430\u0432\u044c\u0442\u0435 raw-\u0444\u0430\u0439\u043b \u0438\u043b\u0438 G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b.")
+
+        run_dir = self.create_run_dir("panel", sample_name)
+        references_path, manifest_path, label = self._prepare_custom_panel(selected_keys, run_dir)
+        g25_line, target_name = self._parse_g25_input(body, sample_name)
+        target_path = run_dir / "target.g25"
+        target_path.write_text(g25_line + "\n", encoding="utf-8")
+        return self._run_panel_paths(label, references_path, manifest_path, target_path, run_dir, "g25-text", g25_line, target_name, "panel")
+
+    def run_panel2_from_text(self, selected_keys: list[str], body: str, sample_name: str) -> G25RunResult:
+        if not body.strip():
+            raise G25CommandError("\u041d\u0435 \u0432\u0438\u0436\u0443 \u0432\u0445\u043e\u0434\u043d\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445. \u041e\u0442\u043f\u0440\u0430\u0432\u044c\u0442\u0435 raw-\u0444\u0430\u0439\u043b \u0438\u043b\u0438 G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b.")
+
+        run_dir = self.create_run_dir("panel2", sample_name)
+        references_path, manifest_path, label = self._prepare_panel2(selected_keys, run_dir)
+        g25_line, target_name = self._parse_g25_input(body, sample_name)
+        target_path = run_dir / "target.g25"
+        target_path.write_text(g25_line + "\n", encoding="utf-8")
+        return self._run_panel_paths(label, references_path, manifest_path, target_path, run_dir, "g25-text", g25_line, target_name, "panel2")
+
+    def run_custom_from_file(self, selected_keys: list[str], input_path: Path | str, sample_name: str) -> G25RunResult:
+        input_path = Path(input_path)
+        run_dir = self.create_run_dir("panel", sample_name)
+        references_path, manifest_path, label = self._prepare_custom_panel(selected_keys, run_dir)
+        working_input = run_dir / input_path.name
+        if input_path.resolve() != working_input.resolve():
+            working_input.write_bytes(input_path.read_bytes())
+        working_input = self._expand_archive_if_needed(working_input, run_dir)
+
+        text_in = self._read_text_if_possible(working_input)
+        if text_in:
+            try:
+                g25_line, target_name = self._parse_g25_input(text_in, sample_name)
+            except G25CommandError:
+                pass
+            else:
+                target_path = run_dir / "target.g25"
+                target_path.write_text(g25_line + "\n", encoding="utf-8")
+                return self._run_panel_paths(label, references_path, manifest_path, target_path, run_dir, "g25-file", g25_line, target_name, "panel")
+
+        try:
+            raw_payload = analyze_raw_to_g25(working_input, run_dir, sample_name=sample_name)
+        except FileNotFoundError as exc:
+            raise G25CommandError("\u0414\u043b\u044f raw-\u0444\u0430\u0439\u043b\u043e\u0432 \u043d\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d admix. \u0421\u0435\u0439\u0447\u0430\u0441 \u043c\u043e\u0436\u043d\u043e \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u044c G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b.") from exc
+        except Exception as exc:
+            raise G25CommandError(f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0444\u0430\u0439\u043b: {exc}") from exc
+
+        target_path = Path(raw_payload["simulated_g25_path"])
+        return self._run_panel_paths(
+            label,
+            references_path,
+            manifest_path,
+            target_path,
+            run_dir,
+            "raw-file",
+            raw_payload.get("simulated_g25_line"),
+            raw_payload.get("target_name") or sample_name,
+            "panel",
+        )
+
+    def run_panel2_from_file(self, selected_keys: list[str], input_path: Path | str, sample_name: str) -> G25RunResult:
+        input_path = Path(input_path)
+        run_dir = self.create_run_dir("panel2", sample_name)
+        references_path, manifest_path, label = self._prepare_panel2(selected_keys, run_dir)
+        working_input = run_dir / input_path.name
+        if input_path.resolve() != working_input.resolve():
+            working_input.write_bytes(input_path.read_bytes())
+        working_input = self._expand_archive_if_needed(working_input, run_dir)
+
+        text_in = self._read_text_if_possible(working_input)
+        if text_in:
+            try:
+                g25_line, target_name = self._parse_g25_input(text_in, sample_name)
+            except G25CommandError:
+                pass
+            else:
+                target_path = run_dir / "target.g25"
+                target_path.write_text(g25_line + "\n", encoding="utf-8")
+                return self._run_panel_paths(label, references_path, manifest_path, target_path, run_dir, "g25-file", g25_line, target_name, "panel2")
+
+        try:
+            raw_payload = analyze_raw_to_g25(working_input, run_dir, sample_name=sample_name)
+        except FileNotFoundError as exc:
+            raise G25CommandError("\u0414\u043b\u044f raw-\u0444\u0430\u0439\u043b\u043e\u0432 \u043d\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d admix. \u0421\u0435\u0439\u0447\u0430\u0441 \u043c\u043e\u0436\u043d\u043e \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u044c G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b.") from exc
+        except Exception as exc:
+            raise G25CommandError(f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0444\u0430\u0439\u043b: {exc}") from exc
+
+        target_path = Path(raw_payload["simulated_g25_path"])
+        return self._run_panel_paths(
+            label,
+            references_path,
+            manifest_path,
+            target_path,
+            run_dir,
+            "raw-file",
+            raw_payload.get("simulated_g25_line"),
+            raw_payload.get("target_name") or sample_name,
+            "panel2",
+        )
+
+    def _prepare_custom_panel(self, selected_keys: list[str], run_dir: Path) -> tuple[Path, Path, str]:
+        selected = [item for item in self.custom_source_defs if item["key"] in set(selected_keys)]
+        if not selected:
+            raise G25CommandError("\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0445\u043e\u0442\u044f \u0431\u044b \u043e\u0434\u0438\u043d \u0434\u0440\u0435\u0432\u043d\u0438\u0439 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a.")
+
+        missing = [str(item["path"]) for item in selected if not Path(item["path"]).exists()]
+        if missing:
+            raise G25CommandError("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u044b \u0444\u0430\u0439\u043b\u044b \u043f\u0430\u043d\u0435\u043b\u0438: " + ", ".join(missing))
+
+        references_lines: list[str] = []
+        manifest_lines = ["standard_name\tgroup\tpanel_name"]
+        panel_label = "Custom panel"
+
+        for item in selected:
+            source_path = Path(item["path"])
+            source_text = self._read_text_if_possible(source_path).strip()
+            if source_text:
+                references_lines.extend(line.strip() for line in source_text.splitlines() if line.strip())
+            for reference in g25_engine.load_g25_entries(source_path):
+                group = self._extract_group_name(reference.name)
+                manifest_lines.append(f"{reference.name}\t{group}\t{panel_label}")
+
+        references_path = run_dir / "custom_panel.txt"
+        manifest_path = run_dir / "custom_panel_manifest.tsv"
+        references_path.write_text("\n".join(references_lines) + "\n", encoding="utf-8")
+        manifest_path.write_text("\n".join(manifest_lines) + "\n", encoding="utf-8")
+        return references_path, manifest_path, panel_label
+
+    def _prepare_panel2(self, selected_keys: list[str], run_dir: Path) -> tuple[Path, Path, str]:
+        selected = [item for item in self.panel2_source_defs if item["key"] in set(selected_keys)]
+        if not selected:
+            raise G25CommandError("\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0445\u043e\u0442\u044f \u0431\u044b \u043e\u0434\u0438\u043d \u0434\u0440\u0435\u0432\u043d\u0438\u0439 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a.")
+        missing = [str(item["path"]) for item in selected if not Path(item["path"]).exists()]
+        if missing:
+            raise G25CommandError("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u044b \u0444\u0430\u0439\u043b\u044b \u043f\u0430\u043d\u0435\u043b\u0438: " + ", ".join(missing))
+
+        panel_label = "Panel 2"
+        manifest_lines = ["standard_name\tgroup\tpanel_name"]
+        references_lines: list[str] = []
+
+        for item in selected:
+            source_path = Path(item["path"])
+            source_text = self._read_text_if_possible(source_path).strip()
+            if source_text:
+                references_lines.extend(line.strip() for line in source_text.splitlines() if line.strip())
+            for reference in g25_engine.load_g25_entries(source_path):
+                group = self._extract_group_name(reference.name)
+                manifest_lines.append(f"{reference.name}\t{group}\t{panel_label}")
+
+        if not references_lines:
+            raise G25CommandError("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0431\u0440\u0430\u0442\u044c \u043f\u0430\u043d\u0435\u043b\u044c \u0438\u0437 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0445 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u043e\u0432.")
+
+        references_path = run_dir / "panel2.txt"
+        manifest_path = run_dir / "panel2_manifest.tsv"
+        references_path.write_text("\n".join(references_lines) + "\n", encoding="utf-8")
+        manifest_path.write_text("\n".join(manifest_lines) + "\n", encoding="utf-8")
+        return references_path, manifest_path, panel_label
+
+    def _run_panel_paths(
         self,
-        command: str,
+        panel_label: str,
+        references_path: Path,
+        manifest_path: Path,
         target_path: Path,
         run_dir: Path,
         input_mode: str,
         simulated_g25_line: str | None,
         target_name: str,
+        command: str,
     ) -> G25RunResult:
-        config = self.panel_configs[command]
         started_at = time.perf_counter()
-        output_json = run_dir / f"{config['label']}_fit.json"
-        output_png = run_dir / f"{config['label']}_fit.png"
-        output_svg = run_dir / f"{config['label']}_fit.svg"
+        output_json = run_dir / f"{panel_label}_fit.json"
+        output_png = run_dir / f"{panel_label}_fit.png"
+        output_svg = run_dir / f"{panel_label}_fit.svg"
 
         payload = panel_fit_target(
             target_g25_path=target_path,
-            references_path=config["references_path"],
-            manifest_path=config["manifest_path"],
+            references_path=references_path,
+            manifest_path=manifest_path,
             group_column="group",
             iterations=250,
             top_references=12,
             output_json_path=output_json,
         )
         group_items = sorted(payload["groups"].items(), key=lambda item: group_sort_key(item[0]))
-        render_svg(
-            payload["target"],
-            float(payload["distance"]),
-            int(payload["sources"]),
-            group_items,
-            output_svg,
-        )
-        render_png(
-            payload["target"],
-            float(payload["distance"]),
-            int(payload["sources"]),
-            group_items,
-            output_png,
-        )
+        render_svg(payload["target"], float(payload["distance"]), int(payload["sources"]), group_items, output_svg)
+        render_png(payload["target"], float(payload["distance"]), int(payload["sources"]), group_items, output_png)
         elapsed = time.perf_counter() - started_at
         return G25RunResult(
             command=command,
-            panel_name=config["label"],
+            panel_name=panel_label,
             target_name=target_name,
             distance=float(payload["distance"]),
             sources=int(payload["sources"]),
@@ -325,6 +528,28 @@ class G25CommandService:
             json_path=output_json,
             input_mode=input_mode,
             simulated_g25_line=simulated_g25_line,
+        )
+
+    def _run_panel(
+        self,
+        command: str,
+        target_path: Path,
+        run_dir: Path,
+        input_mode: str,
+        simulated_g25_line: str | None,
+        target_name: str,
+    ) -> G25RunResult:
+        config = self.panel_configs[command]
+        return self._run_panel_paths(
+            config["label"],
+            config["references_path"],
+            config["manifest_path"],
+            target_path,
+            run_dir,
+            input_mode,
+            simulated_g25_line,
+            target_name,
+            command,
         )
 
     def _ensure_manifests(self) -> None:
@@ -350,7 +575,13 @@ class G25CommandService:
     @staticmethod
     def _extract_group_name(reference_name: str) -> str:
         head, sep, _ = reference_name.partition(":")
-        return head.strip() if sep else reference_name.strip()
+        cleaned = head.strip() if sep else reference_name.strip()
+        return G25CommandService._clean_combined_group_name(cleaned)
+
+    @staticmethod
+    def _clean_combined_group_name(value: str) -> str:
+        cleaned = re.sub(r"^[^A-Za-z0-9_]+", "", value.strip())
+        return cleaned.strip()
 
     @staticmethod
     def _read_text_if_possible(path: Path) -> str:
