@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs003504_cannabis_use",
+    "pgs_id":  "PGS003504",
+    "display_name":  "Cannabis-use polygenic signal",
+    "short_name":  "Cannabis use",
+    "group":  "sensitive_research",
+    "category":  "experimental_sensitive_lifestyle",
+    "status":  "experimental",
+    "consumer_ready":  false,
+    "short_description":  "Experimental sensitive-lifestyle trait retained for research inspection of cannabis-use score behavior within the strict no-imputation raw-array workflow; it is not consumer-ready.",
+    "summary_note":  "Experimental non-consumer lifestyle trait used to inspect how a cannabis-use-related score behaves under the current strict raw-array workflow without imputation.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with the bundled cannabis-use score, calibrated within the current local empirical reference panel for research inspection only.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "This is an experimental research-facing output, not a prediction of actual substance use, not a behavioral label, and not a recommendation about cannabis. {interpretation}",
+    "caution_text":  "Experimental research output only. No imputation or ancestry-adjusted normalization is used, and the result should not be treated as a prediction of substance use, a behavioral label, or personal advice.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "This trait is not consumer-ready and should stay in research review unless a separate product decision is made.",
+                        "Real-world cannabis use depends heavily on access, law, culture, age, peer environment, health context, and personal choices, so this output should not be read as a deterministic behavior forecast."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about real-world behavior.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative research values, not population-wide or behavioral benchmarks.",
+    "product_status":  "experimental_sensitive_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "research_review",
+    "tags":  [
+                 "experimental",
+                 "sensitive_lifestyle",
+                 "raw_array",
+                 "non_consumer"
+             ],
+    "notes_file":  "data/pgs/PGS003504_cannabis_use_notes.md"
+}

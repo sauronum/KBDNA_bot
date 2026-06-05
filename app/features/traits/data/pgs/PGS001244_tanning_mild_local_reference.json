@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 1,
+  "trait": "Ease of skin tanning (get mildly or occasionally tanned)",
+  "trait_id": "pgs001244_tanning",
+  "display_name": "Skin tanning tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 39,
+  "sample_count_included": 38,
+  "sample_count_excluded": 1,
+  "mean": 0.4653792675928948,
+  "sd": 0.2591806171178216,
+  "min": -0.023074416199999996,
+  "max": 1.12965386328,
+  "p5": 0.08958946152499994,
+  "p10": 0.14689965168,
+  "p25": 0.31796325760750005,
+  "p50": 0.4130744767600001,
+  "p75": 0.6598918371450001,
+  "p90": 0.7806956716120002,
+  "p95": 0.9181529067439999,
+  "scoring_file_name": "PGS001244_tanning_mild.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS001244_tanning_mild.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001244",
+    "pgs_name": "GBE_BIN_FC30001727",
+    "trait_reported": "Ease of skin tanning (get mildly or occasionally tanned)",
+    "genome_build": "GRCh37",
+    "variants_number": "958",
+    "weight_type": "NR",
+    "citation": "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS001244_tanning_mild_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS001244_tanning_mild_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 100,
+  "trait_block": {
+    "trait_id": "pgs001244_tanning",
+    "display_name": "Skin tanning tendency",
+    "reported_name": "Ease of skin tanning (get mildly or occasionally tanned)",
+    "pgs_id": "PGS001244",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.4653792675928948,
+    "sd": 0.2591806171178216,
+    "min": -0.023074416199999996,
+    "max": 1.12965386328,
+    "p5": 0.08958946152499994,
+    "p10": 0.14689965168,
+    "p25": 0.31796325760750005,
+    "p50": 0.4130744767600001,
+    "p75": 0.6598918371450001,
+    "p90": 0.7806956716120002,
+    "p95": 0.9181529067439999
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 958,
+    "minimum_matched_variants": 100,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 38
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs001244_tanning",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 39,
+    "sample_count_included": 38,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Dekkushev (ataul Mırzakai)_Chrom_Autoso_20251113",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_B_Esekku_Chrom_Autoso_20260208",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 100,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-03-27T17:06:33Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS001244_tanning_mild_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS001244_tanning_mild_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "a2ae384611ca088f62e14e58bfc2439c1d07aef0af3a308168573afb1985e580",
+    "scoring_file_sha256": "dbe19beb508b2191f18fb1ac9bb452f2ef484afdaae707c74ecc24575fb735ee",
+    "manifest_entries_sha256": "35bacc93158442ab73cecc9920bc49dbcbe510ebf83c396b310707126f8acf34"
+  }
+}

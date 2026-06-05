@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs000994_tea_consumption",
+  "pgs_id": "PGS000994",
+  "display_name": "Tea intake tendency",
+  "short_name": "Tea intake",
+  "group": "nutrition",
+  "category": "consumer_nutrition_trait",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing nutrition trait that reports a cautious panel-relative signal related to tea-intake tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing nutrition trait with workable raw-array support and a clear interpretation boundary between inherited tendency and real-world beverage habits.",
+  "what_it_measures": "A panel-relative polygenic signal associated with a tendency toward higher or lower tea intake, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Tea intake is presented here as a cautious relative nutrition signal, not a direct readout of your current daily tea or caffeine intake. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic readout of current tea intake, caffeine intake, hydration, or medical advice.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Real-world tea intake depends strongly on culture, region, household habits, caffeine tolerance, work routine, health advice, and beverage availability.",
+    "This trait should not be treated as a hydration assessment, caffeine-sensitivity result, or dietary recommendation."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from staged raw-array files in this project; they are panel-relative, not population-wide.",
+  "product_status": "consumer_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer",
+  "tags": [
+    "nutrition",
+    "tea",
+    "caffeine",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS000994_tea_consumption_notes.md"
+}

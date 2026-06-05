@@ -1,0 +1,36 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs003835_height",
+    "pgs_id":  "PGS003835",
+    "display_name":  "Height",
+    "short_name":  "Height",
+    "group":  "body",
+    "category":  "consumer_physical_trait",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing physical trait that reports a cautious panel-relative signal related to adult height within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing physical trait with the strongest current raw-array support and a clearer interpretation boundary between height-related genetic signal and real-world measured stature for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with adult height tendency, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Height is presented here as a cautious panel-relative signal, not as a direct prediction of measured adult height. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result or as a direct prediction of measured adult height.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Real-world measured height also depends on childhood nutrition, health, developmental environment, sex-specific effects, and other non-modeled factors, so this should not be treated as a precise prediction of adult height in centimeters."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "physical_trait",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS003835_height_EUR_CT_notes.md"
+}

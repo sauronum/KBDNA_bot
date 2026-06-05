@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Appendicular lean mass",
+  "trait_id": "pgs005315_appendicular_lean_mass",
+  "display_name": "Appendicular lean mass tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.2533264705882353,
+  "sd": 0.14199439986642293,
+  "min": -0.09069999999999998,
+  "max": 0.48030000000000006,
+  "p5": -0.014494999999999984,
+  "p10": 0.019980000000000046,
+  "p25": 0.18654999999999997,
+  "p50": 0.28015000000000007,
+  "p75": 0.35992500000000005,
+  "p90": 0.42569,
+  "p95": 0.45768499999999995,
+  "scoring_file_name": "PGS005315_appendicular_lean_mass.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS005315_appendicular_lean_mass.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS005315",
+    "pgs_name": "ALM_PRS",
+    "trait_reported": "Appendicular lean mass",
+    "genome_build": "NR",
+    "variants_number": "630",
+    "weight_type": "beta",
+    "citation": "Türkmen D et al. Pharmacogenomics J (2024). doi:10.1038/s41397-024-00333-2"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS005315_appendicular_lean_mass_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS005315_appendicular_lean_mass_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 25,
+  "trait_block": {
+    "trait_id": "pgs005315_appendicular_lean_mass",
+    "display_name": "Appendicular lean mass tendency",
+    "reported_name": "Appendicular lean mass",
+    "pgs_id": "PGS005315",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.2533264705882353,
+    "sd": 0.14199439986642293,
+    "min": -0.09069999999999998,
+    "max": 0.48030000000000006,
+    "p5": -0.014494999999999984,
+    "p10": 0.019980000000000046,
+    "p25": 0.18654999999999997,
+    "p50": 0.28015000000000007,
+    "p75": 0.35992500000000005,
+    "p90": 0.42569,
+    "p95": 0.45768499999999995
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 630,
+    "minimum_matched_variants": 25,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs005315_appendicular_lean_mass",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 25,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-08T20:09:15Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS005315_appendicular_lean_mass_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS005315_appendicular_lean_mass_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "979139ac654206b4259b1e7d45f1a333b87d5cd0402ee19e12ea59c6daa197a7",
+    "scoring_file_sha256": "3e3df91862fbd7c0691a4ae018bbd4727690f8ff05353812d4dc694c58476525",
+    "manifest_entries_sha256": "76121fc9ad348b9a9bb4daf85a900f5cd103251fe03636239eacc9b33c19d06c"
+  }
+}

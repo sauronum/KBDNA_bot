@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Colorectal cancer",
+  "trait_id": "pgs004243_colorectal_cancer",
+  "display_name": "Colorectal cancer polygenic signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 33,
+  "sample_count_excluded": 1,
+  "mean": 1.2441143065938833,
+  "sd": 0.24765584796947376,
+  "min": 0.8541865653890593,
+  "max": 1.659325738390102,
+  "p5": 0.8622164801019011,
+  "p10": 0.8726140250645856,
+  "p25": 1.03744088420007,
+  "p50": 1.2703581310191858,
+  "p75": 1.446089762638048,
+  "p90": 1.5735845324301156,
+  "p95": 1.6327544462066823,
+  "scoring_file_name": "PGS004243_colorectal_cancer.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS004243_colorectal_cancer.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS004243",
+    "pgs_name": "PRS67_colorectum",
+    "trait_reported": "Colorectal cancer",
+    "genome_build": "NR",
+    "variants_number": "67",
+    "weight_type": "log(OR)",
+    "citation": "Kim ES et al. NPJ Precis Oncol (2023). doi:10.1038/s41698-023-00377-w"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS004243_colorectal_cancer_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS004243_colorectal_cancer_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 20.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs004243_colorectal_cancer",
+    "display_name": "Colorectal cancer polygenic signal",
+    "reported_name": "Colorectal cancer",
+    "pgs_id": "PGS004243",
+    "registry_status": "experimental"
+  },
+  "distribution": {
+    "mean": 1.2441143065938833,
+    "sd": 0.24765584796947376,
+    "min": 0.8541865653890593,
+    "max": 1.659325738390102,
+    "p5": 0.8622164801019011,
+    "p10": 0.8726140250645856,
+    "p25": 1.03744088420007,
+    "p50": 1.2703581310191858,
+    "p75": 1.446089762638048,
+    "p90": 1.5735845324301156,
+    "p95": 1.6327544462066823
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 67,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 20.0,
+    "included_score_count": 33
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs004243_colorectal_cancer",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 33,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Rashit_Chrom_Autoso_20260225"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 20.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-03T19:33:05Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS004243_colorectal_cancer_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS004243_colorectal_cancer_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "92d7d07679d609a8308ae0615e86e4b7401ebc9897f522869de55e37f2948bce",
+    "scoring_file_sha256": "709fc93cdaad8661856cce59a005843b1b759f12cefef0ca3610cfc960219f47",
+    "manifest_entries_sha256": "66e89beaad96e26f2196d4b8bdb1c6181355a432ef9f3058971837a40fcca65d"
+  }
+}

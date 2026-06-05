@@ -1,0 +1,112 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Friendship satisfaction",
+  "trait_id": "pgs001398_friendship_satisfaction",
+  "display_name": "Friendship satisfaction tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 63,
+  "sample_count_included": 63,
+  "sample_count_excluded": 0,
+  "mean": 0.02542455881365081,
+  "sd": 0.013005087781289367,
+  "min": -0.0016052208200000016,
+  "max": 0.05177980155,
+  "p5": 0.0013463691280000004,
+  "p10": 0.003612421770000003,
+  "p25": 0.019129865174999997,
+  "p50": 0.026277708549999994,
+  "p75": 0.035072841185,
+  "p90": 0.04068432987200001,
+  "p95": 0.042072821217999996,
+  "scoring_file_name": "PGS001398_friendship_satisfaction.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001398_friendship_satisfaction.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001398",
+    "pgs_name": "GBE_QT_FC1004570",
+    "trait_reported": "Friendship satisfaction",
+    "genome_build": "GRCh37",
+    "variants_number": "659",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001398; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001398_friendship_satisfaction",
+    "display_name": "Friendship satisfaction tendency",
+    "reported_name": "Friendship satisfaction",
+    "pgs_id": "PGS001398",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.02542455881365081,
+    "sd": 0.013005087781289367,
+    "min": -0.0016052208200000016,
+    "max": 0.05177980155,
+    "p5": 0.0013463691280000004,
+    "p10": 0.003612421770000003,
+    "p25": 0.019129865174999997,
+    "p50": 0.026277708549999994,
+    "p75": 0.035072841185,
+    "p90": 0.04068432987200001,
+    "p95": 0.042072821217999996
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 659,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 63
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs001398_friendship_satisfaction",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 63,
+    "sample_count_included": 63,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T06:31:43Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "8fd5accec8d9de302c0b4882a8089e659538c2c0c8d2e6c63d2f5652bc7539a4",
+    "artifact_sha256": "1be726180903ad23df5480529e7bc55bdcbefddcbb537d16ca3c9bfbc6304670"
+  }
+}

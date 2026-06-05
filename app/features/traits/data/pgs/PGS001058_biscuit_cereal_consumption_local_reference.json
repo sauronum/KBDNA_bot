@@ -1,0 +1,112 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Cereal consumption (biscuit cereal)",
+  "trait_id": "pgs001058_biscuit_cereal_consumption",
+  "display_name": "Biscuit cereal consumption tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 63,
+  "sample_count_included": 63,
+  "sample_count_excluded": 0,
+  "mean": 0.019599912077777774,
+  "sd": 0.01969145726061028,
+  "min": -0.03767713529999999,
+  "max": 0.0879106459,
+  "p5": -0.010125726259999999,
+  "p10": -0.002452878799999999,
+  "p25": 0.006405439800000001,
+  "p50": 0.018916731900000004,
+  "p75": 0.02997102225,
+  "p90": 0.04279359808000001,
+  "p95": 0.051355501469999995,
+  "scoring_file_name": "PGS001058_biscuit_cereal_consumption.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001058_biscuit_cereal_consumption.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001058",
+    "pgs_name": "GBE_BIN_FC20001468",
+    "trait_reported": "Cereal consumption (biscuit cereal)",
+    "genome_build": "GRCh37",
+    "variants_number": "146",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001058; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001058_biscuit_cereal_consumption",
+    "display_name": "Biscuit cereal consumption tendency",
+    "reported_name": "Cereal consumption (biscuit cereal)",
+    "pgs_id": "PGS001058",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.019599912077777774,
+    "sd": 0.01969145726061028,
+    "min": -0.03767713529999999,
+    "max": 0.0879106459,
+    "p5": -0.010125726259999999,
+    "p10": -0.002452878799999999,
+    "p25": 0.006405439800000001,
+    "p50": 0.018916731900000004,
+    "p75": 0.02997102225,
+    "p90": 0.04279359808000001,
+    "p95": 0.051355501469999995
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 146,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 63
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs001058_biscuit_cereal_consumption",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 63,
+    "sample_count_included": 63,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T06:31:37Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "870199be85385bd9016ff4a4032fa4d55ce023001c9835cae4b9c8aeb039f017",
+    "artifact_sha256": "8f772dcb7aa3976e8e9a7c10b4b34487f7721aa6d9bbbe888a207cdfd7cdc2f5"
+  }
+}

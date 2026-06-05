@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001543_right_caudate_volume",
+  "pgs_id": "PGS001543",
+  "display_name": "Right-caudate-volume polygenic signal",
+  "short_name": "Right caudate volume",
+  "group": "sensitive_research",
+  "category": "experimental_neuro_trait",
+  "status": "experimental",
+  "consumer_ready": false,
+  "short_description": "Experimental neuroanatomy trait retained for research inspection of right-caudate-volume score behavior within the strict no-imputation raw-array workflow; it is not consumer-ready.",
+  "summary_note": "Experimental non-consumer neuroanatomy trait used to inspect how a right-caudate-volume-related score behaves under the current strict raw-array workflow without imputation.",
+  "what_it_measures": "A panel-relative polygenic signal associated with the bundled right-caudate-volume score, calibrated within the current local empirical reference panel for research inspection only.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "This is an experimental research-facing output, not a brain scan, not a cognitive assessment, and not a substitute for clinical or imaging evaluation. {interpretation}",
+  "caution_text": "Experimental research output only. No imputation or ancestry-adjusted normalization is used, and the result should not be treated as a diagnosis, a brain-health assessment, or medical advice.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "This trait is not consumer-ready and should stay in research review unless a separate product decision is made.",
+    "Real-world caudate volume depends on age, development, brain injury, imaging protocol, disease processes, and many environmental and biological factors, so this output should not be read as a deterministic neuroanatomy forecast."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about real-world caudate anatomy.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative research values, not population-wide or clinical benchmarks.",
+  "product_status": "experimental_sensitive_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "research_review",
+  "tags": [
+    "experimental",
+    "neuroanatomy",
+    "brain",
+    "raw_array",
+    "non_consumer"
+  ],
+  "notes_file": "data/pgs/PGS001543_right_caudate_volume_notes.md"
+}

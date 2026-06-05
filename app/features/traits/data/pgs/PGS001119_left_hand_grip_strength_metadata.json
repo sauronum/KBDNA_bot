@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001119_left_hand_grip_strength",
+  "pgs_id": "PGS001119",
+  "display_name": "Left-hand grip-strength tendency",
+  "short_name": "Left grip strength",
+  "group": "lifestyle",
+  "category": "consumer_fitness_trait",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing fitness trait that reports a cautious panel-relative signal for left-hand grip-strength tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing strength trait describing a cautious inherited signal related to left-hand grip strength relative to the current local reference panel.",
+  "what_it_measures": "A panel-relative polygenic signal associated with left-hand grip-strength tendency, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "This is a cautious panel-relative strength signal, not a direct measurement of your current left-hand grip strength. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a direct readout of current strength, gym performance, injury recovery, or athletic ability.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Current grip strength depends strongly on training, injury, hand dominance, occupation, age, body size, pain, and health status.",
+    "This trait should not be used as a rehab, neurology, or sports-performance assessment."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+  "product_status": "consumer_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer",
+  "tags": [
+    "fitness",
+    "strength",
+    "grip",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS001119_left_hand_grip_strength_notes.md"
+}

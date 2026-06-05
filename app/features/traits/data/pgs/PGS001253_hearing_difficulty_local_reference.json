@@ -1,0 +1,127 @@
+{
+    "artifact_type":  "pgs_reference_distribution",
+    "reference_schema_version":  1,
+    "engine_version":  "pgs-mvp-1",
+    "registry_version":  2,
+    "trait":  "Hearing difficulty",
+    "trait_id":  "pgs001253_hearing_difficulty",
+    "display_name":  "Hearing-difficulty polygenic signal",
+    "reference_type":  "local_empirical",
+    "valid":  true,
+    "warnings":  [
+
+                 ],
+    "invalid_reasons":  [
+
+                        ],
+    "sample_count_total":  34,
+    "sample_count_included":  34,
+    "sample_count_excluded":  0,
+    "mean":  0.16444404843014704,
+    "sd":  0.07047144740183922,
+    "min":  0.030746403110000025,
+    "max":  0.3584053452700002,
+    "p5":  0.05311359883949997,
+    "p10":  0.08300506061550006,
+    "p25":  0.12288411792125004,
+    "p50":  0.15459420508249994,
+    "p75":  0.20702493587749976,
+    "p90":  0.2535795492124999,
+    "p95":  0.28790005630150006,
+    "scoring_file_name":  "PGS001253_hearing_difficulty.txt.gz",
+    "scoring_file_path":  "data\\pgs\\PGS001253_hearing_difficulty.txt.gz",
+    "scoring_metadata":  {
+                             "pgs_id":  "PGS001253",
+                             "pgs_name":  "GBE_BIN_FC1002247",
+                             "trait_reported":  "Hearing difficulty",
+                             "genome_build":  "GRCh37",
+                             "variants_number":  "3098",
+                             "weight_type":  "NR",
+                             "citation":  "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+                         },
+    "minimum_reference_samples":  5,
+    "manifest_json":  "data\\pgs\\PGS001253_hearing_difficulty_local_reference_manifest.json",
+    "manifest_tsv":  "data\\pgs\\PGS001253_hearing_difficulty_local_reference_manifest.tsv",
+    "input_dir":  "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "input_format_requested":  "auto",
+    "include_glob":  [
+
+                     ],
+    "exclude_glob":  [
+
+                     ],
+    "minimum_overlap_percent":  10.0,
+    "minimum_matched_variants":  20,
+    "trait_block":  {
+                        "trait_id":  "pgs001253_hearing_difficulty",
+                        "display_name":  "Hearing-difficulty polygenic signal",
+                        "reported_name":  "Hearing difficulty",
+                        "pgs_id":  "PGS001253",
+                        "registry_status":  "experimental"
+                    },
+    "distribution":  {
+                         "mean":  0.16444404843014704,
+                         "sd":  0.07047144740183922,
+                         "min":  0.030746403110000025,
+                         "max":  0.3584053452700002,
+                         "p5":  0.05311359883949997,
+                         "p10":  0.08300506061550006,
+                         "p25":  0.12288411792125004,
+                         "p50":  0.15459420508249994,
+                         "p75":  0.20702493587749976,
+                         "p90":  0.2535795492124999,
+                         "p95":  0.28790005630150006
+                     },
+    "variant_statistics":  {
+                               "total_scoring_variants":  3098,
+                               "minimum_matched_variants":  20,
+                               "minimum_overlap_percent":  10.0,
+                               "included_score_count":  34
+                           },
+    "source_dataset":  {
+                           "source_dataset_id":  "local_empirical::Autosomal::pgs001253_hearing_difficulty",
+                           "source_name":  "Autosomal",
+                           "input_dir":  "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+                           "sample_count_total":  34,
+                           "sample_count_included":  34,
+                           "sample_count_excluded":  0,
+                           "included_sample_ids_preview":  [
+                                                               "37_A_Ata_Chrom_Autoso_20260225",
+                                                               "37_A_Berberov_Chrom_Autoso_20260224",
+                                                               "37_A_Borlakova_Chrom_Autoso_20260202",
+                                                               "37_A_Hogayliev_Chrom_Autoso_20250717",
+                                                               "37_A_Khubiev_Chrom_Autoso_20260206",
+                                                               "37_A_Salpagarova_Chrom_Autoso_20260112",
+                                                               "37_E_Ashat_Chrom_Autoso_20251104",
+                                                               "37_E_Aznaur_Chrom_Autoso_20251108",
+                                                               "37_E_Nauruzbi_Chrom_Autoso_20251115",
+                                                               "37_K_Khasanov_Chrom_Autoso_20251118"
+                                                           ],
+                           "included_sample_ids_truncated":  true
+                       },
+    "build":  {
+                  "mode":  "pgs-build-reference",
+                  "input_format_requested":  "auto",
+                  "minimum_reference_samples":  5,
+                  "minimum_matched_variants":  20,
+                  "minimum_overlap_percent":  10.0,
+                  "include_glob":  [
+
+                                   ],
+                  "exclude_glob":  [
+
+                                   ]
+              },
+    "provenance":  {
+                       "build_timestamp_utc":  "2026-04-10T19:15:12Z",
+                       "build_mode":  "pgs-build-reference",
+                       "manifest_json":  "data\\pgs\\PGS001253_hearing_difficulty_local_reference_manifest.json",
+                       "manifest_tsv":  "data\\pgs\\PGS001253_hearing_difficulty_local_reference_manifest.tsv"
+                   },
+    "fingerprint":  {
+                        "algorithm":  "sha256",
+                        "artifact_sha256":  "227371b33249a23a2f5fd2d35f0b25c9caa8c1d96698254609686fca8ee0024f",
+                        "scoring_file_sha256":  "f12f0780bf0be7a84f9e2830df8e0ad6cab358021b190939b700a15ca461a008",
+                        "manifest_entries_sha256":  "43d118a263385abd59fbace427fb6374a1fc727ab186bf6ffb305decbe86bc03"
+                    }
+}

@@ -1,0 +1,38 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs004243_colorectal_cancer",
+    "pgs_id":  "PGS004243",
+    "display_name":  "Colorectal cancer polygenic signal",
+    "short_name":  "Colorectal cancer",
+    "group":  "sensitive_research",
+    "category":  "experimental_health_risk",
+    "status":  "experimental",
+    "consumer_ready":  false,
+    "short_description":  "Experimental health-risk trait retained for research inspection of colorectal-cancer score behavior within the strict no-imputation raw-array workflow; it is not consumer-ready.",
+    "summary_note":  "Experimental non-consumer health-risk trait used to inspect how a bundled colorectal-cancer score behaves under the current strict raw-array workflow without imputation.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with the bundled colorectal-cancer score, calibrated within the current local empirical reference panel for research inspection only.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "This is an experimental research-facing output, not a diagnosis, not a screening result, and not a clinical estimate of personal cancer risk. {interpretation}",
+    "caution_text":  "Experimental research output only. No imputation or ancestry-adjusted normalization is used, and the result should not be treated as a medical prediction, a screening decision, or personal cancer advice.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "This trait is not consumer-ready and should stay in research review unless a separate product decision is made.",
+                        "Real-world colorectal-cancer risk depends heavily on age, family history, screening history, ancestry context, lifestyle, environment, and many non-modeled clinical factors.",
+                        "The current output is a strict raw-array polygenic signal only and should not be used to delay, replace, or reinterpret medical screening or physician guidance."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about real-world disease risk.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative research values, not population-wide or clinical benchmarks.",
+    "product_status":  "experimental_medical_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "research_review",
+    "tags":  [
+                 "experimental",
+                 "health_risk",
+                 "raw_array",
+                 "non_consumer"
+             ],
+    "notes_file":  "data/pgs/PGS004243_colorectal_cancer_notes.md"
+}

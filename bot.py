@@ -1,78 +1,212 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import html
-import json
+from functools import partial
 import logging
 import os
 import re
-import sqlite3
-import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
-from typing import Optional
+from types import SimpleNamespace
 
-import gspread
 from dotenv import load_dotenv
-from google.oauth2.service_account import Credentials
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, ApplicationHandlerStop, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
-from g25_feature.command_service import G25CommandError, G25CommandService
+from handlers.analytics import (
+    g25stats_command,
+    haplo_callback_handler,
+    haplo_command,
+    send_haplo_root_message as _send_haplo_root_message,
+    stats_command,
+)
+from ui.common import (
+    BOTTOM_BUTTON_BACK,
+    BOTTOM_BUTTON_CANCEL,
+    BOTTOM_BUTTON_DNA_LAB,
+    BOTTOM_BUTTON_GET_G25,
+    BOTTOM_BUTTON_HELP,
+    BOTTOM_BUTTON_COORDINATE_SPACES,
+    BOTTOM_BUTTON_LAB,
+    BOTTOM_BUTTON_LOOKUP,
+    BOTTOM_BUTTON_MATCHING,
+    BOTTOM_BUTTON_MORE,
+    BOTTOM_BUTTON_MODELING,
+    BOTTOM_BUTTON_MY_DNA,
+    BOTTOM_BUTTON_SETTINGS,
+    BOTTOM_BUTTON_SOZLUK,
+    BOTTOM_BUTTON_STATS,
+    BOTTOM_BUTTON_SUPPORT,
+    BOTTOM_BUTTON_TRAITS,
+    BOTTOM_BUTTON_VAHADUO,
+    BOTTOM_BUTTON_YSTR,
+    HELP_ROOT_TEXT,
+    MORE_BUTTON_ADMIXTURE,
+    MORE_BUTTON_HAPLOGROUPS,
+    build_bottom_menu_keyboard as build_bottom_menu_keyboard_ui,
+    build_group_sections_keyboard as build_group_sections_keyboard_ui,
+    build_help_keyboard as build_help_keyboard_ui,
+    build_help_section_keyboard as build_help_section_keyboard_ui,
+    build_help_inline_keyboard as build_help_inline_keyboard_ui,
+    build_laboratory_inline_keyboard as build_laboratory_inline_keyboard_ui,
+    build_lookup_start_text,
+    build_my_dna_add_data_keyboard as build_my_dna_add_data_keyboard_ui,
+    build_my_dna_inline_keyboard as build_my_dna_inline_keyboard_ui,
+    build_stats_root_keyboard as build_stats_root_keyboard_ui,
+    help_section_text,
+)
+from clients.sheets import MtdnaSheetsClient, SheetsClient
+from handlers.lookup import (
+    find_command,
+    lookup_suggestion_callback_handler,
+    text_lookup_command,
+)
+from features.sozluk import SozlukClient
+from handlers.sozluk import (
+    clear_sozluk_pending as _clear_sozluk_pending,
+    open_sozluk_inline_menu as _open_sozluk_inline_menu,
+    send_sozluk_menu as _send_sozluk_menu,
+    sozluk_command,
+    sozluk_pending_text_handler,
+)
+from stores.usage import UsageStore
+from stores.vahaduo import G25AccessStore
+from handlers.ystr import (
+    clear_ystr_pending as _clear_ystr_pending,
+    open_ystr_root_inline_menu as _open_ystr_root_inline_menu,
+    send_ystr_root_message as _send_ystr_root_message,
+    ystr_callback_handler,
+    ystr_document_input_handler,
+    ystr_pending_text_handler,
+)
+from app.features.admixture.menu import (
+    ADMIXTURE_CALLBACK_PREFIX as DNA_LAB_ADMIXTURE_CALLBACK_PREFIX,
+    admixture_callback_handler as dna_lab_admixture_callback_handler,
+    register_admixture_services as register_dna_lab_admixture_services,
+    show_admixture_menu as show_dna_lab_admixture_menu,
+)
+from app.features.coordinate_space.menu import (
+    COORDINATE_SPACE_CALLBACK_PREFIX as DNA_LAB_COORDINATE_SPACE_CALLBACK_PREFIX,
+    coordinate_space_callback_handler as dna_lab_coordinate_space_callback_handler,
+    show_coordinate_space_menu as show_dna_lab_coordinate_space_menu,
+)
+from app.features.haplogroups.menu import (
+    HAPLOGROUPS_CALLBACK_PREFIX as DNA_LAB_HAPLOGROUPS_CALLBACK_PREFIX,
+    haplogroups_callback_handler as dna_lab_haplogroups_callback_handler,
+    haplogroups_document_input_handler as dna_lab_haplogroups_document_input_handler,
+    haplogroups_text_input_handler as dna_lab_haplogroups_text_input_handler,
+    register_haplogroup_services as register_dna_lab_haplogroup_services,
+    show_haplogroups_menu as show_dna_lab_haplogroups_menu,
+)
+from app.features.matching.menu import (
+    MATCHING_CALLBACK_PREFIX as DNA_LAB_MATCHING_CALLBACK_PREFIX,
+    matching_callback_handler as dna_lab_matching_callback_handler,
+    matching_text_input_handler as dna_lab_matching_text_input_handler,
+    register_matching_services as register_dna_lab_matching_services,
+    show_matching_menu as show_dna_lab_matching_menu,
+)
+from app.features.modeling.menu import (
+    MODELING_CALLBACK_PREFIX as DNA_LAB_MODELING_CALLBACK_PREFIX,
+    modeling_callback_handler as dna_lab_modeling_callback_handler,
+    show_modeling_menu as show_dna_lab_modeling_menu,
+)
+from app.features.my_data.menu import (
+    MY_DATA_CALLBACK_PREFIX as DNA_LAB_MY_DATA_CALLBACK_PREFIX,
+    my_data_callback_handler as dna_lab_my_data_callback_handler,
+    my_data_document_input_handler as dna_lab_my_data_document_input_handler,
+    my_data_text_input_handler as dna_lab_my_data_text_input_handler,
+    open_quick_g25_prompt as open_dna_lab_quick_g25_prompt,
+    register_my_data_services as register_dna_lab_my_data_services,
+    show_my_data_menu as show_dna_lab_my_data_menu,
+    show_sample_reports_menu as show_dna_lab_sample_reports_menu,
+    show_view_coordinates_menu as show_dna_lab_view_coordinates_menu,
+    show_view_samples_menu as show_dna_lab_view_samples_menu,
+)
+from app.features.reports.menu import (
+    REPORTS_CALLBACK_PREFIX as DNA_LAB_REPORTS_CALLBACK_PREFIX,
+    reports_callback_handler as dna_lab_reports_callback_handler,
+    show_reports_menu as show_dna_lab_reports_menu,
+)
+from app.features.settings.menu import (
+    SETTINGS_CALLBACK_PREFIX as DNA_LAB_SETTINGS_CALLBACK_PREFIX,
+    build_card_format_keyboard as build_global_card_format_keyboard,
+    build_language_keyboard as build_global_language_keyboard,
+    build_notifications_keyboard as build_global_notifications_keyboard,
+    build_privacy_keyboard as build_global_privacy_keyboard,
+    build_privacy_placeholder_keyboard as build_global_privacy_placeholder_keyboard,
+    build_result_mode_keyboard as build_global_result_mode_keyboard,
+    build_search_base_keyboard as build_global_search_base_keyboard,
+    build_settings_keyboard as build_global_settings_keyboard,
+    card_format_text as global_card_format_text,
+    get_user_card_format as get_global_user_card_format,
+    get_user_notifications_enabled as get_global_user_notifications_enabled,
+    get_user_result_mode as get_global_user_result_mode,
+    get_user_search_base as get_global_user_search_base,
+    language_text as global_language_text,
+    notifications_text as global_notifications_text,
+    privacy_data_summary as global_privacy_data_summary,
+    privacy_placeholder_text as global_privacy_placeholder_text,
+    privacy_text as global_privacy_text,
+    register_settings_services as register_dna_lab_settings_services,
+    result_mode_text as global_result_mode_text,
+    search_base_text as global_search_base_text,
+    set_user_card_format as set_global_user_card_format,
+    set_user_language as set_global_user_language,
+    set_user_notifications_enabled as set_global_user_notifications_enabled,
+    set_user_result_mode as set_global_user_result_mode,
+    set_user_search_base as set_global_user_search_base,
+    show_privacy_delete_confirm as show_global_privacy_delete_confirm,
+    show_privacy_delete_done as show_global_privacy_delete_done,
+    show_privacy_export_menu as show_global_privacy_export_menu,
+    show_privacy_export_result as show_global_privacy_export_result,
+    settings_callback_handler as dna_lab_settings_callback_handler,
+    settings_text as global_settings_text,
+)
+from app.features.settings.storage import (
+    SEARCH_BASE_ABAZA,
+    SEARCH_BASE_ABKHAZ,
+    SEARCH_BASE_ADYGHE,
+    SEARCH_BASE_KBDNA,
+)
+from app.features.traits.menu import (
+    TRAITS_CALLBACK_PREFIX as DNA_LAB_TRAITS_CALLBACK_PREFIX,
+    register_traits_services as register_dna_lab_traits_services,
+    show_traits_root_menu as show_dna_lab_traits_root_menu,
+    traits_callback_handler as dna_lab_traits_callback_handler,
+)
+from app.features.vahaduo.menu import (
+    VAHADUO_CALLBACK_PREFIX as DNA_LAB_VAHADUO_CALLBACK_PREFIX,
+    register_vahaduo_services as register_dna_lab_vahaduo_services,
+    show_vahaduo_menu as show_dna_lab_vahaduo_menu,
+    vahaduo_callback_handler as dna_lab_vahaduo_callback_handler,
+    vahaduo_document_input_handler as dna_lab_vahaduo_document_input_handler,
+    vahaduo_text_input_handler as dna_lab_vahaduo_text_input_handler,
+)
+from app.i18n import get_user_language as get_dna_lab_user_language
+from app.main_menu import (
+    G25_COORDINATES_REPLY_BUTTON_TEXT,
+    MAIN_CALLBACK_PREFIX as DNA_LAB_MAIN_CALLBACK_PREFIX,
+    set_active_main_menu_message as set_active_dna_lab_menu_message,
+)
 
 BUILD_ID = "build-2026-04-09-1950"
-LOCAL_DB_PATH = Path("haplogroup_info_ru.json")
-EMOJI_MAP_PATH = Path("haplogroup_emoji_map.json")
-YFULL_LINKS_PATH = Path("yfull_links.json")
 USAGE_DB_PATH = Path("usage_stats.sqlite3")
 G25_ACCESS_PATH = Path("g25_access.json")
-PANEL_COMMAND = "panel"
-PANEL_CALLBACK_PREFIX = "panel"
-PANEL2_COMMAND = "panel2"
-PANEL2_CALLBACK_PREFIX = "panel2"
-G25MENU_COMMAND = "g25menu"
-G25MENU_CALLBACK_PREFIX = "g25menu"
+DEFAULT_MTDNA_SPREADSHEET_ID = "1Vdh5RB7X2LBLNZnO6L61VHWmaK_puP8C2hVxKlO6abE"
+DEFAULT_ADYGHE_ABKHAZ_SPREADSHEET_ID = "1on2rH1tsd8I2RebbWbqRct9qzbYKEC0hH0nZ0RLGbY0"
+DEFAULT_ADYGHE_ABKHAZ_WORKSHEET = "Haplotypes"
+SOZLUK_COMMAND = "sozluk"
+SOZLUK_SHORT_COMMAND = "s"
+YSTR_CALLBACK_PREFIX = "ystr"
+MENU_CALLBACK_PREFIX = "menu"
+LAB_CALLBACK_PREFIX = "lab"
+HELP_CALLBACK_PREFIX = "help"
+MY_DNA_CALLBACK_PREFIX = "mydna"
+MENU_COMMAND = "menu"
+HAPLO_COMMAND = "haplo"
+HAPLO_CALLBACK_PREFIX = "haplo"
+SOZLUK_DB_PATH = Path("sozluk_cache.sqlite3")
+UNTESTED_SURNAMES_PATH = Path("untested_surnames.txt")
 
-LOOKUP_START_TEXT = (
-    "Привет! Я ищу фамилии в базе KBDNA.\n\n"
-    "Отправьте фамилию одним сообщением или используйте <code>/f Фамилия</code>.\n"
-    "В ответ я покажу найденные совпадения и данные по ним.\n\n"
-    f"Версия: {BUILD_ID}"
-)
-
-KIT_GROUP_PREFIXES = (
-    "G2A2B2A",
-    "G2A2B",
-    "G2A2",
-    "G2A1A",
-    "G2A1",
-    "G2A",
-    "C2",
-    "E1B",
-    "H1A",
-    "I2A2B",
-    "I2A2A",
-    "I2A1A",
-    "I2B",
-    "I",
-    "J2A1B",
-    "J2A1",
-    "J2A",
-    "J2B",
-    "J2",
-    "J1",
-    "L",
-    "N1A1",
-    "N1B",
-    "O",
-    "Q1A1B",
-    "Q1A",
-    "R1B1",
-    "R1B",
-    "R1A",
-    "T1A",
-    "T",
-)
-
+LOOKUP_START_TEXT = build_lookup_start_text(BUILD_ID)
 
 logging.basicConfig(
     format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
@@ -80,802 +214,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-class SheetsClient:
-    def __init__(self, creds_path: str, spreadsheet_id: str, worksheet_name: str = "") -> None:
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
-        client = gspread.authorize(creds)
-        spreadsheet = client.open_by_key(spreadsheet_id)
-        self.worksheet = (
-            spreadsheet.worksheet(worksheet_name) if worksheet_name else spreadsheet.get_worksheet(0)
-        )
-        self.local_db = self._load_json(LOCAL_DB_PATH)
-        self.emoji_map = self._load_json(EMOJI_MAP_PATH)
-        self.yfull_links = self._load_yfull_links(YFULL_LINKS_PATH)
-        if not self.emoji_map:
-            self.emoji_map = self._default_emoji_map()
-
-    @staticmethod
-    def _normalize(value: str) -> str:
-        cleaned = value.strip().lower()
-        cleaned = cleaned.translate(
-            str.maketrans(
-                {
-                    "ё": "е",
-                    "–": "-",
-                    "—": "-",
-                    "−": "-",
-                    "‑": "-",
-                    "ʼ": "'",
-                    "’": "'",
-                    "`": "'",
-                }
-            )
-        )
-        cleaned = re.sub(r"\s*-\s*", "-", cleaned)
-        cleaned = " ".join(cleaned.split())
-        return cleaned
-
-    @staticmethod
-    def _normalize_key(value: str) -> str:
-        return value.strip().upper()
-
-    @staticmethod
-    def _find_col_index(headers: list[str], aliases: tuple[str, ...]) -> Optional[int]:
-        normalized = [h.strip().lower() for h in headers]
-        for alias in aliases:
-            a = alias.strip().lower()
-            if a in normalized:
-                return normalized.index(a)
-        return None
-
-    @staticmethod
-    def _parse_group_path(text: str) -> tuple[str, str]:
-        cleaned = " ".join(text.strip().split())
-        if not cleaned:
-            return "", ""
-
-        match = re.match(r"^([A-Za-z][A-Za-z0-9-]*)\b\s*(.*)$", cleaned)
-        if not match:
-            return "", ""
-
-        general = match.group(1).strip()
-        rest = match.group(2).strip()
-        return general, rest
-
-    @staticmethod
-    def _kit_value_starts_group(value: str) -> bool:
-        normalized = " ".join(value.strip().split()).upper()
-        if not normalized:
-            return False
-        return any(
-            normalized == prefix
-            or normalized.startswith(f"{prefix} ")
-            or normalized.startswith(f"{prefix}-")
-            for prefix in KIT_GROUP_PREFIXES
-        )
-
-    @classmethod
-    def _extract_group_from_kit(cls, kit_value: str) -> tuple[str, str]:
-        value = " ".join(kit_value.strip().split())
-        if not value or not cls._kit_value_starts_group(value):
-            return "", ""
-        return cls._parse_group_path(value)
-
-    @classmethod
-    def _extract_group_from_row(cls, row: list[str], kit_idx: Optional[int]) -> tuple[str, str]:
-        if kit_idx is None or len(row) <= kit_idx:
-            return "", ""
-        return cls._extract_group_from_kit(row[kit_idx])
-
-    @staticmethod
-    def _is_placeholder(value: str) -> bool:
-        stripped = value.strip()
-        if not stripped:
-            return True
-        return bool(re.fullmatch(r"[-–—_~.\s]+", stripped))
-
-    @staticmethod
-    def _load_json(path: Path) -> dict[str, str]:
-        if not path.exists():
-            return {}
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8-sig"))
-            return {str(k).upper(): str(v) for k, v in raw.items()}
-        except Exception as exc:
-            logger.warning("Failed to load %s: %s", path, exc)
-
-            return {}
-    @staticmethod
-    def _load_yfull_links(path: Path) -> dict[str, dict[str, str]]:
-        empty = {"by_subclade": {}, "by_terminal": {}}
-        if not path.exists():
-            return empty
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8-sig"))
-        except Exception as exc:
-            logger.warning("Failed to load %s: %s", path, exc)
-            return empty
-
-        return {
-            "by_subclade": {
-                " ".join(str(k).strip().upper().split()): str(v)
-                for k, v in raw.get("by_subclade", {}).items()
-                if str(k).strip() and str(v).strip()
-            },
-            "by_terminal": {
-                " ".join(str(k).strip().upper().split()): str(v)
-                for k, v in raw.get("by_terminal", {}).items()
-                if str(k).strip() and str(v).strip()
-            },
-        }
-
-    @staticmethod
-    def _default_emoji_map() -> dict[str, str]:
-        return {
-            "G": "??",
-            "R": "??",
-            "J": "??",
-            "E": "??",
-            "I": "??",
-            "N": "??",
-            "Q": "?",
-            "T": "??",
-        }
-
-    def _emoji_for_haplogroup(self, personal_haplo: str, general_group: str) -> str:
-        candidates = [
-            self._normalize_key(personal_haplo),
-            self._normalize_key(general_group),
-            self._first_letter_group(general_group or personal_haplo),
-        ]
-        for key in candidates:
-            if key and key in self.emoji_map:
-                return self.emoji_map[key]
-        return "?"
-
-    @staticmethod
-    def _normalize_subclade_key(value: str) -> str:
-        return " ".join(value.strip().upper().split())
-
-    @staticmethod
-    def _extract_terminal_snp(value: str) -> str:
-        cleaned = " ".join(value.strip().split())
-        if not cleaned:
-            return ""
-
-        parts = [part.strip() for part in cleaned.split(">") if part.strip() and part.strip() != "..."]
-        for part in reversed(parts):
-            base = re.split(r"\s*\(", part, maxsplit=1)[0].strip()
-            if base and not re.fullmatch(r"[xX][A-Za-z0-9-]+", base):
-                return base.split()[-1]
-
-        tokens = re.findall(r"[A-Za-z][A-Za-z0-9-]*", cleaned)
-        for token in reversed(tokens):
-            if not re.fullmatch(r"[xX][A-Za-z0-9-]+", token):
-                return token
-        return ""
-
-    @staticmethod
-    def _split_origin_parts(value: str) -> tuple[str, str]:
-        cleaned = " ".join(value.strip().split())
-        match = re.match(r"^(.+?)\s*\((.+)\)$", cleaned)
-        if not match:
-            return cleaned, ""
-        return match.group(1).strip(), match.group(2).strip()
-
-    @classmethod
-    def _format_origins(cls, origins: list[str]) -> str:
-        if not origins:
-            return "-"
-
-        ordered_bases: list[str] = []
-        detailed: dict[str, list[str]] = {}
-        plain: list[str] = []
-        plain_seen: set[str] = set()
-
-        for origin in origins:
-            base, detail = cls._split_origin_parts(origin)
-            if not base:
-                continue
-            if base not in ordered_bases:
-                ordered_bases.append(base)
-            if detail:
-                detailed.setdefault(base, [])
-                if detail not in detailed[base]:
-                    detailed[base].append(detail)
-            else:
-                key = cls._normalize(base)
-                if key not in plain_seen:
-                    plain_seen.add(key)
-                    plain.append(base)
-
-        lines: list[str] = []
-        used_plain: set[str] = set()
-        for base in ordered_bases:
-            details = detailed.get(base, [])
-            escaped_base = html.escape(base)
-            if details:
-                escaped_details = ", ".join(html.escape(detail) for detail in details)
-                lines.append(f"<b>{escaped_base}:</b> {escaped_details}")
-                used_plain.add(cls._normalize(base))
-            else:
-                key = cls._normalize(base)
-                if key not in used_plain and base in plain:
-                    lines.append(escaped_base)
-                    used_plain.add(key)
-
-        return "\n".join(lines) if lines else "-"
-
-    def _get_yfull_link(self, general_group: str, subclade: str) -> str:
-        if not subclade:
-            return ""
-
-        by_subclade = self.yfull_links.get("by_subclade", {})
-        by_terminal = self.yfull_links.get("by_terminal", {})
-
-        candidates = [self._normalize_subclade_key(subclade)]
-        if general_group:
-            candidates.append(self._normalize_subclade_key(f"{general_group} {subclade}"))
-            candidates.append(self._normalize_subclade_key(f"{general_group} - {subclade}"))
-
-        for candidate in candidates:
-            if candidate and candidate in by_subclade:
-                return by_subclade[candidate]
-
-        terminal_snp = self._normalize_subclade_key(self._extract_terminal_snp(subclade))
-        if terminal_snp and terminal_snp in by_terminal:
-            return by_terminal[terminal_snp]
-
-        return ""
-
-    @staticmethod
-    def _looks_russian(text: str) -> bool:
-        return bool(re.search(r"[А-Яа-яЁё]", text))
-
-    def _wiki_summary_ru(self, title: str) -> str:
-        encoded = urllib.parse.quote(title)
-        url = f"https://ru.wikipedia.org/api/rest_v1/page/summary/{encoded}"
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "KBDNA-bot/1.0 (haplogroup lookup)"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
-                text = str(payload.get("extract", "")).strip()
-                return text if self._looks_russian(text) else ""
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError):
-            return ""
-
-    @staticmethod
-    def _first_letter_group(value: str) -> str:
-        match = re.match(r"^([A-Za-z])", value.strip())
-        return match.group(1).upper() if match else ""
-
-    @staticmethod
-    def _shorten(text: str, max_len: int = 520) -> str:
-        clean = " ".join(text.split())
-        return clean if len(clean) <= max_len else clean[: max_len - 3] + "..."
-
-    def _get_local_info(self, personal_haplo: str, general_group: str) -> str:
-        keys = [
-            self._normalize_key(personal_haplo),
-            self._normalize_key(general_group),
-            self._normalize_key((general_group or personal_haplo)[:1]),
-        ]
-        for key in keys:
-            if key and key in self.local_db:
-                return self.local_db[key]
-        return ""
-
-    def _get_haplogroup_info(self, personal_haplo: str, general_group: str) -> str:
-        local = self._get_local_info(personal_haplo, general_group)
-        if local:
-            return self._shorten(local)
-
-        # Fallback only to Russian web source.
-        letter = self._first_letter_group(general_group or personal_haplo)
-        candidates = []
-        if general_group:
-            candidates.append(f"Гаплогруппа {general_group}")
-        if letter:
-            candidates.append(f"Гаплогруппа {letter}")
-
-        for title in candidates:
-            summary = self._wiki_summary_ru(title)
-            if summary:
-                return self._shorten(summary)
-
-        target = general_group or personal_haplo
-        return (
-            f"Для ветви {target} пока нет готового описания в локальной базе. "
-            "Добавьте текст в haplogroup_info_ru.json."
-        )
-
-    def get_groups_by_name(self, name: str) -> list[str]:
-        rows = self.worksheet.get_all_values()
-        if not rows:
-            return ["Таблица пуста."]
-
-        headers = rows[0]
-        name_idx = self._find_col_index(headers, ("name", "имя", "фамилия"))
-        haplo_idx = self._find_col_index(headers, ("гаплогруппа", "haplogroup"))
-        kit_idx = self._find_col_index(headers, ("kit number", "kit", "номер кита"))
-        ancestor_idx = self._find_col_index(
-            headers,
-            (
-                "paternal ancestor name",
-                "paternal ancestor",
-                "предок по отцовской линии",
-                "отцовский предок",
-                "происхождение",
-            ),
-        )
-
-        if name_idx is None or haplo_idx is None:
-            return ["Не найдены нужные колонки: Name/Имя/Фамилия и/или Гаплогруппа."]
-
-        current_general = ""
-        current_subclade = ""
-        entries: list[dict[str, str]] = []
-
-        for row in rows[1:]:
-            row_name = row[name_idx].strip() if len(row) > name_idx else ""
-            row_haplo = row[haplo_idx].strip() if len(row) > haplo_idx else ""
-            row_ancestor = row[ancestor_idx].strip() if ancestor_idx is not None and len(row) > ancestor_idx else "-"
-
-            group_general, group_subclade = self._extract_group_from_row(row, kit_idx)
-            if group_general:
-                current_general = group_general
-                current_subclade = group_subclade
-                continue
-
-            entries.append(
-                {
-                    "name": row_name,
-                    "haplo": row_haplo,
-                    "ancestor": row_ancestor,
-                    "general": current_general,
-                    "subclade": current_subclade,
-                    "group_key": f"{current_general}|{current_subclade}",
-                }
-            )
-
-        input_name = self._normalize(name)
-        targets = [entry for entry in entries if self._normalize(entry["name"]) == input_name]
-        if not targets:
-            return []
-
-        grouped_targets: dict[str, list[dict[str, str]]] = {}
-        for target in targets:
-            merge_key = target["subclade"]
-            grouped_targets.setdefault(merge_key, []).append(target)
-
-        results: list[str] = []
-        for group in grouped_targets.values():
-            target = group[0]
-            if not target["haplo"]:
-                results.append("Найдено имя, но в таблице пустое поле 'гаплогруппа'.")
-                continue
-
-            haplo_with_group = target["haplo"]
-            if target["general"]:
-                haplo_with_group = f"{target['haplo']} ({target['general']})"
-
-            origin_seen: set[str] = set()
-            origins: list[str] = []
-            for item in group:
-                origin = item["ancestor"].strip()
-                if self._is_placeholder(origin):
-                    continue
-                key = self._normalize(origin)
-                if key in origin_seen:
-                    continue
-                origin_seen.add(key)
-                origins.append(origin)
-            origin_display = self._format_origins(origins)
-
-            seen: set[str] = set()
-            same_group: list[str] = []
-            for entry in entries:
-                if entry["group_key"] != target["group_key"]:
-                    continue
-                if self._normalize(entry["name"]) == input_name:
-                    continue
-                if self._is_placeholder(entry["name"]):
-                    continue
-
-                key = self._normalize(entry["name"])
-                if key in seen:
-                    continue
-                seen.add(key)
-                same_group.append(entry["name"])
-
-            haplo_emoji = self._emoji_for_haplogroup(target["haplo"], target["general"])
-            terminal_snp = self._extract_terminal_snp(target["subclade"])
-            haplo_label = target["general"] or target["haplo"]
-            if terminal_snp:
-                haplo_label = f"{haplo_label} ({terminal_snp})"
-            haplo_display = f"{haplo_emoji} {haplo_label}".strip()
-            yfull_link = self._get_yfull_link(target["general"], target["subclade"])
-
-            result = (
-                f"👤 <b>{html.escape(target['name'].upper())}</b>\n\n"
-                f"📍 {origin_display}\n\n"
-            )
-
-            if yfull_link:
-                result += f'🧬 Гаплогруппа: <a href="{html.escape(yfull_link, quote=True)}"><b>{html.escape(haplo_display)}</b></a>\n\n'
-            else:
-                result += f"🧬 Гаплогруппа: <b>{html.escape(haplo_display)}</b>\n\n"
-
-            if same_group:
-                result += (
-                    f"👥 <b>Совпадения</b>\n"
-                    f"<blockquote>{html.escape(', '.join(same_group))}</blockquote>\n"
-                )
-
-            results.append(result)
-
-        return results
-
-
-
-class UsageStore:
-    @staticmethod
-    def _looks_like_surname_query(value: str) -> bool:
-        query = (value or "").strip()
-        if not query:
-            return False
-        if len(query) > 40:
-            return False
-        if "," in query or "\n" in query:
-            return False
-        if any(ch.isdigit() for ch in query):
-            return False
-        if not re.fullmatch(r"[A-Za-zА-Яа-яЁё\-\s]+", query):
-            return False
-        return True
-
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
-        self._init_db()
-
-    def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
-
-    def _existing_columns(self) -> set[str]:
-        with self._connect() as conn:
-            rows = conn.execute("PRAGMA table_info(usage_events)").fetchall()
-        return {row[1] for row in rows}
-
-    def _ensure_column(self, name: str, sql_type: str, default_sql: str | None = None) -> None:
-        columns = self._existing_columns()
-        if name in columns:
-            return
-
-        default_clause = f" DEFAULT {default_sql}" if default_sql is not None else ""
-        with self._connect() as conn:
-            conn.execute(f"ALTER TABLE usage_events ADD COLUMN {name} {sql_type}{default_clause}")
-
-    def _init_db(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS usage_events (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    user_id INTEGER,
-                    username TEXT,
-                    full_name TEXT,
-                    chat_id INTEGER,
-                    chat_type TEXT,
-                    query TEXT,
-                    success INTEGER NOT NULL
-                )
-                """
-            )
-        self._ensure_column("event_type", "TEXT", "'lookup'")
-        self._ensure_column("command", "TEXT")
-        self._ensure_column("input_mode", "TEXT")
-
-    def record_lookup(self, update: Update, query: str, success: bool) -> None:
-        self.record_event(
-            update=update,
-            query=query,
-            success=success,
-            event_type="lookup",
-            command="f",
-            input_mode="text",
-        )
-
-    def record_g25(
-        self,
-        update: Update,
-        command: str,
-        input_mode: str,
-        success: bool,
-        query: str | None = None,
-    ) -> None:
-        self.record_event(
-            update=update,
-            query=query or "",
-            success=success,
-            event_type="g25",
-            command=command,
-            input_mode=input_mode,
-        )
-
-    def record_event(
-        self,
-        update: Update,
-        query: str,
-        success: bool,
-        event_type: str,
-        command: str | None = None,
-        input_mode: str | None = None,
-    ) -> None:
-        user = update.effective_user
-        chat = update.effective_chat
-        full_name = " ".join(
-            part for part in [getattr(user, "first_name", "") or "", getattr(user, "last_name", "") or ""] if part
-        )
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO usage_events (
-                    user_id, username, full_name, chat_id, chat_type, query, success, event_type, command, input_mode
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    getattr(user, "id", None),
-                    getattr(user, "username", None),
-                    full_name or None,
-                    getattr(chat, "id", None),
-                    getattr(chat, "type", None),
-                    query,
-                    1 if success else 0,
-                    event_type,
-                    command,
-                    input_mode,
-                ),
-            )
-
-    def get_summary(self) -> dict[str, object]:
-        with self._connect() as conn:
-            total = conn.execute("SELECT COUNT(*) FROM usage_events").fetchone()[0]
-            success = conn.execute("SELECT COUNT(*) FROM usage_events WHERE success = 1").fetchone()[0]
-            unique_users = conn.execute(
-                "SELECT COUNT(DISTINCT user_id) FROM usage_events WHERE user_id IS NOT NULL"
-            ).fetchone()[0]
-            today = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE date(created_at, 'localtime') = date('now', 'localtime')"
-            ).fetchone()[0]
-            last_7_days = conn.execute(
-                """
-                SELECT COUNT(*) FROM usage_events
-                WHERE datetime(created_at, 'localtime') >= datetime('now', '-6 days', 'localtime')
-                """
-            ).fetchone()[0]
-            lookup_total = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'lookup'"
-            ).fetchone()[0]
-            lookup_success = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'lookup' AND success = 1"
-            ).fetchone()[0]
-            lookup_today = conn.execute(
-                """
-                SELECT COUNT(*) FROM usage_events
-                WHERE event_type = 'lookup' AND date(created_at, 'localtime') = date('now', 'localtime')
-                """
-            ).fetchone()[0]
-            lookup_last_7_days = conn.execute(
-                """
-                SELECT COUNT(*) FROM usage_events
-                WHERE event_type = 'lookup' AND datetime(created_at, 'localtime') >= datetime('now', '-6 days', 'localtime')
-                """
-            ).fetchone()[0]
-            lookup_unique_users = conn.execute(
-                "SELECT COUNT(DISTINCT user_id) FROM usage_events WHERE event_type = 'lookup' AND user_id IS NOT NULL"
-            ).fetchone()[0]
-            g25_total = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25'"
-            ).fetchone()[0]
-            g25_success = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND success = 1"
-            ).fetchone()[0]
-            g25_today = conn.execute(
-                """
-                SELECT COUNT(*) FROM usage_events
-                WHERE event_type = 'g25' AND date(created_at, 'localtime') = date('now', 'localtime')
-                """
-            ).fetchone()[0]
-            g25_last_7_days = conn.execute(
-                """
-                SELECT COUNT(*) FROM usage_events
-                WHERE event_type = 'g25' AND datetime(created_at, 'localtime') >= datetime('now', '-6 days', 'localtime')
-                """
-            ).fetchone()[0]
-            g25_unique_users = conn.execute(
-                "SELECT COUNT(DISTINCT user_id) FROM usage_events WHERE event_type = 'g25' AND user_id IS NOT NULL"
-            ).fetchone()[0]
-            g25_3 = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = '3'"
-            ).fetchone()[0]
-            g25_4 = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = '4'"
-            ).fetchone()[0]
-            g25_extract = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = 'g25'"
-            ).fetchone()[0]
-            g25_steppe = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = 'steppe'"
-            ).fetchone()[0]
-            g25_panel = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = 'panel'"
-            ).fetchone()[0]
-            g25_panel2 = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND command = 'panel2'"
-            ).fetchone()[0]
-            g25_raw = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND input_mode = 'raw-file'"
-            ).fetchone()[0]
-            g25_text = conn.execute(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type = 'g25' AND input_mode IN ('g25-text', 'g25-file')"
-            ).fetchone()[0]
-            top_queries = conn.execute(
-                """
-                SELECT query, COUNT(*) AS cnt
-                FROM usage_events
-                WHERE event_type = 'lookup' AND query IS NOT NULL AND TRIM(query) <> ''
-                GROUP BY query
-                ORDER BY cnt DESC, query COLLATE NOCASE ASC
-                LIMIT 10
-                """
-            ).fetchall()
-
-        success_rate = round((success / total) * 100, 1) if total else 0.0
-        lookup_success_rate = round((lookup_success / lookup_total) * 100, 1) if lookup_total else 0.0
-        g25_success_rate = round((g25_success / g25_total) * 100, 1) if g25_total else 0.0
-        return {
-            "total": total,
-            "success": success,
-            "success_rate": success_rate,
-            "unique_users": unique_users,
-            "today": today,
-            "last_7_days": last_7_days,
-            "lookup_total": lookup_total,
-            "lookup_success": lookup_success,
-            "lookup_success_rate": lookup_success_rate,
-            "lookup_today": lookup_today,
-            "lookup_last_7_days": lookup_last_7_days,
-            "lookup_unique_users": lookup_unique_users,
-            "g25_total": g25_total,
-            "g25_success": g25_success,
-            "g25_success_rate": g25_success_rate,
-            "g25_today": g25_today,
-            "g25_last_7_days": g25_last_7_days,
-            "g25_unique_users": g25_unique_users,
-            "g25_3": g25_3,
-            "g25_4": g25_4,
-            "g25_extract": g25_extract,
-            "g25_steppe": g25_steppe,
-            "g25_panel": g25_panel,
-            "g25_panel2": g25_panel2,
-            "g25_raw": g25_raw,
-            "g25_text": g25_text,
-            "top_queries": [(row[0], row[1]) for row in top_queries],
-        }
-
-
-
-class G25AccessStore:
-    def __init__(self, path: Path, admin_ids: set[int] | None = None, admin_usernames: set[str] | None = None) -> None:
-        self.path = path
-        self.admin_ids = set(admin_ids or set())
-        self.admin_usernames = {self._normalize_username(item) for item in (admin_usernames or set()) if item}
-        self._ensure_file()
-
-    @staticmethod
-    def _normalize_username(value: str | None) -> str:
-        if not value:
-            return ""
-        return value.strip().lstrip("@").lower()
-
-    def _ensure_file(self) -> None:
-        if self.path.exists():
-            return
-        payload = {"allowed_user_ids": [], "allowed_usernames": []}
-        self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-
-    def _load(self) -> dict[str, list]:
-        self._ensure_file()
-        try:
-            data = json.loads(self.path.read_text(encoding='utf-8'))
-        except Exception:
-            data = {}
-        return {
-            "allowed_user_ids": [int(x) for x in data.get("allowed_user_ids", []) if str(x).strip()],
-            "allowed_usernames": [self._normalize_username(x) for x in data.get("allowed_usernames", []) if str(x).strip()],
-        }
-
-    def _save(self, data: dict[str, list]) -> None:
-        payload = {
-            "allowed_user_ids": sorted({int(x) for x in data.get("allowed_user_ids", [])}),
-            "allowed_usernames": sorted({self._normalize_username(x) for x in data.get("allowed_usernames", []) if x}),
-        }
-        self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-
-    def has_rules(self) -> bool:
-        data = self._load()
-        return bool(data["allowed_user_ids"] or data["allowed_usernames"])
-
-    def is_admin(self, update: Update) -> bool:
-        user = update.effective_user
-        if user is None:
-            return False
-        username = self._normalize_username(getattr(user, "username", None))
-        return getattr(user, "id", None) in self.admin_ids or username in self.admin_usernames
-
-    def is_allowed(self, update: Update) -> bool:
-        user = update.effective_user
-        if user is None:
-            return False
-        if self.is_admin(update):
-            return True
-        data = self._load()
-        if not data["allowed_user_ids"] and not data["allowed_usernames"]:
-            return True
-        username = self._normalize_username(getattr(user, "username", None))
-        return getattr(user, "id", None) in data["allowed_user_ids"] or username in data["allowed_usernames"]
-
-    def allow_username(self, username: str) -> str:
-        data = self._load()
-        normalized = self._normalize_username(username)
-        if normalized and normalized not in data["allowed_usernames"]:
-            data["allowed_usernames"].append(normalized)
-            self._save(data)
-        return f"@{normalized}"
-
-    def allow_user_id(self, user_id: int) -> str:
-        data = self._load()
-        if user_id not in data["allowed_user_ids"]:
-            data["allowed_user_ids"].append(user_id)
-            self._save(data)
-        return str(user_id)
-
-    def deny_username(self, username: str) -> str:
-        data = self._load()
-        normalized = self._normalize_username(username)
-        data["allowed_usernames"] = [item for item in data["allowed_usernames"] if item != normalized]
-        self._save(data)
-        return f"@{normalized}"
-
-    def deny_user_id(self, user_id: int) -> str:
-        data = self._load()
-        data["allowed_user_ids"] = [item for item in data["allowed_user_ids"] if int(item) != int(user_id)]
-        self._save(data)
-        return str(user_id)
-
-    def format_list(self) -> str:
-        data = self._load()
-        usernames = ", ".join(f"@{item}" for item in data["allowed_usernames"]) or "-"
-        ids = ", ".join(str(item) for item in data["allowed_user_ids"]) or "-"
-        mode = "\u043e\u0442\u043a\u0440\u044b\u0442 \u0432\u0441\u0435\u043c" if not self.has_rules() else "\u0442\u043e\u043b\u044c\u043a\u043e \u043f\u043e \u0441\u043f\u0438\u0441\u043a\u0443"
-        lines = [
-            "<b>G25 \u0434\u043e\u0441\u0442\u0443\u043f</b>",
-            "",
-            f"\u0420\u0435\u0436\u0438\u043c: {mode}",
-            f"Usernames: {usernames}",
-            f"User IDs: {ids}",
-        ]
-        return "\n".join(lines)
 
 def get_required_env(name: str, *aliases: str) -> str:
     value = os.getenv(name)
@@ -892,412 +230,661 @@ def get_required_env(name: str, *aliases: str) -> str:
     return value
 
 
-class CustomPanelStore:
-    def __init__(self) -> None:
-        self._states: dict[tuple[int, int], dict[str, object]] = {}
+_build_group_sections_keyboard = partial(build_group_sections_keyboard_ui, MENU_CALLBACK_PREFIX)
+_build_laboratory_inline_keyboard = partial(build_laboratory_inline_keyboard_ui, LAB_CALLBACK_PREFIX)
+_build_help_inline_keyboard = partial(build_help_inline_keyboard_ui, HELP_CALLBACK_PREFIX)
+_build_my_dna_inline_keyboard = partial(build_my_dna_inline_keyboard_ui, MY_DNA_CALLBACK_PREFIX)
+_build_my_dna_add_data_keyboard = partial(build_my_dna_add_data_keyboard_ui, MY_DNA_CALLBACK_PREFIX)
+_build_help_keyboard = partial(build_help_keyboard_ui, MENU_CALLBACK_PREFIX)
+_build_help_section_keyboard = partial(build_help_section_keyboard_ui, MENU_CALLBACK_PREFIX)
+_build_bottom_menu_keyboard = build_bottom_menu_keyboard_ui
+_build_stats_root_keyboard = partial(build_stats_root_keyboard_ui, HAPLO_CALLBACK_PREFIX)
 
-    @staticmethod
-    def _key(chat_id: int, user_id: int) -> tuple[int, int]:
-        return (int(chat_id), int(user_id))
-
-    def open(self, chat_id: int, user_id: int) -> dict[str, object]:
-        key = self._key(chat_id, user_id)
-        current = self._states.get(key, {})
-        state = {
-            "selected": list(current.get("selected", [])),
-            "awaiting_input": False,
-            "message_id": current.get("message_id"),
-        }
-        self._states[key] = state
-        return state
-
-    def set_message_id(self, chat_id: int, user_id: int, message_id: int) -> None:
-        key = self._key(chat_id, user_id)
-        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
-        state["message_id"] = int(message_id)
-
-    def get(self, chat_id: int, user_id: int) -> dict[str, object] | None:
-        return self._states.get(self._key(chat_id, user_id))
-
-    def get_selected(self, chat_id: int, user_id: int) -> list[str]:
-        state = self.get(chat_id, user_id)
-        if not state:
-            return []
-        return list(state.get("selected", []))
-
-    def toggle(self, chat_id: int, user_id: int, source_key: str) -> list[str]:
-        key = self._key(chat_id, user_id)
-        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
-        selected = list(state.get("selected", []))
-        if source_key in selected:
-            selected.remove(source_key)
-        else:
-            selected.append(source_key)
-        state["selected"] = selected
-        state["awaiting_input"] = False
-        return selected
-
-    def clear(self, chat_id: int, user_id: int) -> None:
-        key = self._key(chat_id, user_id)
-        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
-        state["selected"] = []
-        state["awaiting_input"] = False
-
-    def finish(self, chat_id: int, user_id: int) -> list[str]:
-        key = self._key(chat_id, user_id)
-        state = self._states.setdefault(key, {"selected": [], "awaiting_input": False, "message_id": None})
-        state["awaiting_input"] = True
-        return list(state.get("selected", []))
-
-    def has_pending(self, chat_id: int, user_id: int) -> bool:
-        state = self.get(chat_id, user_id)
-        return bool(state and state.get("awaiting_input"))
-
-    def clear_pending(self, chat_id: int, user_id: int) -> None:
-        state = self.get(chat_id, user_id)
-        if state:
-            state["awaiting_input"] = False
-
-    def cancel(self, chat_id: int, user_id: int) -> None:
-        self._states.pop(self._key(chat_id, user_id), None)
+DNA_LAB_STATS_FEATURES = {
+    DNA_LAB_MAIN_CALLBACK_PREFIX: "main",
+    DNA_LAB_MY_DATA_CALLBACK_PREFIX: "my_data",
+    DNA_LAB_COORDINATE_SPACE_CALLBACK_PREFIX: "coordinate_space",
+    DNA_LAB_ADMIXTURE_CALLBACK_PREFIX: "admixture",
+    DNA_LAB_MODELING_CALLBACK_PREFIX: "modeling",
+    DNA_LAB_MATCHING_CALLBACK_PREFIX: "matching",
+    DNA_LAB_TRAITS_CALLBACK_PREFIX: "traits",
+    DNA_LAB_HAPLOGROUPS_CALLBACK_PREFIX: "haplogroups",
+    DNA_LAB_REPORTS_CALLBACK_PREFIX: "reports",
+    DNA_LAB_SETTINGS_CALLBACK_PREFIX: "settings",
+    DNA_LAB_VAHADUO_CALLBACK_PREFIX: "vahaduo",
+}
+DNA_LAB_MANUAL_USAGE_CALLBACKS = {
+    ("my_data", "qg25_create_sample"),
+    ("my_data", "qg25_save_g25_library"),
+    ("snp_report", "html"),
+    ("snp_report", "run"),
+    ("traits", "i"),
+    ("traits", "p"),
+    ("traits", "rp"),
+    ("settings", "root"),
+    ("settings", "language"),
+    ("settings", "set_language"),
+    ("settings", "card_format"),
+    ("settings", "set_card_format"),
+    ("settings", "result_mode"),
+    ("settings", "set_result_mode"),
+    ("settings", "search_base"),
+    ("settings", "set_search_base"),
+    ("settings", "notifications"),
+    ("settings", "set_notifications"),
+    ("settings", "privacy"),
+    ("settings", "export_data"),
+    ("settings", "export_data_run"),
+    ("settings", "delete_data"),
+    ("settings", "delete_data_confirm"),
+    ("settings", "privacy_info"),
+}
 
 
-def _panel_source_emoji(source_key: str) -> str:
-    return {
-        "maikop": "\U0001F3D4\uFE0F",
-        "steppe_sintashta": "\U0001F40E",
-        "ulaanzhukh": "\U0001F3F9",
-        "yamnaya": "\U0001F40E",
-        "yellowriver": "\u26E9\uFE0F",
-        "anatolia_ba": "\U0001F3FA",
-        "baltic_ba": "\U0001F332",
-        "bmac": "\u2600\uFE0F",
-        "khovsgol": "\U0001F3F9",
-        "kuraaraxes": "\U0001F3D4\uFE0F",
-    }.get(source_key, "")
+def _active_reply_menu_map(context: ContextTypes.DEFAULT_TYPE) -> dict[str, int]:
+    storage = context.chat_data if context.chat_data is not None else context.user_data
+    active_menus = storage.setdefault("active_reply_menus", {})
+    if storage is not context.user_data:
+        legacy_menus = context.user_data.pop("active_reply_menus", None)
+        if isinstance(legacy_menus, dict):
+            active_menus.update(legacy_menus)
+    return active_menus
 
 
-def _build_panel_keyboard(service: G25CommandService, selected_keys: list[str]) -> InlineKeyboardMarkup:
-    source_defs = service.list_custom_sources()
-    rows: list[list[InlineKeyboardButton]] = []
-    for idx in range(0, len(source_defs), 2):
-        row: list[InlineKeyboardButton] = []
-        for item in source_defs[idx: idx + 2]:
-            checked = "[x] " if item["key"] in selected_keys else ""
-            emoji = _panel_source_emoji(str(item["key"]))
-            prefix = f"{emoji} " if emoji else ""
-            row.append(
-                InlineKeyboardButton(
-                    text=f"{checked}{prefix}{item['label']}",
-                    callback_data=f"{PANEL_CALLBACK_PREFIX}:toggle:{item['key']}",
-                )
-            )
-        rows.append(row)
-    rows.append(
-        [
-            InlineKeyboardButton("\u0413\u043e\u0442\u043e\u0432\u043e", callback_data=f"{PANEL_CALLBACK_PREFIX}:done"),
-            InlineKeyboardButton("\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c", callback_data=f"{PANEL_CALLBACK_PREFIX}:clear"),
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434 \u043a \u043f\u0430\u043d\u0435\u043b\u044f\u043c", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
-            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{PANEL_CALLBACK_PREFIX}:cancel"),
-        ]
-    )
-    return InlineKeyboardMarkup(rows)
-def _format_panel_selection(service: G25CommandService, selected_keys: list[str]) -> str:
-    labels: list[str] = []
-    for item in service.list_custom_sources():
-        if item["key"] not in selected_keys:
-            continue
-        emoji = _panel_source_emoji(str(item["key"]))
-        prefix = f"{emoji} " if emoji else ""
-        labels.append(f"{prefix}{item['label']}")
-    if not labels:
-        return "- \u043f\u043e\u043a\u0430 \u043d\u0438\u0447\u0435\u0433\u043e"
-    return "\n".join(f"- {label}" for label in labels)
+def _reply_menu_owner_map(context: ContextTypes.DEFAULT_TYPE) -> dict[str, int]:
+    storage = context.chat_data if context.chat_data is not None else context.user_data
+    owners = storage.setdefault("reply_menu_owners", {})
+    if storage is not context.user_data:
+        legacy_owners = context.user_data.pop("reply_menu_owners", None)
+        if isinstance(legacy_owners, dict):
+            owners.update(legacy_owners)
+    return owners
 
 
-def _panel_builder_text(service: G25CommandService, selected_keys: list[str], ready: bool = False) -> str:
-    chosen = _format_panel_selection(service, selected_keys)
-    lines = [
-        "Конструктор панели",
-        "",
-        "Выберите древние источники кнопками ниже.",
-        "",
-        "Выбрано:",
-        chosen,
-    ]
-    if ready:
-        lines.extend([
-            "",
-            "Теперь отправьте raw-файл или G25-координаты следующим сообщением.",
-            "Если вы в группе, отправляйте их ответом на это сообщение.",
-        ])
-    return "\n".join(lines)
-def _build_panel_ready_keyboard(prefix: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [[
-            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434 \u043a \u043f\u0430\u043d\u0435\u043b\u044f\u043c", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
-            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{prefix}:cancel"),
-        ]]
-    )
+def _remember_reply_menu_owner(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    message_id: int,
+    user_id: int,
+) -> None:
+    _reply_menu_owner_map(context)[f"{int(chat_id)}:{int(message_id)}"] = int(user_id)
 
 
-def _build_panel2_keyboard(service: G25CommandService, selected_keys: list[str]) -> InlineKeyboardMarkup:
-    source_defs = service.list_panel2_sources()
-    rows: list[list[InlineKeyboardButton]] = []
-    for idx in range(0, len(source_defs), 2):
-        row: list[InlineKeyboardButton] = []
-        for item in source_defs[idx: idx + 2]:
-            checked = "[x] " if item["key"] in selected_keys else ""
-            emoji = f"{item.get('emoji', '')} " if item.get("emoji") else ""
-            row.append(
-                InlineKeyboardButton(
-                    text=f"{checked}{emoji}{item['label']}",
-                    callback_data=f"{PANEL2_CALLBACK_PREFIX}:toggle:{item['key']}",
-                )
-            )
-        rows.append(row)
-    rows.append(
-        [
-            InlineKeyboardButton("\u0413\u043e\u0442\u043e\u0432\u043e", callback_data=f"{PANEL2_CALLBACK_PREFIX}:done"),
-            InlineKeyboardButton("\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c", callback_data=f"{PANEL2_CALLBACK_PREFIX}:clear"),
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434 \u043a \u043f\u0430\u043d\u0435\u043b\u044f\u043c", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
-            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{PANEL2_CALLBACK_PREFIX}:cancel"),
-        ]
-    )
-    return InlineKeyboardMarkup(rows)
-def _format_panel2_selection(service: G25CommandService, selected_keys: list[str]) -> str:
-    labels: list[str] = []
-    for item in service.list_panel2_sources():
-        if item["key"] not in selected_keys:
-            continue
-        emoji = f"{item.get('emoji', '')} " if item.get("emoji") else ""
-        labels.append(f"{emoji}{item['label']}")
-    if not labels:
-        return "- \u043f\u043e\u043a\u0430 \u043d\u0438\u0447\u0435\u0433\u043e"
-    return "\n".join(f"- {label}" for label in labels)
+def _forget_reply_menu_owner(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int) -> None:
+    _reply_menu_owner_map(context).pop(f"{int(chat_id)}:{int(message_id)}", None)
 
 
-def _panel2_builder_text(service: G25CommandService, selected_keys: list[str], ready: bool = False) -> str:
-    chosen = _format_panel2_selection(service, selected_keys)
-    lines = [
-        "Конструктор панели 2",
-        "",
-        "Выберите древние источники кнопками ниже.",
-        "",
-        "Выбрано:",
-        chosen,
-    ]
-    if ready:
-        lines.extend([
-            "",
-            "Теперь отправьте raw-файл или G25-координаты следующим сообщением.",
-            "Если вы в группе, отправляйте их ответом на это сообщение.",
-        ])
-    return "\n".join(lines)
-def _build_g25menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("Панели", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panels"),
-            InlineKeyboardButton("Координаты", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords"),
-        ],
-        [
-            InlineKeyboardButton("Отмена", callback_data=f"{G25MENU_CALLBACK_PREFIX}:cancel"),
-        ],
-    ])
-def _g25menu_text() -> str:
-    return "\U0001F9EC \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0435\u0436\u0438\u043c G25:"
+async def _ensure_reply_menu_owner(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    query = update.callback_query
+    if query is None or query.message is None or update.effective_user is None:
+        return True
+    if update.effective_chat is not None and update.effective_chat.type == "private":
+        return True
+
+    key = f"{int(query.message.chat_id)}:{int(query.message.message_id)}"
+    owner_id = _reply_menu_owner_map(context).get(key)
+    if owner_id is None:
+        return True
+    try:
+        owner_id = int(owner_id)
+    except (TypeError, ValueError):
+        return True
+    if owner_id == int(update.effective_user.id):
+        return True
+
+    await query.answer("Это меню не для вас. Откройте свое меню через /menu.", show_alert=True)
+    return False
 
 
-def _build_g25panels_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("Panel", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panel"),
-            InlineKeyboardButton("Panel 2", callback_data=f"{G25MENU_CALLBACK_PREFIX}:panel2"),
-        ],
-        [
-            InlineKeyboardButton("Назад", callback_data=f"{G25MENU_CALLBACK_PREFIX}:root"),
-            InlineKeyboardButton("Отмена", callback_data=f"{G25MENU_CALLBACK_PREFIX}:cancel"),
-        ],
-    ])
-def _g25panels_text() -> str:
-    return "\U0001F9EC \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043f\u0430\u043d\u0435\u043b\u044c:"
-
-
-def _build_g25coords_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("Получить G25", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords_sim"),
-        ],
-        [
-            InlineKeyboardButton("Назад", callback_data=f"{G25MENU_CALLBACK_PREFIX}:root"),
-            InlineKeyboardButton("Отмена", callback_data=f"{G25MENU_CALLBACK_PREFIX}:cancel"),
-        ],
-    ])
-def _g25coords_menu_text() -> str:
-    return "\U0001F9EC \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0442\u0438\u043f \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442:"
-
-
-def _build_g25coords_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("\u041d\u0430\u0437\u0430\u0434", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords"),
-            InlineKeyboardButton("\u041e\u0442\u043c\u0435\u043d\u0430", callback_data=f"{G25MENU_CALLBACK_PREFIX}:coords_cancel"),
-        ],
-    ])
-
-
-def _g25coords_text() -> str:
-    return (
-        "\U0001F9EC Получение G25\n\n"
-        "Пришлите raw-файл документом. Я извлеку из него G25-координаты.\n"
-        "Если вы в группе, отправляйте файл ответом на это сообщение."
-    )
-async def _send_panel_builder_message(
+async def _collapse_active_reply_menu(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
     *,
+    except_message_id: int | None = None,
+) -> None:
+    active_menus = _active_reply_menu_map(context)
+    key = str(chat_id)
+    message_id = active_menus.get(key)
+    if not message_id or message_id == except_message_id:
+        return
+
+    try:
+        await context.bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
+        active_menus.pop(key, None)
+        _forget_reply_menu_owner(context, chat_id, message_id)
+        return
+    except Exception:
+        logger.debug("Failed to collapse active reply menu markup", exc_info=True)
+
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        active_menus.pop(key, None)
+        _forget_reply_menu_owner(context, chat_id, message_id)
+    except Exception:
+        logger.debug("Failed to delete active reply menu", exc_info=True)
+
+
+async def _collapse_reply_menu_message(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    message_id: int,
+) -> None:
+    try:
+        await context.bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
+        _forget_reply_menu_owner(context, chat_id, message_id)
+        return
+    except Exception:
+        logger.debug("Failed to collapse stale reply menu markup", exc_info=True)
+
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        _forget_reply_menu_owner(context, chat_id, message_id)
+    except Exception:
+        logger.debug("Failed to delete stale reply menu", exc_info=True)
+
+
+def _remember_active_reply_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int) -> None:
+    _active_reply_menu_map(context)[str(chat_id)] = int(message_id)
+
+
+async def _discard_stale_reply_menu(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    message_id: int,
+) -> bool:
+    active_menus = _active_reply_menu_map(context)
+    active_message_id = active_menus.get(str(chat_id))
+    try:
+        active_message_id = int(active_message_id) if active_message_id is not None else None
+    except (TypeError, ValueError):
+        active_message_id = None
+
+    if active_message_id and message_id < active_message_id:
+        await _collapse_reply_menu_message(context, chat_id, message_id)
+        return True
+    return False
+
+
+async def _activate_reply_menu(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    message_id: int,
+) -> bool:
+    if await _discard_stale_reply_menu(context, chat_id, message_id):
+        return False
+
+    await _collapse_active_reply_menu(context, chat_id, except_message_id=message_id)
+    _remember_active_reply_menu(context, chat_id, message_id)
+    return True
+
+
+def _forget_active_reply_menu(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    *,
+    message_id: int | None = None,
+) -> None:
+    active_menus = _active_reply_menu_map(context)
+    key = str(chat_id)
+    if message_id is None or active_menus.get(key) == message_id:
+        active_menus.pop(key, None)
+    if message_id is not None:
+        _forget_reply_menu_owner(context, chat_id, message_id)
+
+
+def _dna_lab_settings() -> SimpleNamespace:
+    return SimpleNamespace(root_dir=Path(__file__).resolve().parent)
+
+
+def _register_dna_lab_services(app: Application) -> None:
+    settings = _dna_lab_settings()
+    register_dna_lab_settings_services(app, settings)
+    register_dna_lab_my_data_services(app, settings)
+    register_dna_lab_traits_services(app, settings)
+    register_dna_lab_admixture_services(app, settings)
+    register_dna_lab_matching_services(app, settings)
+    register_dna_lab_haplogroup_services(app, settings)
+    register_dna_lab_vahaduo_services(app, settings)
+
+
+def _language_for_effective_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    user_id = int(update.effective_user.id) if update.effective_user is not None else None
+    return get_dna_lab_user_language(context, user_id)
+
+
+def _card_format_for_effective_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    if update.effective_user is None:
+        return "wide"
+    return get_global_user_card_format(context, int(update.effective_user.id))
+
+
+def _result_mode_for_effective_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    if update.effective_user is None:
+        return "simple"
+    return get_global_user_result_mode(context, int(update.effective_user.id))
+
+
+def _search_base_for_effective_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    if update.effective_user is None:
+        return "kbdna"
+    return get_global_user_search_base(context, int(update.effective_user.id))
+
+
+def _notifications_enabled_for_effective_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    if update.effective_user is None:
+        return True
+    return get_global_user_notifications_enabled(context, int(update.effective_user.id))
+
+
+def _is_private_chat(update: Update) -> bool:
+    return update.effective_chat is not None and update.effective_chat.type == "private"
+
+
+def _build_menu_navigation_keyboard(back_action: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("Назад", callback_data=f"{MENU_CALLBACK_PREFIX}:{back_action}"),
+        InlineKeyboardButton("Отмена", callback_data=f"{MENU_CALLBACK_PREFIX}:cancel"),
+    ]])
+
+
+def _record_dna_lab_usage(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    feature: str,
+    action: str = "",
+    *,
+    success: bool = True,
+    input_mode: str = "callback",
+) -> None:
+    usage_store = context.application.bot_data.get("usage_store")
+    if isinstance(usage_store, UsageStore):
+        usage_store.record_dna_lab(update, feature, action=action, success=success, input_mode=input_mode)
+
+
+def _dna_lab_callback_stats_parts(callback_data: str | None) -> tuple[str, str]:
+    prefix, _, tail = str(callback_data or "").partition(":")
+    feature = DNA_LAB_STATS_FEATURES.get(prefix, prefix or "unknown")
+    action = tail.split(":", 1)[0] if tail else "root"
+    return feature, action or "root"
+
+
+async def _guarded_dna_lab_callback(handler, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _ensure_reply_menu_owner(update, context):
+        return
+    feature, action = _dna_lab_callback_stats_parts(getattr(update.callback_query, "data", None))
+    try:
+        await handler(update, context)
+    except Exception:
+        if (feature, action) not in DNA_LAB_MANUAL_USAGE_CALLBACKS:
+            _record_dna_lab_usage(update, context, feature, action, success=False)
+        raise
+    if (feature, action) not in DNA_LAB_MANUAL_USAGE_CALLBACKS:
+        _record_dna_lab_usage(update, context, feature, action, success=True)
+
+
+def _message_chat_id(message) -> int | None:
+    chat_id = getattr(message, "chat_id", None)
+    if chat_id is not None:
+        return int(chat_id)
+    chat = getattr(message, "chat", None)
+    if chat is not None and getattr(chat, "id", None) is not None:
+        return int(chat.id)
+    return None
+
+
+def _activate_dna_lab_message(context: ContextTypes.DEFAULT_TYPE, message, user_id: int) -> None:
+    chat_id = _message_chat_id(message)
+    message_id = getattr(message, "message_id", None)
+    if chat_id is not None and message_id is not None:
+        set_active_dna_lab_menu_message(context, chat_id, int(user_id), int(message_id))
+
+
+async def _show_dna_lab_modeling_root(
     message,
     context: ContextTypes.DEFAULT_TYPE,
-    panel_name: str,
-    chat_id: int,
     user_id: int,
-    edit_existing: bool = False,
+    *,
+    lang: str,
+    edit_existing: bool,
 ) -> None:
-    service: G25CommandService = context.application.bot_data["g25_service"]
-    if panel_name == "panel":
-        panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-        state = panel_store.open(chat_id, user_id)
-        selected = list(state.get("selected", []))
-        builder_text = _panel_builder_text(service, selected)
-        builder_markup = _build_panel_keyboard(service, selected)
-        if edit_existing:
-            await message.edit_text(builder_text, reply_markup=builder_markup)
-            panel_store.set_message_id(chat_id, user_id, message.message_id)
-        else:
-            sent = await message.reply_text(
-                builder_text,
-                reply_markup=builder_markup,
-                do_quote=False,
-            )
-            panel_store.set_message_id(chat_id, user_id, sent.message_id)
+    sent = await show_dna_lab_modeling_menu(message, lang=lang, edit_existing=edit_existing)
+    _activate_dna_lab_message(context, sent, user_id)
+
+
+async def _show_dna_lab_feature_root(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    feature: str,
+    *,
+    edit_existing: bool,
+) -> None:
+    lang = get_dna_lab_user_language(context, user_id)
+    if feature == "my_data":
+        await show_dna_lab_my_data_menu(message, context, user_id, edit_existing=edit_existing)
+    elif feature == "coordinate_space":
+        await show_dna_lab_coordinate_space_menu(message, edit_existing=edit_existing, lang=lang)
+        _activate_dna_lab_message(context, message, user_id)
+    elif feature == "vahaduo":
+        await show_dna_lab_vahaduo_menu(message, context, user_id, lang=lang, edit_existing=edit_existing)
+    elif feature == "admixture":
+        await show_dna_lab_admixture_menu(message, context, user_id, lang=lang, edit_existing=edit_existing)
+    elif feature == "modeling":
+        await _show_dna_lab_modeling_root(message, context, user_id, lang=lang, edit_existing=edit_existing)
+    elif feature == "matching":
+        await show_dna_lab_matching_menu(message, context, user_id, edit_existing=edit_existing, lang=lang)
+    elif feature == "traits":
+        await show_dna_lab_traits_root_menu(message, context, user_id, edit_existing=edit_existing)
+    elif feature == "haplogroups":
+        await show_dna_lab_haplogroups_menu(message, context, user_id, lang=lang, edit_existing=edit_existing)
+        _activate_dna_lab_message(context, message, user_id)
+
+
+async def _open_dna_lab_feature_from_message(update: Update, context: ContextTypes.DEFAULT_TYPE, feature: str) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
         return
 
-    panel_store = context.application.bot_data["panel2_store"]
-    state = panel_store.open(chat_id, user_id)
-    selected = list(state.get("selected", []))
-    builder_text = _panel2_builder_text(service, selected)
-    builder_markup = _build_panel2_keyboard(service, selected)
-    if edit_existing:
-        await message.edit_text(builder_text, reply_markup=builder_markup)
-        panel_store.set_message_id(chat_id, user_id, message.message_id)
-    else:
-        sent = await message.reply_text(
-            builder_text,
-            reply_markup=builder_markup,
-            do_quote=False,
-        )
-        panel_store.set_message_id(chat_id, user_id, sent.message_id)
-
-
-def _clear_g25_pending_states(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> None:
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
-    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-    panel_store.clear_pending(chat_id, user_id)
-    panel2_store.clear_pending(chat_id, user_id)
-    coords_store.clear_pending(chat_id, user_id)
-
-
-def _cancel_g25_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> None:
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
-    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-    panel_store.cancel(chat_id, user_id)
-    panel2_store.cancel(chat_id, user_id)
-    coords_store.cancel(chat_id, user_id)
-async def g25menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.effective_user is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_allowed(update):
-        await update.message.reply_text("G25-\u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.", do_quote=False)
-        return
-
-    await update.message.reply_text(
-        _g25menu_text(),
-        reply_markup=_build_g25menu_keyboard(),
-        do_quote=False,
+    _clear_sozluk_pending(context)
+    _clear_ystr_pending(context)
+    context.user_data.pop("ystr_root_back_callback", None)
+    await _collapse_active_reply_menu(context, update.message.chat_id)
+    await _show_dna_lab_feature_root(
+        update.message,
+        context,
+        int(update.effective_user.id),
+        feature,
+        edit_existing=False,
     )
+    _record_dna_lab_usage(update, context, feature, "open", input_mode="reply")
 
 
-async def g25menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def _open_dna_lab_feature_from_callback(update: Update, context: ContextTypes.DEFAULT_TYPE, feature: str) -> None:
     query = update.callback_query
-    if query is None or query.data is None or query.message is None:
-        return
-    if not query.data.startswith(f"{G25MENU_CALLBACK_PREFIX}:"):
+    if query is None or query.message is None or update.effective_user is None:
         return
 
-    await query.answer()
-    if update.effective_chat is None or update.effective_user is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_allowed(update):
-        await query.answer("Нет доступа к G25.", show_alert=True)
-        return
-
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    action = query.data.split(":", 1)[1]
-
-    if action == "root":
-        _clear_g25_pending_states(context, chat_id, user_id)
-        await query.edit_message_text(_g25menu_text(), reply_markup=_build_g25menu_keyboard())
-        return
-
-    if action == "panels":
-        _clear_g25_pending_states(context, chat_id, user_id)
-        await query.edit_message_text(_g25panels_text(), reply_markup=_build_g25panels_keyboard())
-        return
-
-    if action == "coords":
-        _clear_g25_pending_states(context, chat_id, user_id)
-        await query.edit_message_text(_g25coords_menu_text(), reply_markup=_build_g25coords_menu_keyboard())
-        return
-
-    if action == "coords_sim":
-        _clear_g25_pending_states(context, chat_id, user_id)
-        coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-        coords_store.open(chat_id, user_id)
-        coords_store.set_message_id(chat_id, user_id, query.message.message_id)
-        coords_store.finish(chat_id, user_id)
-        await query.edit_message_text(_g25coords_text(), reply_markup=_build_g25coords_keyboard())
-        return
-
-    if action in {"coords_cancel", "cancel"}:
-        _cancel_g25_menu(context, chat_id, user_id)
-        await query.edit_message_text("G25 меню закрыто.")
-        return
-
-    if action not in {"panel", "panel2"}:
-        return
-
-    _clear_g25_pending_states(context, chat_id, user_id)
-    await _send_panel_builder_message(
-        message=query.message,
-        context=context,
-        panel_name=action,
-        chat_id=chat_id,
-        user_id=user_id,
+    _clear_sozluk_pending(context)
+    _clear_ystr_pending(context)
+    context.user_data.pop("ystr_root_back_callback", None)
+    await _show_dna_lab_feature_root(
+        query.message,
+        context,
+        int(update.effective_user.id),
+        feature,
         edit_existing=True,
     )
+    _record_dna_lab_usage(update, context, feature, "open", input_mode="inline")
+
+
+async def _open_quick_g25_from_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    _clear_sozluk_pending(context)
+    _clear_ystr_pending(context)
+    await _collapse_active_reply_menu(context, update.message.chat_id)
+    await open_dna_lab_quick_g25_prompt(
+        update.message,
+        context,
+        update.effective_chat.id,
+        update.effective_user.id,
+    )
+    _record_dna_lab_usage(update, context, "quick_g25", "open", input_mode="reply")
+
+
+async def _open_quick_g25_from_callback(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    back_callback: str | None = None,
+    add_data_flow: bool = False,
+) -> None:
+    query = update.callback_query
+    if query is None or query.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    _clear_sozluk_pending(context)
+    _clear_ystr_pending(context)
+    await open_dna_lab_quick_g25_prompt(
+        query.message,
+        context,
+        update.effective_chat.id,
+        update.effective_user.id,
+        back_callback=back_callback,
+        add_data_flow=add_data_flow,
+        edit_existing=True,
+    )
+    if not add_data_flow:
+        _record_dna_lab_usage(update, context, "quick_g25", "open", input_mode="inline")
+
+
+async def _open_settings_from_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.effective_chat is None or update.effective_user is None:
+        return
+
+    _clear_sozluk_pending(context)
+    _clear_ystr_pending(context)
+    await _collapse_active_reply_menu(context, update.message.chat_id)
+
+    lang = _language_for_effective_user(update, context)
+    card_format = _card_format_for_effective_user(update, context)
+    result_mode = _result_mode_for_effective_user(update, context)
+    sent = await update.message.reply_text(
+        global_settings_text(lang, card_format, result_mode),
+        parse_mode="HTML",
+        reply_markup=build_global_settings_keyboard(
+            lang,
+            callback_prefix=MENU_CALLBACK_PREFIX,
+            back_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+        ),
+        do_quote=False,
+    )
+    _remember_active_reply_menu(context, sent.chat_id, sent.message_id)
+    _remember_reply_menu_owner(context, sent.chat_id, sent.message_id, update.effective_user.id)
+
+
+async def _send_inline_entry_from_reply(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    text: str,
+    reply_markup: InlineKeyboardMarkup,
+) -> None:
+    if update.message is None:
+        return
+
+    _clear_sozluk_pending(context)
+    _clear_ystr_pending(context)
+    context.user_data.pop("ystr_root_back_callback", None)
+    await _collapse_active_reply_menu(context, update.message.chat_id)
+    sent = await update.message.reply_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=reply_markup,
+        do_quote=False,
+    )
+    _remember_active_reply_menu(context, sent.chat_id, sent.message_id)
+    if update.effective_user is not None:
+        _remember_reply_menu_owner(context, sent.chat_id, sent.message_id, update.effective_user.id)
+        _activate_dna_lab_message(context, sent, int(update.effective_user.id))
+
+
+def _laboratory_entry_text() -> str:
+    return (
+        "🧪 <b>DNA Lab</b>\n\n"
+        "Выберите инструмент."
+    )
+
+
+def _my_dna_entry_text() -> str:
+    return "🧬 <b>My DNA</b>\n\nЗдесь хранятся ваши образцы и координаты."
+
+
+def _my_dna_add_data_text() -> str:
+    return "➕ <b>Добавить данные</b>\n\nВыберите, что хотите добавить:"
+
+
+def _help_entry_text() -> str:
+    return "📚 <b>Справка</b>\n\nДанные, разделы и ограничения.\nОсновные пояснения по KBDNA."
+
+
+def _help_topic_text(action: str) -> str:
+    legacy_redirects = {
+        "instruction": "quick_start",
+        "raw": "terms",
+        "g25": "terms",
+        "pgs": "terms",
+        "qpadm": "admixlab",
+    }
+    action = legacy_redirects.get(action, action)
+    topics = {
+        "quick_start": (
+            "🚀 <b>Быстрый старт</b>\n\n"
+            "KBDNA можно использовать двумя способами: 🔎 искать сведения по фамилиям и 🧬 работать со своими ДНК-данными.\n\n"
+            "<b>1. 🔎 Поиск по фамилиям</b>\n"
+            "Если хотите начать без загрузки файлов, используйте поиск по фамилии. Он показывает записи из базы проекта: происхождение, "
+            "гаплогруппы, ветки и близкие совпадения, если они есть.\n\n"
+            "<b>2. 📊 Аналитика</b>\n"
+            "Аналитика помогает смотреть распределения по базе: гаплогруппы, субклады, STR-маркеры и связанные записи.\n\n"
+            "<b>3. 🧬 My DNA</b>\n"
+            "My DNA хранит ваши samples, raw-файлы, G25-профили и сохранённые отчёты.\n\n"
+            "Sample — это отдельный профиль человека или образца. К нему можно привязать raw-файл, G25-координаты и результаты расчётов.\n\n"
+            "<b>4. 🧪 DNA Lab</b>\n"
+            "DNA Lab — набор инструментов для работы с sample: Coordinate spaces, Vahaduo Lab, Matching, Admixture, AdmixLab, Traits и Haplogroups.\n\n"
+            "Проще всего начать так: добавьте sample в My DNA, привяжите raw-файл или G25-профиль, затем откройте нужный инструмент в DNA Lab.\n\n"
+            "⚠️ <b>Важно:</b> результаты KBDNA — это расчёты и модели. Они помогают анализировать данные, но не являются медицинской диагностикой "
+            "или окончательным доказательством происхождения."
+        ),
+        "surname_search": (
+            "🔎 <b>Поиск по фамилиям</b>\n\n"
+            "Это самый быстрый вход в базу KBDNA. Он работает без загрузки ДНК-файлов: достаточно отправить фамилию.\n\n"
+            "<b>Как искать</b>\n"
+            "В приватном чате нажмите <b>🔎 Поиск по фамилиям</b> или просто отправьте фамилию одним сообщением.\n"
+            "В группе используйте команду: <code>/f Фамилия</code>.\n\n"
+            "<b>Что показывает результат</b>\n"
+            "• найденные записи по фамилии;\n"
+            "• происхождение или населённый пункт, если они указаны;\n"
+            "• Y-ДНК/мтДНК гаплогруппу и субклад;\n"
+            "• близкие совпадения по той же ветви;\n"
+            "• дополнительные сведения, если они есть в базе.\n\n"
+            "<b>Если фамилия не найдена</b>\n"
+            "Попробуйте другой вариант написания, форму без окончания или транслитерацию. Для редких фамилий данных может пока не быть.\n\n"
+            "<b>Важно</b>\n"
+            "Поиск показывает записи из базы проекта. Он помогает найти ориентиры и связи, но не заменяет генеалогическую проверку."
+        ),
+        "analytics": (
+            "📊 <b>Аналитика KBDNA</b>\n\n"
+            "Аналитика показывает общую картину по базе проекта: какие линии встречаются, как они распределены "
+            "и с какими фамилиями связаны.\n\n"
+            "<b>Что можно смотреть</b>\n"
+            "• распределение Y-ДНК и мтДНК гаплогрупп;\n"
+            "• переход от крупных ветвей к субкладам;\n"
+            "• связанные фамилии и записи внутри ветви;\n"
+            "• STR-маркеры и ближайшие STR-совпадения;\n"
+            "• отдельные карточки тестов, если данные есть в базе.\n\n"
+            "<b>Как использовать</b>\n"
+            "1. Начните с общего распределения.\n"
+            "2. Откройте интересующую гаплогруппу или субклад.\n"
+            "3. Посмотрите связанные фамилии, записи и STR-данные.\n"
+            "4. Сравните это с поиском по фамилии и семейной информацией.\n\n"
+            "<b>Важно</b>\n"
+            "Аналитика показывает структуру базы KBDNA, а не полную картину всех линий. Чем больше данных в базе, "
+            "тем точнее становятся распределения и связи."
+        ),
+        "data_formats": (
+            "🧬 <b>Данные: raw, G25, SNP</b>\n\n"
+            "В KBDNA встречаются разные типы данных. Главное — понимать, что они не заменяют друг друга.\n\n"
+            "<b>🧾 Raw-файл</b>\n"
+            "Исходный файл из ДНК-сервиса: 23andMe, Ancestry, MyHeritage, FTDNA и похожих платформ. "
+            "Он нужен для поиска SNP, Matching, Traits, Haplogroups и получения G25.\n\n"
+            "<b>📍 G25</b>\n"
+            "Координатный профиль autosomal-ДНК. Он нужен для Coordinate spaces, Vahaduo Lab, distance/single/multi и готовых G25-моделей.\n\n"
+            "<b>🧬 SNP</b>\n"
+            "Отдельная позиция в ДНК. По SNP можно проверять конкретные маркеры в raw-файле и сравнивать профили.\n\n"
+            "<b>🧪 PGS</b>\n"
+            "Polygenic score — расчётный показатель по набору SNP. В KBDNA такие результаты являются справочными и экспериментальными.\n\n"
+            "<b>Как начать</b>\n"
+            "Если у вас есть raw-файл, загрузите его в My DNA. Если raw нет, но есть G25-строка, добавьте её как G25-профиль."
+        ),
+        "dna_lab_sections": (
+            "🧪 <b>Разделы DNA Lab</b>\n\n"
+            "DNA Lab — это рабочая зона для ваших samples, координат и расчётов.\n\n"
+            "<b>🧬 My DNA</b>\n"
+            "Хранит samples, raw-файлы, G25-профили и сохранённые отчёты.\n\n"
+            "<b>🧭 Coordinate spaces</b>\n"
+            "Показывает положение sample или G25-профиля в готовых координатных пространствах.\n\n"
+            "<b>📐 Vahaduo Lab</b>\n"
+            "Distance, Single, Multi и Ready models для G25-разборов.\n\n"
+            "<b>🧩 Matching</b>\n"
+            "Сравнение raw/SNP между samples и поиск похожих профилей.\n\n"
+            "<b>🧬 Admixture</b>\n"
+            "Компонентные профили и raw calculators.\n\n"
+            "<b>🧱 AdmixLab</b>\n"
+            "Формальные модели: qpAdm, qpWave, sources и outgroups.\n\n"
+            "<b>✨ Traits и 🌿 Haplogroups</b>\n"
+            "Справочные отчёты по признакам, SNP-маркерам и Y/mtDNA-направлениям.\n\n"
+            "Обычно удобнее сначала создать sample в My DNA, а затем открывать нужный инструмент."
+        ),
+        "admixlab": (
+            "🧱 <b>AdmixLab / qpAdm</b>\n\n"
+            "AdmixLab — раздел для формальных моделей происхождения. Он не про готовые G25-fit модели, а про проверку гипотез через sources и outgroups.\n\n"
+            "<b>🏛 qpAdm</b>\n"
+            "Проверяет, можно ли описать target как смесь выбранных sources при заданных outgroups.\n\n"
+            "<b>〰️ qpWave</b>\n"
+            "Оценивает, сколько потоков происхождения нужно, чтобы различить группы в модели.\n\n"
+            "<b>📚 Source sets</b>\n"
+            "Наборы sources и outgroups для формальных моделей.\n\n"
+            "<b>💾 Saved models</b>\n"
+            "Место для сохранённых результатов AdmixLab.\n\n"
+            "Важно: AdmixLab требует аккуратной постановки вопроса. Набор sources/outgroups влияет на результат так же сильно, как и сам target."
+        ),
+        "limitations": (
+            "🛡 <b>Ограничения</b>\n\n"
+            "KBDNA помогает анализировать данные, но у каждого расчёта есть границы.\n\n"
+            "<b>Что важно помнить</b>\n"
+            "• результаты зависят от качества raw-файла, G25-профиля и reference panels;\n"
+            "• совпадения и близость не всегда означают прямое родство;\n"
+            "• G25-модели и distance — это приближения, а не окончательное происхождение;\n"
+            "• qpAdm/qpWave зависят от выбранных sources и outgroups;\n"
+            "• PGS/Traits в боте являются справочными и экспериментальными.\n\n"
+            "<b>Чего бот не утверждает</b>\n"
+            "KBDNA не ставит медицинские диагнозы, не определяет национальность и не доказывает происхождение окончательно.\n\n"
+            "Лучший подход — использовать результаты как ориентир и проверять их вместе с генеалогией, историей семьи и дополнительными тестами."
+        ),
+        "terms": (
+            "📖 <b>Термины DNA</b>\n\n"
+            "<b>Raw</b> — исходный файл с ДНК-данными из тест-сервиса.\n\n"
+            "<b>G25</b> — координаты autosomal-профиля для сравнений и моделей.\n\n"
+            "<b>SNP</b> — отдельная позиция в ДНК, по которой можно смотреть вариант генотипа.\n\n"
+            "<b>cM</b> — centimorgan, единица генетического расстояния в matching.\n\n"
+            "<b>Target</b> — человек, sample или координаты, которые анализируются.\n\n"
+            "<b>Source</b> — компонент или группа, через которую строится модель.\n\n"
+            "<b>Outgroup</b> — внешняя группа для формальных моделей qpAdm/qpWave.\n\n"
+            "<b>Distance</b> — численная близость target к reference population или source.\n\n"
+            "<b>Sample</b> — карточка человека или образца в My DNA."
+        ),
+    }
+    return topics.get(action, "Раздел готовится.")
+
+
+def _build_help_topic_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("⬅️ Назад", callback_data=f"{HELP_CALLBACK_PREFIX}:root"),
+        InlineKeyboardButton("Отмена", callback_data=f"{HELP_CALLBACK_PREFIX}:cancel"),
+    ]])
+
+
+def _build_legacy_more_bridge_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🧪 DNA Lab", callback_data=f"{MENU_CALLBACK_PREFIX}:lab"),
+            InlineKeyboardButton("📚 Справка", callback_data=f"{MENU_CALLBACK_PREFIX}:support"),
+        ],
+        [InlineKeyboardButton("Отмена", callback_data=f"{MENU_CALLBACK_PREFIX}:cancel")],
+    ])
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
         return
@@ -1305,8 +892,1002 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         LOOKUP_START_TEXT,
         parse_mode="HTML",
+        reply_markup=_build_bottom_menu_keyboard(
+            include_requests=_is_lookup_admin(update, context),
+            include_g25=True,
+        ) if update.effective_chat and update.effective_chat.type == "private" else None,
         do_quote=False,
     )
+
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        return
+
+    _clear_sozluk_pending(context)
+    if _is_private_chat(update):
+        await _collapse_active_reply_menu(context, update.message.chat_id)
+        await update.message.reply_text(
+            "Главное меню обновлено.",
+            reply_markup=_build_bottom_menu_keyboard(
+                include_requests=_is_lookup_admin(update, context),
+                include_g25=True,
+            ),
+            do_quote=False,
+        )
+        return
+
+    await _collapse_active_reply_menu(context, update.message.chat_id)
+    sent = await update.message.reply_text(
+        "Выберите раздел:",
+        reply_markup=_build_group_sections_keyboard(include_g25=True),
+        do_quote=False,
+    )
+    _remember_active_reply_menu(context, sent.chat_id, sent.message_id)
+    if update.effective_user is not None:
+        _remember_reply_menu_owner(context, sent.chat_id, sent.message_id, update.effective_user.id)
+
+
+def _is_lookup_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
+    return access_store.is_admin(update)
+
+
+async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+
+    try:
+        _, action = (query.data or "").split(":", 1)
+    except (ValueError, TypeError):
+        await query.answer("Неизвестное действие.", show_alert=True)
+        return
+
+    if not await _ensure_reply_menu_owner(update, context):
+        return
+    await query.answer()
+    if not await _activate_reply_menu(context, query.message.chat_id, query.message.message_id):
+        return
+
+    if action == "help":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            HELP_ROOT_TEXT,
+            parse_mode="HTML",
+            reply_markup=_build_help_keyboard(),
+        )
+        return
+
+    if action == "support":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _help_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_help_inline_keyboard(),
+        )
+        return
+
+    if action.startswith("help:"):
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        section_key = action.split(":", 1)[1]
+        section_text = help_section_text(section_key)
+        if section_text is None:
+            await query.answer("Раздел справки не найден.", show_alert=True)
+            return
+        await query.message.edit_text(
+            section_text,
+            parse_mode="HTML",
+            reply_markup=_build_help_section_keyboard(),
+        )
+        return
+
+    if action == "lookup":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            "🔎 <b>Поиск по фамилии</b>\n\n"
+            "В группе используйте команду:\n"
+            "<code>/f Фамилия</code>",
+            parse_mode="HTML",
+            reply_markup=_build_menu_navigation_keyboard("root"),
+        )
+        return
+
+    if action == "stats":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await _send_haplo_root_message(query.message, update, context, edit_existing=True, include_back=True)
+        return
+
+    if action == "ystr":
+        await _open_ystr_root_inline_menu(
+            query.message,
+            context,
+            back_callback=f"{MENU_CALLBACK_PREFIX}:root",
+        )
+        return
+
+    if action == "my_data":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _my_dna_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_my_dna_inline_keyboard(),
+        )
+        if update.effective_user is not None:
+            _activate_dna_lab_message(context, query.message, int(update.effective_user.id))
+        return
+
+    if action in {"coordinate_space", "vahaduo", "admixture", "modeling", "matching", "traits", "haplogroups"}:
+        await _open_dna_lab_feature_from_callback(update, context, action)
+        return
+
+    if action == "lab":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _laboratory_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_laboratory_inline_keyboard(),
+        )
+        return
+
+    if action == "dna_lab":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _laboratory_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_laboratory_inline_keyboard(),
+        )
+        return
+
+    if action == "quick_g25":
+        context.user_data.pop("ystr_root_back_callback", None)
+        await _open_quick_g25_from_callback(update, context)
+        return
+
+    if action == "more":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            "🧩 <b>Прочее перенесено</b>\n\nОткройте нужный раздел:",
+            parse_mode="HTML",
+            reply_markup=_build_legacy_more_bridge_keyboard(),
+        )
+        return
+
+    if action == "settings":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        card_format = _card_format_for_effective_user(update, context)
+        result_mode = _result_mode_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_settings_text(lang, card_format, result_mode),
+            parse_mode="HTML",
+            reply_markup=build_global_settings_keyboard(
+                lang,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:root",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action in {"settings_card_format", "card_format"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        card_format = _card_format_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_card_format_text(lang, card_format),
+            parse_mode="HTML",
+            reply_markup=build_global_card_format_keyboard(
+                lang,
+                card_format,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action in {"settings_result_mode", "result_mode"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        result_mode = _result_mode_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_result_mode_text(lang, result_mode),
+            parse_mode="HTML",
+            reply_markup=build_global_result_mode_keyboard(
+                lang,
+                result_mode,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action in {"settings_search_base", "search_base"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        search_base = _search_base_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_search_base_text(lang, search_base),
+            parse_mode="HTML",
+            reply_markup=build_global_search_base_keyboard(
+                lang,
+                search_base,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action in {"settings_notifications", "notifications"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        enabled = _notifications_enabled_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_notifications_text(lang, enabled),
+            parse_mode="HTML",
+            reply_markup=build_global_notifications_keyboard(
+                lang,
+                enabled,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action in {"settings_privacy", "privacy"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        user_id = int(update.effective_user.id) if update.effective_user is not None else 0
+        await query.message.edit_text(
+            global_privacy_text(lang, global_privacy_data_summary(context, user_id)),
+            parse_mode="HTML",
+            reply_markup=build_global_privacy_keyboard(
+                lang,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action == "export_data":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        if update.effective_user is None:
+            return
+        await show_global_privacy_export_menu(
+            query.message,
+            context,
+            int(update.effective_user.id),
+            callback_prefix=MENU_CALLBACK_PREFIX,
+            back_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+            cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            edit_existing=True,
+        )
+        return
+
+    if action == "export_data_run":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        if update.effective_user is None:
+            return
+        await show_global_privacy_export_result(
+            query.message,
+            context,
+            int(update.effective_user.id),
+            callback_prefix=MENU_CALLBACK_PREFIX,
+            back_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+            cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            edit_existing=True,
+        )
+        return
+
+    if action == "delete_data":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        if update.effective_user is None:
+            return
+        await show_global_privacy_delete_confirm(
+            query.message,
+            context,
+            int(update.effective_user.id),
+            callback_prefix=MENU_CALLBACK_PREFIX,
+            back_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+            cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            edit_existing=True,
+        )
+        return
+
+    if action == "delete_data_confirm":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        if update.effective_user is None:
+            return
+        await show_global_privacy_delete_done(
+            query.message,
+            context,
+            int(update.effective_user.id),
+            back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+            cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            edit_existing=True,
+        )
+        return
+
+    if action == "privacy_info":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_privacy_placeholder_text(action, lang),
+            parse_mode="HTML",
+            reply_markup=build_global_privacy_placeholder_keyboard(
+                lang,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action in {"privacy_samples", "privacy_g25", "privacy_reports"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        if update.effective_user is None:
+            return
+        user_id = int(update.effective_user.id)
+        set_active_dna_lab_menu_message(context, query.message.chat_id, user_id, query.message.message_id)
+        if action == "privacy_samples":
+            context.user_data["my_data_privacy_root_back"] = f"{MENU_CALLBACK_PREFIX}:privacy"
+            context.user_data["my_data_privacy_samples_back"] = f"{MENU_CALLBACK_PREFIX}:privacy_samples"
+            await show_dna_lab_view_samples_menu(
+                query.message,
+                context,
+                user_id,
+                edit_existing=True,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+            )
+            return
+        if action == "privacy_g25":
+            context.user_data["my_data_privacy_root_back"] = f"{MENU_CALLBACK_PREFIX}:privacy"
+            context.user_data["my_data_privacy_g25_back"] = f"{MENU_CALLBACK_PREFIX}:privacy_g25"
+            await show_dna_lab_view_coordinates_menu(
+                query.message,
+                context,
+                user_id,
+                edit_existing=True,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+            )
+            return
+        lang = _language_for_effective_user(update, context)
+        context.user_data["my_data_privacy_root_back"] = f"{MENU_CALLBACK_PREFIX}:privacy"
+        context.user_data["my_data_privacy_reports_back"] = f"{MENU_CALLBACK_PREFIX}:privacy_reports"
+        context.user_data["reports_back_callback"] = f"{MENU_CALLBACK_PREFIX}:privacy"
+        context.user_data["reports_my_dna_callback"] = f"{MENU_CALLBACK_PREFIX}:privacy"
+        context.user_data["reports_sample_callback_template"] = f"{MENU_CALLBACK_PREFIX}:privacy_sample_reports:{{sample_id}}"
+        await show_dna_lab_reports_menu(
+            query.message,
+            context,
+            user_id,
+            edit_existing=True,
+            lang=lang,
+            back_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+            my_dna_callback=f"{MENU_CALLBACK_PREFIX}:privacy",
+            show_my_dna_shortcut=False,
+            sample_callback_template=f"{MENU_CALLBACK_PREFIX}:privacy_sample_reports:{{sample_id}}",
+        )
+        return
+
+    if action.startswith("privacy_sample_reports:"):
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        if update.effective_user is None:
+            return
+        user_id = int(update.effective_user.id)
+        sample_id = action.split(":", 1)[1]
+        context.user_data["my_data_privacy_root_back"] = f"{MENU_CALLBACK_PREFIX}:privacy"
+        context.user_data["my_data_privacy_reports_back"] = f"{MENU_CALLBACK_PREFIX}:privacy_reports"
+        set_active_dna_lab_menu_message(context, query.message.chat_id, user_id, query.message.message_id)
+        await show_dna_lab_sample_reports_menu(
+            query.message,
+            context,
+            user_id,
+            sample_id,
+            edit_existing=True,
+            back_callback=f"{MENU_CALLBACK_PREFIX}:privacy_reports",
+        )
+        return
+
+    if action in {"settings_language", "language"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_language_text(lang),
+            parse_mode="HTML",
+            reply_markup=build_global_language_keyboard(
+                lang,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action.startswith("set_card_format:"):
+        selected = action.split(":", 1)[1]
+        if update.effective_user is None or not set_global_user_card_format(context, int(update.effective_user.id), selected):
+            await query.answer("Не удалось сохранить формат.", show_alert=True)
+            return
+        lang = _language_for_effective_user(update, context)
+        card_format = _card_format_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_card_format_text(lang, card_format),
+            parse_mode="HTML",
+            reply_markup=build_global_card_format_keyboard(
+                lang,
+                card_format,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action.startswith("set_result_mode:"):
+        selected = action.split(":", 1)[1]
+        if update.effective_user is None or not set_global_user_result_mode(context, int(update.effective_user.id), selected):
+            await query.answer("Не удалось сохранить режим.", show_alert=True)
+            return
+        lang = _language_for_effective_user(update, context)
+        result_mode = _result_mode_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_result_mode_text(lang, result_mode),
+            parse_mode="HTML",
+            reply_markup=build_global_result_mode_keyboard(
+                lang,
+                result_mode,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action.startswith("set_search_base:"):
+        selected = action.split(":", 1)[1]
+        if update.effective_user is None or not set_global_user_search_base(context, int(update.effective_user.id), selected):
+            await query.answer("Не удалось сохранить базу.", show_alert=True)
+            return
+        lang = _language_for_effective_user(update, context)
+        search_base = _search_base_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_search_base_text(lang, search_base),
+            parse_mode="HTML",
+            reply_markup=build_global_search_base_keyboard(
+                lang,
+                search_base,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action.startswith("set_notifications:"):
+        selected = action.split(":", 1)[1]
+        if update.effective_user is None:
+            await query.answer("Не удалось сохранить уведомления.", show_alert=True)
+            return
+        set_global_user_notifications_enabled(context, int(update.effective_user.id), selected == "on")
+        lang = _language_for_effective_user(update, context)
+        enabled = _notifications_enabled_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_notifications_text(lang, enabled),
+            parse_mode="HTML",
+            reply_markup=build_global_notifications_keyboard(
+                lang,
+                enabled,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action.startswith("set_language:"):
+        selected = action.split(":", 1)[1]
+        if update.effective_user is None or not set_global_user_language(context, int(update.effective_user.id), selected):
+            await query.answer("Не удалось сохранить язык.", show_alert=True)
+            return
+        lang = _language_for_effective_user(update, context)
+        card_format = _card_format_for_effective_user(update, context)
+        result_mode = _result_mode_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_settings_text(lang, card_format, result_mode),
+            parse_mode="HTML",
+            reply_markup=build_global_settings_keyboard(
+                lang,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:root",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action == "sozluk":
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await _open_sozluk_inline_menu(
+            query.message,
+            update,
+            context,
+            menu_callback_prefix=MENU_CALLBACK_PREFIX,
+            back_action="support",
+        )
+        return
+
+    if action == "cancel":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        _forget_active_reply_menu(context, query.message.chat_id, message_id=query.message.message_id)
+        await query.message.delete()
+        return
+
+    if action == "root":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        if _is_private_chat(update):
+            _forget_active_reply_menu(context, query.message.chat_id, message_id=query.message.message_id)
+            await query.message.edit_text("Главное меню доступно внизу.")
+            return
+        await query.message.edit_text(
+            "Выберите раздел:",
+            reply_markup=_build_group_sections_keyboard(include_g25=True),
+        )
+        return
+
+    await query.answer("Неизвестное действие.", show_alert=True)
+
+
+async def laboratory_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+
+    try:
+        _, action = (query.data or "").split(":", 1)
+    except (ValueError, TypeError):
+        await query.answer("Неизвестное действие.", show_alert=True)
+        return
+
+    if not await _ensure_reply_menu_owner(update, context):
+        return
+    await query.answer()
+    if not await _activate_reply_menu(context, query.message.chat_id, query.message.message_id):
+        return
+
+    feature_by_action = {
+        "coordinates": "coordinate_space",
+        "admixture": "admixture",
+        "modeling": "modeling",
+        "matching": "matching",
+        "haplogroups": "haplogroups",
+        "traits": "traits",
+        "vahaduo": "vahaduo",
+    }
+    if action in feature_by_action:
+        await _open_dna_lab_feature_from_callback(update, context, feature_by_action[action])
+        return
+
+    if action == "get_g25":
+        context.user_data.pop("ystr_root_back_callback", None)
+        await _open_quick_g25_from_callback(update, context)
+        return
+
+    if action == "root":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _laboratory_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_laboratory_inline_keyboard(),
+        )
+        return
+
+    if action == "cancel":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        _forget_active_reply_menu(context, query.message.chat_id, message_id=query.message.message_id)
+        await query.message.delete()
+        return
+
+    await query.answer("Неизвестное действие.", show_alert=True)
+
+
+async def my_dna_entry_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+
+    try:
+        _, action = (query.data or "").split(":", 1)
+    except (ValueError, TypeError):
+        await query.answer("Неизвестное действие.", show_alert=True)
+        return
+
+    if not await _ensure_reply_menu_owner(update, context):
+        return
+    await query.answer()
+    if not await _activate_reply_menu(context, query.message.chat_id, query.message.message_id):
+        return
+
+    if update.effective_user is not None:
+        _activate_dna_lab_message(context, query.message, int(update.effective_user.id))
+
+    if action == "root":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _my_dna_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_my_dna_inline_keyboard(),
+        )
+        return
+
+    if action == "add_data":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _my_dna_add_data_text(),
+            parse_mode="HTML",
+            reply_markup=_build_my_dna_add_data_keyboard(),
+        )
+        return
+
+    if action == "get_g25_raw":
+        context.user_data.pop("ystr_root_back_callback", None)
+        await _open_quick_g25_from_callback(update, context, back_callback=f"{MY_DNA_CALLBACK_PREFIX}:root")
+        return
+
+    await query.answer("Неизвестное действие.", show_alert=True)
+
+
+async def help_entry_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+
+    try:
+        _, action = (query.data or "").split(":", 1)
+    except (ValueError, TypeError):
+        await query.answer("Неизвестное действие.", show_alert=True)
+        return
+
+    if not await _ensure_reply_menu_owner(update, context):
+        return
+    await query.answer()
+    if not await _activate_reply_menu(context, query.message.chat_id, query.message.message_id):
+        return
+
+    if action == "root":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _help_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_help_inline_keyboard(),
+        )
+        return
+
+    if action == "back":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        _forget_active_reply_menu(context, query.message.chat_id, message_id=query.message.message_id)
+        await query.message.edit_text("Главное меню доступно внизу.")
+        return
+
+    if action == "dictionary":
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await _open_sozluk_inline_menu(
+            query.message,
+            update,
+            context,
+            menu_callback_prefix=HELP_CALLBACK_PREFIX,
+            back_action="root",
+        )
+        return
+
+    if action in {
+        "quick_start",
+        "surname_search",
+        "analytics",
+        "data_formats",
+        "dna_lab_sections",
+        "admixlab",
+        "limitations",
+        "terms",
+        "instruction",
+        "raw",
+        "g25",
+        "pgs",
+        "qpadm",
+    }:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _help_topic_text(action),
+            parse_mode="HTML",
+            reply_markup=_build_help_topic_keyboard(),
+        )
+        return
+
+    if action == "cancel":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        _forget_active_reply_menu(context, query.message.chat_id, message_id=query.message.message_id)
+        await query.message.delete()
+        return
+
+    await query.answer("Неизвестное действие.", show_alert=True)
+
+
+async def dna_lab_main_navigation_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+
+    try:
+        _, action = (query.data or "").split(":", 1)
+    except (ValueError, TypeError):
+        await query.answer("Неизвестное действие.", show_alert=True)
+        return
+
+    if not await _ensure_reply_menu_owner(update, context):
+        return
+    await query.answer()
+    if not await _activate_reply_menu(context, query.message.chat_id, query.message.message_id):
+        return
+
+    if action == "root":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await query.message.edit_text(
+            _laboratory_entry_text(),
+            parse_mode="HTML",
+            reply_markup=_build_laboratory_inline_keyboard(),
+        )
+        return
+
+    if action == "cancel":
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        _forget_active_reply_menu(context, query.message.chat_id, message_id=query.message.message_id)
+        await query.message.delete()
+        return
+
+    await query.answer("Неизвестное действие.", show_alert=True)
+
+
+async def private_bottom_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.message.text is None:
+        return
+
+    text = update.message.text.strip()
+    chat_id = update.effective_chat.id if update.effective_chat is not None else update.message.chat_id
+    user_id = update.effective_user.id if update.effective_user is not None else None
+    _clear_matching_pending(context, chat_id, user_id)
+    if text in {BOTTOM_BUTTON_BACK, BOTTOM_BUTTON_CANCEL}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await update.message.reply_text(
+            "Главное меню.",
+            reply_markup=_build_bottom_menu_keyboard(),
+            do_quote=False,
+        )
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_LOOKUP:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        await update.message.reply_text(
+            "Введите фамилию одним сообщением или используйте <code>/f Фамилия</code>.",
+            parse_mode="HTML",
+            do_quote=False,
+        )
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_HELP:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        await _collapse_active_reply_menu(context, update.message.chat_id)
+        sent = await update.message.reply_text(
+            HELP_ROOT_TEXT,
+            parse_mode="HTML",
+            reply_markup=_build_help_keyboard(),
+            do_quote=False,
+        )
+        _remember_active_reply_menu(context, sent.chat_id, sent.message_id)
+        if update.effective_user is not None:
+            _remember_reply_menu_owner(context, sent.chat_id, sent.message_id, update.effective_user.id)
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_SUPPORT:
+        await _send_inline_entry_from_reply(
+            update,
+            context,
+            text=_help_entry_text(),
+            reply_markup=_build_help_inline_keyboard(),
+        )
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_MY_DNA:
+        await _send_inline_entry_from_reply(
+            update,
+            context,
+            text=_my_dna_entry_text(),
+            reply_markup=_build_my_dna_inline_keyboard(),
+        )
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_STATS:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        await _send_haplo_root_message(update.message, update, context)
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_MORE:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        await update.message.reply_text(
+            "Главное меню.",
+            reply_markup=_build_bottom_menu_keyboard(),
+            do_quote=False,
+        )
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_SOZLUK:
+        _clear_ystr_pending(context)
+        await _send_sozluk_menu(update.message, context, update)
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_YSTR:
+        await _send_ystr_root_message(update.message, update, context)
+        raise ApplicationHandlerStop
+
+    dna_lab_reply_features = {
+        BOTTOM_BUTTON_COORDINATE_SPACES: "coordinate_space",
+        BOTTOM_BUTTON_VAHADUO: "vahaduo",
+        "🧪 Vahaduo Lab": "vahaduo",
+        BOTTOM_BUTTON_MATCHING: "matching",
+        BOTTOM_BUTTON_MODELING: "modeling",
+        "🛠 Admixtool": "modeling",
+        BOTTOM_BUTTON_TRAITS: "traits",
+        "🧾 Traits": "traits",
+        MORE_BUTTON_ADMIXTURE: "admixture",
+        MORE_BUTTON_HAPLOGROUPS: "haplogroups",
+    }
+    if text in dna_lab_reply_features:
+        await _open_dna_lab_feature_from_message(update, context, dna_lab_reply_features[text])
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_LAB:
+        await _send_inline_entry_from_reply(
+            update,
+            context,
+            text=_laboratory_entry_text(),
+            reply_markup=_build_laboratory_inline_keyboard(),
+        )
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_DNA_LAB:
+        await _send_inline_entry_from_reply(
+            update,
+            context,
+            text=_laboratory_entry_text(),
+            reply_markup=_build_laboratory_inline_keyboard(),
+        )
+        raise ApplicationHandlerStop
+
+    if text == BOTTOM_BUTTON_SETTINGS:
+        await _open_settings_from_message(update, context)
+        raise ApplicationHandlerStop
+
+    if text in {BOTTOM_BUTTON_GET_G25, G25_COORDINATES_REPLY_BUTTON_TEXT}:
+        await _open_quick_g25_from_message(update, context)
+        raise ApplicationHandlerStop
+
+
+def _pending_text_target(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> str | None:
+    sozluk_pending = context.user_data.get("sozluk_pending")
+    if isinstance(sozluk_pending, dict):
+        if int(sozluk_pending.get("chat_id") or 0) == chat_id:
+            return "sozluk"
+    elif "sozluk_pending_direction" in context.user_data:
+        return "sozluk"
+
+    ystr_pending = context.user_data.get("ystr_pending")
+    if isinstance(ystr_pending, dict) and int(ystr_pending.get("chat_id") or 0) == chat_id:
+        return "ystr"
+
+    return None
+
+
+def _clear_matching_pending(context: ContextTypes.DEFAULT_TYPE, chat_id: int | None, user_id: int | None) -> None:
+    if chat_id is None or user_id is None:
+        return
+    store = context.application.bot_data.get("matching_flow_store")
+    clear_pending = getattr(store, "clear_pending", None)
+    if callable(clear_pending):
+        clear_pending(int(chat_id), int(user_id))
+
+
+async def pending_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.message.text is None:
+        return
+
+    target = _pending_text_target(context, update.message.chat_id)
+    if target == "sozluk":
+        await sozluk_pending_text_handler(update, context)
+        return
+    if target == "ystr":
+        await ystr_pending_text_handler(update, context)
+        return
 
 
 
@@ -1314,248 +1895,6 @@ async def build_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if update.message is None:
         return
     await update.message.reply_text(BUILD_ID, do_quote=False)
-
-
-async def handle_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str) -> None:
-    sheets: SheetsClient = context.application.bot_data["sheets"]
-    usage_store: UsageStore = context.application.bot_data["usage_store"]
-    normalized_name = " ".join(name.split())
-
-    try:
-        values = sheets.get_groups_by_name(name)
-    except Exception:
-        logger.exception("Sheets read error")
-        usage_store.record_lookup(update, normalized_name, success=False)
-        await update.message.reply_text(
-            "Не удалось получить данные из таблицы. Попробуйте чуть позже.",
-            do_quote=False,
-        )
-        return
-
-    if not values:
-        usage_store.record_lookup(update, normalized_name, success=False)
-        await update.message.reply_text(
-            (
-                f"Фамилия <b>{html.escape(normalized_name)}</b> не найдена в текущей базе.\n"
-                "Проверьте написание и попробуйте другой вариант."
-            ),
-            parse_mode="HTML",
-            do_quote=False,
-        )
-        return
-
-    usage_store.record_lookup(update, normalized_name, success=True)
-
-    for value in values:
-        await update.message.reply_text(value, parse_mode="HTML", do_quote=False)
-
-
-
-async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None:
-        return
-
-    usage_store: UsageStore = context.application.bot_data["usage_store"]
-    stats = usage_store.get_summary()
-    top_queries = stats["top_queries"]
-    top_lines = [f"{idx}. {query} - {count}" for idx, (query, count) in enumerate(top_queries, start=1)]
-    top_block = "\n".join(top_lines) if top_lines else "\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445"
-
-    if update.effective_chat is None or update.effective_chat.type != "private":
-        lines = [
-            "\U0001F50E <b>\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0444\u0430\u043c\u0438\u043b\u0438\u044f\u043c</b>",
-            "",
-            top_block,
-        ]
-        await update.message.reply_text("\n".join(lines), parse_mode="HTML", do_quote=False)
-        return
-
-    lines = [
-        "\U0001F50E <b>\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0444\u0430\u043c\u0438\u043b\u0438\u044f\u043c</b>",
-        "",
-        f"\u0412\u0441\u0435\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432: {stats['lookup_total']}",
-        f"\u0423\u0441\u043f\u0435\u0448\u043d\u044b\u0445: {stats['lookup_success']} ({stats['lookup_success_rate']}%)",
-        f"\u0417\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f: {stats['lookup_today']}",
-        f"\u0417\u0430 7 \u0434\u043d\u0435\u0439: {stats['lookup_last_7_days']}",
-        f"\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439: {stats['lookup_unique_users']}",
-        "",
-        f"\U0001F3F7 \u0422\u043e\u043f \u0444\u0430\u043c\u0438\u043b\u0438\u0439\n{top_block}",
-    ]
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML", do_quote=False)
-
-
-async def g25stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_admin(update):
-        await update.message.reply_text("\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0443 G25.", do_quote=False)
-        return
-
-    usage_store: UsageStore = context.application.bot_data["usage_store"]
-    stats = usage_store.get_summary()
-
-    lines = [
-        "\U0001F9EC <b>\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 G25</b>",
-        "",
-        f"\u0412\u0441\u0435\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432: {stats['g25_total']}",
-        f"\u0423\u0441\u043f\u0435\u0448\u043d\u044b\u0445: {stats['g25_success']} ({stats['g25_success_rate']}%)",
-        f"\u0417\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f: {stats['g25_today']}",
-        f"\u0417\u0430 7 \u0434\u043d\u0435\u0439: {stats['g25_last_7_days']}",
-        f"\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439: {stats['g25_unique_users']}",
-        "",
-        f"/3: {stats['g25_3']}",
-        f"/4: {stats['g25_4']}",
-        f"/g25: {stats['g25_extract']}",
-        f"/steppe: {stats['g25_steppe']}",
-        f"/panel: {stats['g25_panel']}",
-        f"/panel2: {stats['g25_panel2']}",
-        f"raw-\u0444\u0430\u0439\u043b\u044b: {stats['g25_raw']}",
-        f"\u0433\u043e\u0442\u043e\u0432\u044b\u0435 G25: {stats['g25_text']}",
-    ]
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML", do_quote=False)
-
-async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None:
-        return
-
-    if not context.args:
-        await update.message.reply_text("\u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u0444\u0430\u043c\u0438\u043b\u0438\u044e: /f <\u0424\u0430\u043c\u0438\u043b\u0438\u044f>", do_quote=False)
-        return
-
-    name = " ".join(context.args).strip()
-    await handle_lookup(update, context, name)
-
-
-
-def _build_g25_sample_name(update: Update, fallback_name: str = "") -> str:
-    fallback_name = fallback_name.strip()
-    if fallback_name:
-        return fallback_name
-
-    user = update.effective_user
-    if user is not None:
-        full_name = " ".join(
-            part for part in [getattr(user, "first_name", "") or "", getattr(user, "last_name", "") or ""] if part
-        ).strip()
-        if full_name:
-            return full_name
-        if getattr(user, "username", None):
-            return user.username
-    return "Target"
-
-
-async def g25_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_allowed(update):
-        await update.message.reply_text("G25-\u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.", do_quote=False)
-        return
-
-    service: G25CommandService = context.application.bot_data["g25_service"]
-    usage_store: UsageStore = context.application.bot_data["usage_store"]
-    command_source = update.message.caption if update.message.document is not None else update.message.text
-    parsed = service.extract_command_payload(command_source)
-    if parsed is None:
-        return
-
-    command, body = parsed
-    status_message = None
-    reply_message = update.message.reply_to_message
-    source_document = update.message.document
-    reply_text_used = False
-    if source_document is None and reply_message is not None:
-        source_document = reply_message.document
-        if source_document is None:
-            reply_attachment = getattr(reply_message, "effective_attachment", None)
-            if getattr(reply_attachment, "file_id", None) and hasattr(reply_attachment, "get_file"):
-                source_document = reply_attachment
-        if source_document is None and not body:
-            reply_body = (reply_message.text or reply_message.caption or "").strip()
-            if reply_body:
-                body = reply_body
-                reply_text_used = True
-
-    requested_input_mode = (
-        "document"
-        if update.message.document is not None
-        else ("reply-document" if source_document is not None else ("reply-text" if reply_text_used else "text"))
-    )
-    usage_query = body[:120].strip() if body else ""
-
-    try:
-        if source_document is not None:
-            status_text = "\u0424\u0430\u0439\u043b \u043f\u043e\u043b\u0443\u0447\u0435\u043d, \u0438\u0437\u0432\u043b\u0435\u043a\u0430\u044e \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b..." if command == "g25" else "\u0424\u0430\u0439\u043b \u043f\u043e\u043b\u0443\u0447\u0435\u043d, \u0441\u0442\u0440\u043e\u044e \u043c\u043e\u0434\u0435\u043b\u044c..."
-            status_message = await update.message.reply_text(status_text, do_quote=False)
-            document = source_document
-            file_name = document.file_name or f"input_{command}.txt"
-            usage_query = file_name
-            sample_name = _build_g25_sample_name(update, Path(file_name).stem)
-            run_dir = service.create_run_dir(command, sample_name)
-            input_path = run_dir / file_name
-            telegram_file = await document.get_file()
-            await telegram_file.download_to_drive(custom_path=str(input_path))
-            if command == "g25":
-                result = service.extract_coordinates_from_file(input_path, sample_name)
-            else:
-                result = service.run_from_file(command, input_path, sample_name)
-        else:
-            sample_name = _build_g25_sample_name(update)
-            usage_query = sample_name
-            if command == "g25":
-                result = service.extract_coordinates_from_text(body, sample_name)
-            else:
-                result = service.run_from_text(command, body, sample_name)
-    except G25CommandError as exc:
-        usage_store.record_g25(update, command=command, input_mode=requested_input_mode, success=False, query=usage_query)
-        await update.message.reply_text(str(exc), do_quote=False)
-        return
-    except Exception:
-        logger.exception("G25 command failed")
-        usage_store.record_g25(update, command=command, input_mode=requested_input_mode, success=False, query=usage_query)
-        await update.message.reply_text(
-            "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0444\u0430\u0439\u043b \u0438\u043b\u0438 G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0438 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0435 \u0440\u0430\u0437.",
-            do_quote=False,
-        )
-        return
-
-    usage_store.record_g25(
-        update,
-        command=command,
-        input_mode=result.input_mode,
-        success=True,
-        query=result.target_name,
-    )
-
-    if command == "g25":
-        await update.message.reply_text(
-            f"G25 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b\n<code>{html.escape(result.simulated_g25_line)}</code>",
-            parse_mode="HTML",
-            do_quote=False,
-        )
-    else:
-        with result.png_path.open("rb") as handle:
-            await update.message.reply_photo(
-                photo=handle,
-                caption=result.summary_text,
-                do_quote=False,
-            )
-        if source_document is not None and result.simulated_g25_line:
-            await update.message.reply_text(
-                f"G25 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b\n<code>{html.escape(result.simulated_g25_line)}</code>",
-                parse_mode="HTML",
-                do_quote=False,
-            )
-
-    if status_message is not None:
-        try:
-            done_text = "\u041a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0433\u043e\u0442\u043e\u0432\u044b." if command == "g25" else "\u041c\u043e\u0434\u0435\u043b\u044c \u0433\u043e\u0442\u043e\u0432\u0430."
-            await status_message.edit_text(done_text)
-        except Exception:
-            logger.debug("Failed to update G25 status message", exc_info=True)
 
 
 def _parse_g25_admin_ids(raw: str) -> set[int]:
@@ -1577,524 +1916,71 @@ def _parse_g25_admin_usernames(raw: str) -> set[str]:
             values.add(normalized)
     return values
 
-def _extract_access_target(update: Update, context: ContextTypes.DEFAULT_TYPE) -> tuple[str, str | int] | None:
-    if context.args:
-        raw = context.args[0].strip()
-        if raw.startswith("@"):
-            normalized = G25AccessStore._normalize_username(raw)
-            return ("username", normalized) if normalized else None
+
+def _normalized_sheet_value(value: str) -> str:
+    return " ".join(str(value or "").strip().lower().replace("ё", "е").split())
+
+
+def _sheet_cell(headers: list[str], row: list[str], aliases: tuple[str, ...]) -> str:
+    normalized_headers = [_normalized_sheet_value(header) for header in headers]
+    for alias in aliases:
+        normalized_alias = _normalized_sheet_value(alias)
+        if normalized_alias in normalized_headers:
+            index = normalized_headers.index(normalized_alias)
+            return row[index].strip() if len(row) > index else ""
+    return ""
+
+
+def _adyghe_abkhaz_row_filter(search_base: str):
+    def row_filter(headers: list[str], row: list[str]) -> bool:
+        country = _normalized_sheet_value(_sheet_cell(headers, row, ("country", "страна")))
+        subethnos = _normalized_sheet_value(_sheet_cell(headers, row, ("субэтнос", "subethnos", "ethnicity")))
+        if search_base == SEARCH_BASE_ADYGHE:
+            return "circassia" in country or "adygea" in country
+        if search_base == SEARCH_BASE_ABKHAZ:
+            return country.startswith("abkh")
+        if search_base == SEARCH_BASE_ABAZA:
+            return country.startswith("abaza") or "абаз" in subethnos or "abaza" in subethnos
+        return False
+
+    return row_filter
+
+
+def _build_search_base_sheets(creds_path: str, default_sheets: SheetsClient) -> dict[str, SheetsClient]:
+    sheets_by_search_base: dict[str, SheetsClient] = {SEARCH_BASE_KBDNA: default_sheets}
+    spreadsheet_id = os.getenv("ADYGHE_ABKHAZ_GOOGLE_SHEETS_ID", DEFAULT_ADYGHE_ABKHAZ_SPREADSHEET_ID).strip()
+    worksheet_name = os.getenv("ADYGHE_ABKHAZ_GOOGLE_SHEETS_WORKSHEET", DEFAULT_ADYGHE_ABKHAZ_WORKSHEET).strip()
+    if not spreadsheet_id:
+        return sheets_by_search_base
+
+    for search_base in (SEARCH_BASE_ADYGHE, SEARCH_BASE_ABKHAZ, SEARCH_BASE_ABAZA):
         try:
-            return ("id", int(raw))
-        except ValueError:
-            normalized = G25AccessStore._normalize_username(raw)
-            return ("username", normalized) if normalized else None
+            sheets_by_search_base[search_base] = SheetsClient(
+                creds_path=creds_path,
+                spreadsheet_id=spreadsheet_id,
+                worksheet_name=worksheet_name,
+                name_aliases=("фамилия", "name", "имя"),
+                origin_aliases=("lacation", "location", "локация", "место", "населенный пункт", "населённый пункт", "аул", "село"),
+                row_filter=_adyghe_abkhaz_row_filter(search_base),
+                related_match_mode=SheetsClient.RELATED_MATCH_HAPLOGROUP,
+                lookup_label_mode=SheetsClient.LOOKUP_LABEL_TERMINAL_HAPLOGROUP,
+                values_range="A:Q",
+            )
+        except Exception:
+            logger.exception("Failed to initialize search base sheet: %s", search_base)
+    return sheets_by_search_base
 
-    if update.message and update.message.reply_to_message and update.message.reply_to_message.from_user:
-        replied_user = update.message.reply_to_message.from_user
-        if getattr(replied_user, "username", None):
-            return ("username", G25AccessStore._normalize_username(replied_user.username))
-        if getattr(replied_user, "id", None):
-            return ("id", int(replied_user.id))
-    return None
 
-async def g25allow_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def statslist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
         return
 
     access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
     if not access_store.is_admin(update):
-        await update.message.reply_text("\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0443 G25.", do_quote=False)
+        await update.message.reply_text("Команда доступна только администратору статистики.", do_quote=False)
         return
 
-    target = _extract_access_target(update, context)
-    if target is None:
-        await update.message.reply_text("\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /g25allow @username \u0438\u043b\u0438 /g25allow 123456789", do_quote=False)
-        return
-
-    kind, value = target
-    if kind == "username":
-        saved = access_store.allow_username(str(value))
-    else:
-        saved = access_store.allow_user_id(int(value))
-    await update.message.reply_text(f"\u0414\u043e\u0441\u0442\u0443\u043f \u043a G25 \u0432\u044b\u0434\u0430\u043d: {saved}", do_quote=False)
-
-async def g25deny_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_admin(update):
-        await update.message.reply_text("\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0443 G25.", do_quote=False)
-        return
-
-    target = _extract_access_target(update, context)
-    if target is None:
-        await update.message.reply_text("\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /g25deny @username \u0438\u043b\u0438 /g25deny 123456789", do_quote=False)
-        return
-
-    kind, value = target
-    if kind == "username":
-        removed = access_store.deny_username(str(value))
-    else:
-        removed = access_store.deny_user_id(int(value))
-    await update.message.reply_text(f"\u0414\u043e\u0441\u0442\u0443\u043f \u043a G25 \u0441\u043d\u044f\u0442: {removed}", do_quote=False)
-
-async def g25list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_admin(update):
-        await update.message.reply_text("\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0443 G25.", do_quote=False)
-        return
-
-    await update.message.reply_text(access_store.format_list(), parse_mode="HTML", do_quote=False)
-
-async def panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_allowed(update):
-        await update.message.reply_text("G25-\u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.", do_quote=False)
-        return
-
-    await _send_panel_builder_message(
-        message=update.message,
-        context=context,
-        panel_name="panel",
-        chat_id=update.effective_chat.id,
-        user_id=update.effective_user.id,
-    )
-async def panel_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    if query is None or query.data is None:
-        return
-    if not query.data.startswith(f"{PANEL_CALLBACK_PREFIX}:"):
-        return
-
-    await query.answer()
-    if update.effective_chat is None or update.effective_user is None or query.message is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_allowed(update):
-        await query.answer("Нет доступа к G25.", show_alert=True)
-        return
-
-    service: G25CommandService = context.application.bot_data["g25_service"]
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    state = panel_store.get(chat_id, user_id)
-    if not state or state.get("message_id") != query.message.message_id:
-        await query.answer("Это меню не для вас. Вызовите /panel сами.", show_alert=True)
-        return
-
-    parts = query.data.split(":", 2)
-    action = parts[1] if len(parts) > 1 else ""
-    source_key = parts[2] if len(parts) > 2 else ""
-
-    if action == "toggle":
-        selected = panel_store.toggle(chat_id, user_id, source_key)
-        await query.edit_message_text(
-            _panel_builder_text(service, selected),
-            reply_markup=_build_panel_keyboard(service, selected),
-        )
-        return
-
-    if action == "clear":
-        panel_store.clear(chat_id, user_id)
-        await query.edit_message_text(
-            _panel_builder_text(service, []),
-            reply_markup=_build_panel_keyboard(service, []),
-        )
-        return
-
-    if action == "back":
-        panel_store.cancel(chat_id, user_id)
-        await query.edit_message_text(_g25menu_text(), reply_markup=_build_g25menu_keyboard())
-        return
-
-    if action == "cancel":
-        _cancel_g25_menu(context, chat_id, user_id)
-        await query.edit_message_text("G25 меню закрыто.")
-        return
-
-    if action == "done":
-        selected = panel_store.finish(chat_id, user_id)
-        if not selected:
-            await query.answer("Сначала выберите хотя бы один источник.", show_alert=True)
-            return
-        await query.edit_message_text(
-            _panel_builder_text(service, selected, ready=True),
-            reply_markup=_build_panel_ready_keyboard(PANEL_CALLBACK_PREFIX),
-        )
-        return
-async def _run_custom_panel_input(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    body: str = "",
-) -> None:
-    if update.message is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    service: G25CommandService = context.application.bot_data["g25_service"]
-    usage_store: UsageStore = context.application.bot_data["usage_store"]
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    selected_keys = panel_store.get_selected(chat_id, user_id)
-    source_document = update.message.document
-    status_message = None
-    usage_query = body[:120].strip() if body else ""
-
-    try:
-        if source_document is not None:
-            status_message = await update.message.reply_text("\u0424\u0430\u0439\u043b \u043f\u043e\u043b\u0443\u0447\u0435\u043d, \u0441\u0442\u0440\u043e\u044e \u043c\u043e\u0434\u0435\u043b\u044c...", do_quote=False)
-            file_name = source_document.file_name or "input_panel.txt"
-            usage_query = file_name
-            sample_name = _build_g25_sample_name(update, Path(file_name).stem)
-            temp_dir = service.create_run_dir("panel_input", sample_name)
-            input_path = temp_dir / file_name
-            telegram_file = await source_document.get_file()
-            await telegram_file.download_to_drive(custom_path=str(input_path))
-            result = service.run_custom_from_file(selected_keys, input_path, sample_name)
-        else:
-            sample_name = _build_g25_sample_name(update)
-            usage_query = sample_name
-            result = service.run_custom_from_text(selected_keys, body, sample_name)
-    except G25CommandError as exc:
-        usage_store.record_g25(update, command="panel", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
-        await update.message.reply_text(str(exc), do_quote=False)
-        raise ApplicationHandlerStop
-    except Exception:
-        logger.exception("Custom panel command failed")
-        usage_store.record_g25(update, command="panel", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
-        await update.message.reply_text("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0444\u0430\u0439\u043b \u0438\u043b\u0438 G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0438 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0435 \u0440\u0430\u0437.", do_quote=False)
-        raise ApplicationHandlerStop
-
-    usage_store.record_g25(update, command="panel", input_mode=result.input_mode, success=True, query=result.target_name)
-
-    with result.png_path.open("rb") as handle:
-        await update.message.reply_photo(photo=handle, caption=result.summary_text, do_quote=False)
-    if source_document is not None and result.simulated_g25_line:
-        await update.message.reply_text(
-            f"G25 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b\n<code>{html.escape(result.simulated_g25_line)}</code>",
-            parse_mode="HTML",
-            do_quote=False,
-        )
-
-    panel_store.clear_pending(chat_id, user_id)
-    if status_message is not None:
-        try:
-            await status_message.edit_text("\u0420\u0430\u0441\u0447\u0435\u0442 \u0433\u043e\u0442\u043e\u0432.")
-        except Exception:
-            logger.debug("Failed to update custom panel status message", exc_info=True)
-    raise ApplicationHandlerStop
-
-
-async def _run_g25coords_input(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    body: str = "",
-) -> None:
-    if update.message is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    service: G25CommandService = context.application.bot_data["g25_service"]
-    usage_store: UsageStore = context.application.bot_data["usage_store"]
-    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    source_document = update.message.document
-    status_message = None
-    usage_query = body[:120].strip() if body else ""
-
-    try:
-        if source_document is not None:
-            status_message = await update.message.reply_text("\u0424\u0430\u0439\u043b \u043f\u043e\u043b\u0443\u0447\u0435\u043d, \u0438\u0437\u0432\u043b\u0435\u043a\u0430\u044e \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b...", do_quote=False)
-            file_name = source_document.file_name or "input_g25.txt"
-            usage_query = file_name
-            sample_name = _build_g25_sample_name(update, Path(file_name).stem)
-            run_dir = service.create_run_dir("g25", sample_name)
-            input_path = run_dir / file_name
-            telegram_file = await source_document.get_file()
-            await telegram_file.download_to_drive(custom_path=str(input_path))
-            result = service.extract_coordinates_from_file(input_path, sample_name)
-        else:
-            sample_name = _build_g25_sample_name(update)
-            usage_query = sample_name
-            result = service.extract_coordinates_from_text(body, sample_name)
-    except G25CommandError as exc:
-        usage_store.record_g25(update, command="g25", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
-        await update.message.reply_text(str(exc), do_quote=False)
-        raise ApplicationHandlerStop
-    except Exception:
-        logger.exception("G25 coords menu command failed")
-        usage_store.record_g25(update, command="g25", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
-        await update.message.reply_text(
-            "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0444\u0430\u0439\u043b \u0438\u043b\u0438 G25-\u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0438 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0435 \u0440\u0430\u0437.",
-            do_quote=False,
-        )
-        raise ApplicationHandlerStop
-
-    usage_store.record_g25(update, command="g25", input_mode=result.input_mode, success=True, query=result.target_name)
-    await update.message.reply_text(
-        f"G25 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b\n<code>{html.escape(result.simulated_g25_line)}</code>",
-        parse_mode="HTML",
-        do_quote=False,
-    )
-
-    coords_store.clear_pending(chat_id, user_id)
-    if status_message is not None:
-        try:
-            await status_message.edit_text("\u041a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u0433\u043e\u0442\u043e\u0432\u044b.")
-        except Exception:
-            logger.debug("Failed to update G25 coords status message", exc_info=True)
-    raise ApplicationHandlerStop
-
-
-async def panel_document_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.message.document is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-    if coords_store.has_pending(chat_id, user_id):
-        await _run_g25coords_input(update, context)
-        return
-
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    if not panel_store.has_pending(chat_id, user_id):
-        return
-
-    await _run_custom_panel_input(update, context)
-
-
-async def panel_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.message.text is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    body = update.message.text.strip()
-    if not body or body.startswith("/"):
-        return
-
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-    if coords_store.has_pending(chat_id, user_id):
-        await update.message.reply_text("В режиме получения G25 отправьте raw-файл документом.", do_quote=False)
-        raise ApplicationHandlerStop
-
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    if not panel_store.has_pending(chat_id, user_id):
-        return
-
-    await _run_custom_panel_input(update, context, body=body)
-async def panel2_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_allowed(update):
-        await update.message.reply_text("G25-\u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043d\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.", do_quote=False)
-        return
-
-    await _send_panel_builder_message(
-        message=update.message,
-        context=context,
-        panel_name="panel2",
-        chat_id=update.effective_chat.id,
-        user_id=update.effective_user.id,
-    )
-async def panel2_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    if query is None or query.data is None:
-        return
-    if not query.data.startswith(f"{PANEL2_CALLBACK_PREFIX}:"):
-        return
-
-    await query.answer()
-    if update.effective_chat is None or update.effective_user is None or query.message is None:
-        return
-
-    access_store: G25AccessStore = context.application.bot_data["g25_access_store"]
-    if not access_store.is_allowed(update):
-        await query.answer("Нет доступа к G25.", show_alert=True)
-        return
-
-    service: G25CommandService = context.application.bot_data["g25_service"]
-    panel_store: CustomPanelStore = context.application.bot_data["panel2_store"]
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    state = panel_store.get(chat_id, user_id)
-    if not state or state.get("message_id") != query.message.message_id:
-        await query.answer("Это меню не для вас. Вызовите /panel2 сами.", show_alert=True)
-        return
-
-    parts = query.data.split(":", 2)
-    action = parts[1] if len(parts) > 1 else ""
-    source_key = parts[2] if len(parts) > 2 else ""
-
-    if action == "toggle":
-        selected = panel_store.toggle(chat_id, user_id, source_key)
-        await query.edit_message_text(
-            _panel2_builder_text(service, selected),
-            reply_markup=_build_panel2_keyboard(service, selected),
-        )
-        return
-
-    if action == "clear":
-        panel_store.clear(chat_id, user_id)
-        await query.edit_message_text(
-            _panel2_builder_text(service, []),
-            reply_markup=_build_panel2_keyboard(service, []),
-        )
-        return
-
-    if action == "back":
-        panel_store.cancel(chat_id, user_id)
-        await query.edit_message_text(_g25menu_text(), reply_markup=_build_g25menu_keyboard())
-        return
-
-    if action == "cancel":
-        _cancel_g25_menu(context, chat_id, user_id)
-        await query.edit_message_text("G25 меню закрыто.")
-        return
-
-    if action == "done":
-        selected = panel_store.finish(chat_id, user_id)
-        if not selected:
-            await query.answer("Сначала выберите хотя бы один источник.", show_alert=True)
-            return
-        await query.edit_message_text(
-            _panel2_builder_text(service, selected, ready=True),
-            reply_markup=_build_panel_ready_keyboard(PANEL2_CALLBACK_PREFIX),
-        )
-        return
-async def _run_custom_panel2_input(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    body: str = "",
-) -> None:
-    if update.message is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    service: G25CommandService = context.application.bot_data["g25_service"]
-    usage_store: UsageStore = context.application.bot_data["usage_store"]
-    panel_store: CustomPanelStore = context.application.bot_data["panel2_store"]
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    selected_keys = panel_store.get_selected(chat_id, user_id)
-    source_document = update.message.document
-    status_message = None
-    usage_query = body[:120].strip() if body else ""
-
-    try:
-        if source_document is not None:
-            status_message = await update.message.reply_text("Файл получен, строю модель...", do_quote=False)
-            file_name = source_document.file_name or "input_panel2.txt"
-            usage_query = file_name
-            sample_name = _build_g25_sample_name(update, Path(file_name).stem)
-            temp_dir = service.create_run_dir("panel2_input", sample_name)
-            input_path = temp_dir / file_name
-            telegram_file = await source_document.get_file()
-            await telegram_file.download_to_drive(custom_path=str(input_path))
-            result = service.run_panel2_from_file(selected_keys, input_path, sample_name)
-        else:
-            sample_name = _build_g25_sample_name(update)
-            usage_query = sample_name
-            result = service.run_panel2_from_text(selected_keys, body, sample_name)
-    except G25CommandError as exc:
-        usage_store.record_g25(update, command="panel2", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
-        await update.message.reply_text(str(exc), do_quote=False)
-        raise ApplicationHandlerStop
-    except Exception:
-        logger.exception("Custom panel2 command failed")
-        usage_store.record_g25(update, command="panel2", input_mode=("document" if source_document is not None else "text"), success=False, query=usage_query)
-        await update.message.reply_text("Не удалось обработать данные. Проверьте файл или G25-координаты и попробуйте еще раз.", do_quote=False)
-        raise ApplicationHandlerStop
-
-    usage_store.record_g25(update, command="panel2", input_mode=result.input_mode, success=True, query=result.target_name)
-
-    with result.png_path.open("rb") as handle:
-        await update.message.reply_photo(photo=handle, caption=result.summary_text, do_quote=False)
-    if source_document is not None and result.simulated_g25_line:
-        await update.message.reply_text(
-            f"G25 координаты\n<code>{html.escape(result.simulated_g25_line)}</code>",
-            parse_mode="HTML",
-            do_quote=False,
-        )
-
-    panel_store.clear_pending(chat_id, user_id)
-    if status_message is not None:
-        try:
-            await status_message.edit_text("Расчет готов.")
-        except Exception:
-            logger.debug("Failed to update custom panel2 status message", exc_info=True)
-    raise ApplicationHandlerStop
-
-
-async def panel2_document_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.message.document is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-    if coords_store.has_pending(chat_id, user_id):
-        await _run_g25coords_input(update, context)
-        return
-
-    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
-    if panel2_store.has_pending(chat_id, user_id):
-        await _run_custom_panel2_input(update, context)
-        return
-
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    if panel_store.has_pending(chat_id, user_id):
-        await _run_custom_panel_input(update, context)
-        return
-
-
-async def panel2_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.message.text is None or update.effective_chat is None or update.effective_user is None:
-        return
-
-    body = update.message.text.strip()
-    if not body or body.startswith("/"):
-        return
-
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    coords_store: CustomPanelStore = context.application.bot_data["coords_store"]
-    if coords_store.has_pending(chat_id, user_id):
-        await update.message.reply_text("В режиме получения G25 отправьте raw-файл документом.", do_quote=False)
-        raise ApplicationHandlerStop
-
-    panel2_store: CustomPanelStore = context.application.bot_data["panel2_store"]
-    if panel2_store.has_pending(chat_id, user_id):
-        await _run_custom_panel2_input(update, context, body=body)
-        return
-
-    panel_store: CustomPanelStore = context.application.bot_data["panel_store"]
-    if panel_store.has_pending(chat_id, user_id):
-        await _run_custom_panel_input(update, context, body=body)
-        return
-async def text_lookup_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.message.text is None:
-        return
-
-    if update.effective_chat is None or update.effective_chat.type != "private":
-        return
-
-    name = update.message.text.strip()
-    if not name:
-        return
-
-    await handle_lookup(update, context, name)
+    await update.message.reply_text(access_store.format_admin_list(), parse_mode="HTML", do_quote=False)
 
 
 def main() -> None:
@@ -2103,6 +1989,8 @@ def main() -> None:
     bot_token = get_required_env("BOT_TOKEN")
     spreadsheet_id = get_required_env("GOOGLE_SHEETS_ID", "GOOGLE_SHETS_ID")
     worksheet_name = os.getenv("GOOGLE_SHEETS_WORKSHEET", "").strip()
+    mtdna_spreadsheet_id = os.getenv("MTDNA_GOOGLE_SHEETS_ID", DEFAULT_MTDNA_SPREADSHEET_ID).strip()
+    mtdna_worksheet_name = os.getenv("MTDNA_GOOGLE_SHEETS_WORKSHEET", "").strip()
     creds_path = get_required_env("GOOGLE_CREDENTIALS_PATH")
     g25_admin_ids = _parse_g25_admin_ids(os.getenv("G25_ADMIN_IDS", ""))
     g25_admin_usernames = _parse_g25_admin_usernames(os.getenv("G25_ADMIN_USERNAMES", ""))
@@ -2112,48 +2000,91 @@ def main() -> None:
         spreadsheet_id=spreadsheet_id,
         worksheet_name=worksheet_name,
     )
-    g25_service = G25CommandService()
+    sheets_by_search_base = _build_search_base_sheets(creds_path, sheets)
+    mtdna_sheets: MtdnaSheetsClient | None = None
+    if mtdna_spreadsheet_id:
+        try:
+            mtdna_sheets = MtdnaSheetsClient(
+                creds_path=creds_path,
+                spreadsheet_id=mtdna_spreadsheet_id,
+                worksheet_name=mtdna_worksheet_name,
+            )
+            logger.info("mtDNA sheet schema: %s", mtdna_sheets.get_schema_summary())
+        except Exception:
+            logger.exception("Failed to initialize mtDNA sheets client")
     usage_store = UsageStore(USAGE_DB_PATH)
+    sozluk = SozlukClient(SOZLUK_DB_PATH)
     g25_access_store = G25AccessStore(G25_ACCESS_PATH, admin_ids=g25_admin_ids, admin_usernames=g25_admin_usernames)
-    panel_store = CustomPanelStore()
-    panel2_store = CustomPanelStore()
-    coords_store = CustomPanelStore()
 
     app = Application.builder().token(bot_token).build()
     app.bot_data["sheets"] = sheets
-    app.bot_data["g25_service"] = g25_service
+    app.bot_data["sheets_by_search_base"] = sheets_by_search_base
+    app.bot_data["mtdna_sheets"] = mtdna_sheets
     app.bot_data["usage_store"] = usage_store
+    app.bot_data["sozluk"] = sozluk
     app.bot_data["g25_access_store"] = g25_access_store
-    app.bot_data["panel_store"] = panel_store
-    app.bot_data["panel2_store"] = panel2_store
-    app.bot_data["coords_store"] = coords_store
+    app.bot_data["reports_back_callback"] = f"{MY_DNA_CALLBACK_PREFIX}:root"
+    app.bot_data["reports_my_dna_callback"] = f"{MY_DNA_CALLBACK_PREFIX}:root"
+    app.bot_data["reports_show_my_dna_shortcut"] = False
+    app.bot_data["reply_menu_hooks"] = {
+        "collapse_active_reply_menu": _collapse_active_reply_menu,
+        "remember_active_reply_menu": _remember_active_reply_menu,
+        "remember_reply_menu_owner": _remember_reply_menu_owner,
+        "ensure_reply_menu_owner": _ensure_reply_menu_owner,
+        "discard_stale_reply_menu": _discard_stale_reply_menu,
+        "activate_reply_menu": _activate_reply_menu,
+        "forget_active_reply_menu": _forget_active_reply_menu,
+    }
+    _register_dna_lab_services(app)
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler(MENU_COMMAND, menu_command))
     app.add_handler(CommandHandler("build", build_command))
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler(HAPLO_COMMAND, haplo_command))
     app.add_handler(CommandHandler("g25stats", g25stats_command))
-    app.add_handler(CommandHandler("g25allow", g25allow_command))
-    app.add_handler(CommandHandler("g25deny", g25deny_command))
-    app.add_handler(CommandHandler("g25list", g25list_command))
-    app.add_handler(CommandHandler(G25MENU_COMMAND, g25menu_command))
-    app.add_handler(CommandHandler(PANEL_COMMAND, panel_command))
-    app.add_handler(CommandHandler(PANEL2_COMMAND, panel2_command))
-    app.add_handler(CallbackQueryHandler(panel_callback_handler, pattern=r"^panel:"))
-    app.add_handler(CallbackQueryHandler(panel2_callback_handler, pattern=r"^panel2:"))
-    app.add_handler(CallbackQueryHandler(g25menu_callback_handler, pattern=r"^g25menu:"))
+    app.add_handler(CommandHandler("statslist", statslist_command))
+    app.add_handler(CommandHandler(SOZLUK_COMMAND, sozluk_command))
+    app.add_handler(CommandHandler(SOZLUK_SHORT_COMMAND, sozluk_command))
+    app.add_handler(CallbackQueryHandler(ystr_callback_handler, pattern=r"^ystr:"))
+    app.add_handler(CallbackQueryHandler(haplo_callback_handler, pattern=r"^haplo:"))
+    app.add_handler(CallbackQueryHandler(menu_callback_handler, pattern=r"^menu:"))
+    app.add_handler(CallbackQueryHandler(laboratory_callback_handler, pattern=r"^lab:"))
+    app.add_handler(CallbackQueryHandler(my_dna_entry_callback_handler, pattern=r"^(?:mydna:|my_data:root$)"))
+    app.add_handler(CallbackQueryHandler(help_entry_callback_handler, pattern=r"^help:"))
+    app.add_handler(CallbackQueryHandler(dna_lab_main_navigation_callback_handler, pattern=fr"^{DNA_LAB_MAIN_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_my_data_callback_handler), pattern=fr"^{DNA_LAB_MY_DATA_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_coordinate_space_callback_handler), pattern=fr"^{DNA_LAB_COORDINATE_SPACE_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_admixture_callback_handler), pattern=fr"^{DNA_LAB_ADMIXTURE_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_modeling_callback_handler), pattern=fr"^{DNA_LAB_MODELING_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_matching_callback_handler), pattern=fr"^{DNA_LAB_MATCHING_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_traits_callback_handler), pattern=fr"^{DNA_LAB_TRAITS_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_haplogroups_callback_handler), pattern=fr"^{DNA_LAB_HAPLOGROUPS_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_reports_callback_handler), pattern=fr"^{DNA_LAB_REPORTS_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_settings_callback_handler), pattern=fr"^{DNA_LAB_SETTINGS_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_vahaduo_callback_handler), pattern=fr"^{DNA_LAB_VAHADUO_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(lookup_suggestion_callback_handler, pattern=r"^lookup:(?:[sr]:\d+|a:all)$"))
     app.add_handler(CommandHandler("find", find_command))
     app.add_handler(CommandHandler("f", find_command))
-    app.add_handler(MessageHandler(filters.Document.ALL, panel2_document_input_handler), group=-1)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, panel2_text_input_handler), group=-1)
-    app.add_handler(MessageHandler(filters.Document.ALL, panel_document_input_handler), group=-1)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, panel_text_input_handler), group=-1)
+    app.add_handler(MessageHandler(filters.Document.ALL, dna_lab_my_data_document_input_handler), group=1)
+    app.add_handler(MessageHandler(filters.Document.ALL, dna_lab_vahaduo_document_input_handler), group=2)
+    app.add_handler(MessageHandler(filters.Document.ALL, dna_lab_haplogroups_document_input_handler), group=3)
     app.add_handler(
         MessageHandler(
-            (filters.TEXT & filters.Regex(r"^/(?:3|4|g25|steppe)(?:@\w+)?(?:\s|$)"))
-            | (filters.Document.ALL & filters.CaptionRegex(r"^/(?:3|4|g25|steppe)(?:@\w+)?(?:\s|$)")),
-            g25_command_handler,
-        )
+            filters.ChatType.PRIVATE
+            & filters.TEXT
+            & ~filters.COMMAND
+            & filters.Regex(r"^(?:🔎 Поиск по фамилии|ℹ️ Инструкция|📊 Аналитика|🧬 My DNA|🧪 Лаборатория|🧪 DNA Lab|📚 Справка|🧭 Coordinate spaces|📐 Vahaduo Lab|🧪 Vahaduo Lab|🧩 Matching|🧱 AdmixLab|🛠 Admixtool|✨ Traits|🧾 Traits|🧬 Admixture|🌿 Haplogroups|🧬 Получить G25 координаты|Получить G25 координаты|⚙️ Настройки|🧬 Y-STR анализ|📚 Словарь|🧩 Прочее|Назад|Отмена)$"),
+            private_bottom_menu_handler,
+        ),
+        group=-6,
     )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_my_data_text_input_handler), group=-5)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_vahaduo_text_input_handler), group=-4)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_haplogroups_text_input_handler), group=-3)
+    app.add_handler(MessageHandler(filters.Document.ALL, ystr_document_input_handler), group=-2)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_matching_text_input_handler), group=-2)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, pending_text_router), group=-2)
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, text_lookup_command))
 
     logger.info("Bot started: %s", BUILD_ID)

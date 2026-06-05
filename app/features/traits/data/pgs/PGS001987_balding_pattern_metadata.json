@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs001987_male_pattern_baldness",
+    "pgs_id":  "PGS001987",
+    "display_name":  "Male-pattern baldness tendency",
+    "short_name":  "Male-pattern baldness",
+    "group":  "appearance",
+    "category":  "consumer_appearance",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing appearance trait that reports a cautious panel-relative signal for male-pattern hair-loss tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing appearance trait with practical raw-array support and a clearer interpretation boundary between inherited hair-loss tendency and current visible hairline status for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with male-pattern baldness or patterned scalp-hair-loss tendency, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Male-pattern baldness tendency is presented here as a cautious relative appearance signal related to patterned scalp-hair loss over time, not as a direct statement about your current hairline or guaranteed future outcome. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic forecast of current or future hairline appearance.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "This source phenotype is specifically tied to male-pattern balding, so interpretation is less direct outside that phenotype context.",
+                        "Real-world hair loss also depends strongly on age, sex hormones, medication use, grooming choices, hair transplantation or treatment history, and other non-modeled factors."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "appearance",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS001987_balding_pattern_notes.md"
+}

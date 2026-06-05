@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Types of physical activity in last 4 weeks (other exercises)",
+  "trait_id": "pgs001074_other_exercise_types",
+  "display_name": "Other-exercise participation tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": -0.0344142109391176,
+  "sd": 0.12911515908451993,
+  "min": -0.2663681708700002,
+  "max": 0.30343257956999986,
+  "p5": -0.21116863042249956,
+  "p10": -0.1810541477659997,
+  "p25": -0.14161206145749985,
+  "p50": -0.05253470697000008,
+  "p75": 0.03339397296749994,
+  "p90": 0.12555272487300007,
+  "p95": 0.1726559136409997,
+  "scoring_file_name": "PGS001074_other_exercise_types.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS001074_other_exercise_types.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001074",
+    "pgs_name": "GBE_BIN_FC30006164",
+    "trait_reported": "Types of physical activity in last 4 weeks (other exercises)",
+    "genome_build": "GRCh37",
+    "variants_number": "3846",
+    "weight_type": "NR",
+    "citation": "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS001074_other_exercise_types_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS001074_other_exercise_types_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 5,
+  "trait_block": {
+    "trait_id": "pgs001074_other_exercise_types",
+    "display_name": "Other-exercise participation tendency",
+    "reported_name": "Types of physical activity in last 4 weeks (other exercises)",
+    "pgs_id": "PGS001074",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": -0.0344142109391176,
+    "sd": 0.12911515908451993,
+    "min": -0.2663681708700002,
+    "max": 0.30343257956999986,
+    "p5": -0.21116863042249956,
+    "p10": -0.1810541477659997,
+    "p25": -0.14161206145749985,
+    "p50": -0.05253470697000008,
+    "p75": 0.03339397296749994,
+    "p90": 0.12555272487300007,
+    "p95": 0.1726559136409997
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 3846,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs001074_other_exercise_types",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-11T13:55:44Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS001074_other_exercise_types_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS001074_other_exercise_types_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "41ff63416b3e708ade2dd3727f55db2cfcafac86f0f595788fdbae679ef388ed",
+    "scoring_file_sha256": "983d268881a434e3eeb3c48d2b05e73fa27b27f0cdc53c2febbabc1d2b30f289",
+    "manifest_entries_sha256": "997a2c9ee60b3a1d7bd8ec4f9db15a2556b12af578dcd86b475621ec6f104d44"
+  }
+}

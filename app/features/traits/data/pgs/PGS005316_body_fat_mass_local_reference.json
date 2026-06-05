@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Body fat mass",
+  "trait_id": "pgs005316_body_fat_mass",
+  "display_name": "Body fat mass tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.2847487676470588,
+  "sd": 0.09378399846059192,
+  "min": 0.07459829999999998,
+  "max": 0.474158,
+  "p5": 0.15067631,
+  "p10": 0.17758058,
+  "p25": 0.21388714999999994,
+  "p50": 0.26742119999999997,
+  "p75": 0.38018727499999994,
+  "p90": 0.39942239,
+  "p95": 0.41164600999999995,
+  "scoring_file_name": "PGS005316_body_fat_mass.txt.gz",
+  "scoring_file_path": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS005316_body_fat_mass.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS005316",
+    "pgs_name": "BFM_PRS",
+    "trait_reported": "Body fat mass",
+    "genome_build": "NR",
+    "variants_number": "403",
+    "weight_type": "beta",
+    "citation": "Türkmen D et al. Pharmacogenomics J (2024). doi:10.1038/s41397-024-00333-2"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS005316_body_fat_mass_local_reference_manifest.json",
+  "manifest_tsv": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS005316_body_fat_mass_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 20,
+  "trait_block": {
+    "trait_id": "pgs005316_body_fat_mass",
+    "display_name": "Body fat mass tendency",
+    "reported_name": "Body fat mass",
+    "pgs_id": "PGS005316",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.2847487676470588,
+    "sd": 0.09378399846059192,
+    "min": 0.07459829999999998,
+    "max": 0.474158,
+    "p5": 0.15067631,
+    "p10": 0.17758058,
+    "p25": 0.21388714999999994,
+    "p50": 0.26742119999999997,
+    "p75": 0.38018727499999994,
+    "p90": 0.39942239,
+    "p95": 0.41164600999999995
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 403,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs005316_body_fat_mass",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-10T12:58:45Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS005316_body_fat_mass_local_reference_manifest.json",
+    "manifest_tsv": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS005316_body_fat_mass_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "c6b16adbaf3d2d6fac0fea9b4e86d61b0dded87cea5c4190c94a60f520dd5c74",
+    "scoring_file_sha256": "c1d1e0f5c3011fc6d45a233cbc29d55403f1b21e0768d86d08d7653a1c6888cc",
+    "manifest_entries_sha256": "eca2dcb8f049c03e140b59c60fdb1845bfccce05f7fae6066e615bc489470d72"
+  }
+}

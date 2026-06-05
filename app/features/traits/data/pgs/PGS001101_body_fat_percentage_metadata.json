@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001101_body_fat_percentage",
+  "pgs_id": "PGS001101",
+  "display_name": "Body fat percentage tendency",
+  "short_name": "Body fat percentage",
+  "group": "body",
+  "category": "consumer_physical_trait",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing physical trait that reports a cautious panel-relative signal related to body fat percentage tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing physical trait with workable raw-array support and a clearer interpretation boundary between inherited body-fat-percentage tendency and current measured body composition for the no-imputation workflow.",
+  "what_it_measures": "A panel-relative polygenic signal associated with body fat percentage tendency, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Body fat percentage tendency is presented here as a cautious panel-relative body-composition signal, not as a direct measurement of your current body fat percentage, appearance, or health risk. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result, a direct body-composition measurement, or health advice.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Real-world body fat percentage depends strongly on sex, age, hormones, nutrition, training, illness, medication use, and hydration status, so this should not be treated as a precise estimate of current body composition.",
+    "This trait should be interpreted as a cautious relative body-composition tendency, not as a direct statement about current fitness, appearance, or metabolic health."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+  "product_status": "working_real_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer_general",
+  "tags": [
+    "usable",
+    "consumer",
+    "physical_trait",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS001101_body_fat_percentage_notes.md"
+}

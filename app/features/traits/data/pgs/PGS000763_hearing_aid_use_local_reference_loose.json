@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 1,
+  "trait": "Hearing aid use",
+  "trait_id": "pgs000763_hearing",
+  "display_name": "Hearing aid use",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 39,
+  "sample_count_included": 38,
+  "sample_count_excluded": 1,
+  "mean": -0.005684372105263195,
+  "sd": 0.030516551573707636,
+  "min": -0.09580807000000004,
+  "max": 0.04490042999999995,
+  "p5": -0.07142581799999996,
+  "p10": -0.03661557900000003,
+  "p25": -0.01749893250000003,
+  "p50": -0.0007039800000000268,
+  "p75": 0.015401402499999946,
+  "p90": 0.026708641999999953,
+  "p95": 0.031906119499999955,
+  "scoring_file_name": "PGS000763_hearing_aid_use.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS000763_hearing_aid_use.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000763",
+    "pgs_name": "PRS_HAID",
+    "trait_reported": "Hearing aid use",
+    "genome_build": "hg19",
+    "variants_number": "4270",
+    "weight_type": "beta",
+    "citation": "Cherny SS et al. Eur J Hum Genet (2020). doi:10.1038/s41431-020-0603-2"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS000763_hearing_aid_use_local_reference_loose_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS000763_hearing_aid_use_local_reference_loose_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 5.0,
+  "minimum_matched_variants": 100,
+  "trait_block": {
+    "trait_id": "pgs000763_hearing",
+    "display_name": "Hearing aid use",
+    "reported_name": "Hearing aid use",
+    "pgs_id": "PGS000763",
+    "registry_status": "smoke-test"
+  },
+  "distribution": {
+    "mean": -0.005684372105263195,
+    "sd": 0.030516551573707636,
+    "min": -0.09580807000000004,
+    "max": 0.04490042999999995,
+    "p5": -0.07142581799999996,
+    "p10": -0.03661557900000003,
+    "p25": -0.01749893250000003,
+    "p50": -0.0007039800000000268,
+    "p75": 0.015401402499999946,
+    "p90": 0.026708641999999953,
+    "p95": 0.031906119499999955
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 4270,
+    "minimum_matched_variants": 100,
+    "minimum_overlap_percent": 5.0,
+    "included_score_count": 38
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs000763_hearing",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 39,
+    "sample_count_included": 38,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Dekkushev (ataul Mırzakai)_Chrom_Autoso_20251113",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_B_Esekku_Chrom_Autoso_20260208",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 100,
+    "minimum_overlap_percent": 5.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-03-27T16:21:01Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS000763_hearing_aid_use_local_reference_loose_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS000763_hearing_aid_use_local_reference_loose_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "3ef20b1e1f315fc242a11332f1994fa50727f555a90268e693a8b0cc67c07f24",
+    "scoring_file_sha256": "707780a654e2e1a4d78085c34534872af8c64f4e3dd75607fa3a31f1b2e76d56",
+    "manifest_entries_sha256": "fb871bdb3a5c276017b00ec56209070866dd20cb2c5eae1949fc913a81a7972a"
+  }
+}

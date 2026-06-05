@@ -1,0 +1,116 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Hearing difficulty and deafness",
+  "trait_id": "pgs001252_hearing_difficulty_and_deafness",
+  "display_name": "Hearing-difficulty-and-deafness polygenic signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.17440644046317647,
+  "sd": 0.07671209085406677,
+  "min": 0.042673281592999976,
+  "max": 0.37462786014300004,
+  "p5": 0.05654424479835,
+  "p10": 0.08114044470570006,
+  "p25": 0.12269347059099993,
+  "p50": 0.1700778656145,
+  "p75": 0.22227050298274997,
+  "p90": 0.28048331822859984,
+  "p95": 0.30348333586434995,
+  "scoring_file_name": "PGS001252_hearing_difficulty_and_deafness.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS001252_hearing_difficulty_and_deafness.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001252",
+    "pgs_name": "GBE_BIN_FC3002247",
+    "trait_reported": "Hearing difficulty and deafness",
+    "genome_build": "GRCh37",
+    "variants_number": "3731",
+    "weight_type": "NR",
+    "citation": "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS001252_hearing_difficulty_and_deafness_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS001252_hearing_difficulty_and_deafness_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 20,
+  "trait_block": {
+    "trait_id": "pgs001252_hearing_difficulty_and_deafness",
+    "display_name": "Hearing-difficulty-and-deafness polygenic signal",
+    "reported_name": "Hearing difficulty and deafness",
+    "pgs_id": "PGS001252",
+    "registry_status": "experimental"
+  },
+  "distribution": {
+    "mean": 0.17440644046317647,
+    "sd": 0.07671209085406677,
+    "min": 0.042673281592999976,
+    "max": 0.37462786014300004,
+    "p5": 0.05654424479835,
+    "p10": 0.08114044470570006,
+    "p25": 0.12269347059099993,
+    "p50": 0.1700778656145,
+    "p75": 0.22227050298274997,
+    "p90": 0.28048331822859984,
+    "p95": 0.30348333586434995
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 3731,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs001252_hearing_difficulty_and_deafness",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-10T19:40:41Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS001252_hearing_difficulty_and_deafness_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS001252_hearing_difficulty_and_deafness_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "3a3d92aa8600c1d0bb96423baf00b9bf6b1c447868e544d566f8d89f83e1a4a4",
+    "scoring_file_sha256": "f3e7de18cb017188756cd472d78a7d88b1a07cebceaa62c8b1857526f552222d",
+    "manifest_entries_sha256": "cc3c0b0e487291f72daacc1640be301ef9772aa90ee9752d63982e0d06966ff5"
+  }
+}
+

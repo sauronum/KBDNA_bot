@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Chronotype",
+  "trait_id": "pgs000336_chronotype",
+  "display_name": "Chronotype tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.006470588235294114,
+  "sd": 0.10445608007368389,
+  "min": -0.2899999999999999,
+  "max": 0.17,
+  "p5": -0.154,
+  "p10": -0.121,
+  "p25": -0.07749999999999999,
+  "p50": 0.029999999999999985,
+  "p75": 0.09,
+  "p90": 0.12,
+  "p95": 0.13699999999999998,
+  "scoring_file_name": "PGS000336_chronotype.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS000336_chronotype.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000336",
+    "pgs_name": "GRS313_Chron",
+    "trait_reported": "Chronotype",
+    "genome_build": "GRCh37",
+    "variants_number": "313",
+    "weight_type": "ln(OR)",
+    "citation": "Maukonen M et al. J Biol Rhythms (2020). doi:10.1177/0748730420935328"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS000336_chronotype_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS000336_chronotype_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 5.0,
+  "minimum_matched_variants": 20,
+  "trait_block": {
+    "trait_id": "pgs000336_chronotype",
+    "display_name": "Chronotype tendency",
+    "reported_name": "Chronotype",
+    "pgs_id": "PGS000336",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.006470588235294114,
+    "sd": 0.10445608007368389,
+    "min": -0.2899999999999999,
+    "max": 0.17,
+    "p5": -0.154,
+    "p10": -0.121,
+    "p25": -0.07749999999999999,
+    "p50": 0.029999999999999985,
+    "p75": 0.09,
+    "p90": 0.12,
+    "p95": 0.13699999999999998
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 313,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 5.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs000336_chronotype",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 5.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-03T17:27:10Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS000336_chronotype_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS000336_chronotype_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "86189bfb024d1d992290d43eff63cb9f70091a31f86ae0f602d28acf618da2ae",
+    "scoring_file_sha256": "2a4a5650665a5bed0783313185259a65626064a1a3ed2b058b199eef02e088b8",
+    "manifest_entries_sha256": "54d38b8430d9c01f1b66af1007b733677ee53074addf6d771f2e57dbccdb2ae6"
+  }
+}

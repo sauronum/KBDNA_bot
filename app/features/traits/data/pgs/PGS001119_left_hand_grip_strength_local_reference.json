@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Left hand grip strength",
+  "trait_id": "pgs001119_left_hand_grip_strength",
+  "display_name": "Left-hand grip-strength tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": -0.15540632470023505,
+  "sd": 0.5391396150347451,
+  "min": -1.3620742931120002,
+  "max": 1.0928975231399993,
+  "p5": -0.9171212264059995,
+  "p10": -0.7865301654510012,
+  "p25": -0.48979333801549985,
+  "p50": -0.19448208494499908,
+  "p75": 0.16849044917200123,
+  "p90": 0.5869445167950016,
+  "p95": 0.6410681641034992,
+  "scoring_file_name": "PGS001119_left_hand_grip_strength.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS001119_left_hand_grip_strength.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001119",
+    "pgs_name": "GBE_INI46",
+    "trait_reported": "Left hand grip strength",
+    "genome_build": "GRCh37",
+    "variants_number": "13767",
+    "weight_type": "NR",
+    "citation": "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS001119_left_hand_grip_strength_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS001119_left_hand_grip_strength_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 5,
+  "trait_block": {
+    "trait_id": "pgs001119_left_hand_grip_strength",
+    "display_name": "Left-hand grip-strength tendency",
+    "reported_name": "Left hand grip strength",
+    "pgs_id": "PGS001119",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": -0.15540632470023505,
+    "sd": 0.5391396150347451,
+    "min": -1.3620742931120002,
+    "max": 1.0928975231399993,
+    "p5": -0.9171212264059995,
+    "p10": -0.7865301654510012,
+    "p25": -0.48979333801549985,
+    "p50": -0.19448208494499908,
+    "p75": 0.16849044917200123,
+    "p90": 0.5869445167950016,
+    "p95": 0.6410681641034992
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 13767,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs001119_left_hand_grip_strength",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-11T13:59:06Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS001119_left_hand_grip_strength_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS001119_left_hand_grip_strength_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "0ae3896b674bb5757535f0a8cce7dff371cc7ba4056cebd8a5202e10f9984c18",
+    "scoring_file_sha256": "6a10f49700c62d60a23412b674ad28d2209ff4e319c2e8731fac8f57b342822a",
+    "manifest_entries_sha256": "781f8dc9c359ff9f9206e17fa609426aabe71a9cef248df2a58a3219696f5d65"
+  }
+}

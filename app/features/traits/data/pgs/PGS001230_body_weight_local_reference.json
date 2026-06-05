@@ -1,0 +1,127 @@
+{
+    "artifact_type":  "pgs_reference_distribution",
+    "reference_schema_version":  1,
+    "engine_version":  "pgs-mvp-1",
+    "registry_version":  2,
+    "trait":  "Body weight",
+    "trait_id":  "pgs001230_body_weight",
+    "display_name":  "Body weight tendency",
+    "reference_type":  "local_empirical",
+    "valid":  true,
+    "warnings":  [
+
+                 ],
+    "invalid_reasons":  [
+
+                        ],
+    "sample_count_total":  34,
+    "sample_count_included":  34,
+    "sample_count_excluded":  0,
+    "mean":  8.248464787860485,
+    "sd":  2.479924587030181,
+    "min":  2.0792127425579006,
+    "max":  13.238232014684964,
+    "p5":  4.131690532591451,
+    "p10":  5.1495166165260065,
+    "p25":  6.70323590789501,
+    "p50":  8.51192554949499,
+    "p75":  9.933660674329989,
+    "p90":  10.92043304285808,
+    "p95":  11.733351341337713,
+    "scoring_file_name":  "PGS001230_body_weight.txt.gz",
+    "scoring_file_path":  "data\\pgs\\PGS001230_body_weight.txt.gz",
+    "scoring_metadata":  {
+                             "pgs_id":  "PGS001230",
+                             "pgs_name":  "GBE_INI21002",
+                             "trait_reported":  "Body weight",
+                             "genome_build":  "GRCh37",
+                             "variants_number":  "31222",
+                             "weight_type":  "NR",
+                             "citation":  "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+                         },
+    "minimum_reference_samples":  5,
+    "manifest_json":  "data\\pgs\\PGS001230_body_weight_local_reference_manifest.json",
+    "manifest_tsv":  "data\\pgs\\PGS001230_body_weight_local_reference_manifest.tsv",
+    "input_dir":  "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "input_format_requested":  "auto",
+    "include_glob":  [
+
+                     ],
+    "exclude_glob":  [
+
+                     ],
+    "minimum_overlap_percent":  10.0,
+    "minimum_matched_variants":  20,
+    "trait_block":  {
+                        "trait_id":  "pgs001230_body_weight",
+                        "display_name":  "Body weight tendency",
+                        "reported_name":  "Body weight",
+                        "pgs_id":  "PGS001230",
+                        "registry_status":  "usable"
+                    },
+    "distribution":  {
+                         "mean":  8.248464787860485,
+                         "sd":  2.479924587030181,
+                         "min":  2.0792127425579006,
+                         "max":  13.238232014684964,
+                         "p5":  4.131690532591451,
+                         "p10":  5.1495166165260065,
+                         "p25":  6.70323590789501,
+                         "p50":  8.51192554949499,
+                         "p75":  9.933660674329989,
+                         "p90":  10.92043304285808,
+                         "p95":  11.733351341337713
+                     },
+    "variant_statistics":  {
+                               "total_scoring_variants":  31222,
+                               "minimum_matched_variants":  20,
+                               "minimum_overlap_percent":  10.0,
+                               "included_score_count":  34
+                           },
+    "source_dataset":  {
+                           "source_dataset_id":  "local_empirical::Autosomal::pgs001230_body_weight",
+                           "source_name":  "Autosomal",
+                           "input_dir":  "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+                           "sample_count_total":  34,
+                           "sample_count_included":  34,
+                           "sample_count_excluded":  0,
+                           "included_sample_ids_preview":  [
+                                                               "37_A_Ata_Chrom_Autoso_20260225",
+                                                               "37_A_Berberov_Chrom_Autoso_20260224",
+                                                               "37_A_Borlakova_Chrom_Autoso_20260202",
+                                                               "37_A_Hogayliev_Chrom_Autoso_20250717",
+                                                               "37_A_Khubiev_Chrom_Autoso_20260206",
+                                                               "37_A_Salpagarova_Chrom_Autoso_20260112",
+                                                               "37_E_Ashat_Chrom_Autoso_20251104",
+                                                               "37_E_Aznaur_Chrom_Autoso_20251108",
+                                                               "37_E_Nauruzbi_Chrom_Autoso_20251115",
+                                                               "37_K_Khasanov_Chrom_Autoso_20251118"
+                                                           ],
+                           "included_sample_ids_truncated":  true
+                       },
+    "build":  {
+                  "mode":  "pgs-build-reference",
+                  "input_format_requested":  "auto",
+                  "minimum_reference_samples":  5,
+                  "minimum_matched_variants":  20,
+                  "minimum_overlap_percent":  10.0,
+                  "include_glob":  [
+
+                                   ],
+                  "exclude_glob":  [
+
+                                   ]
+              },
+    "provenance":  {
+                       "build_timestamp_utc":  "2026-04-10T18:25:21Z",
+                       "build_mode":  "pgs-build-reference",
+                       "manifest_json":  "data\\pgs\\PGS001230_body_weight_local_reference_manifest.json",
+                       "manifest_tsv":  "data\\pgs\\PGS001230_body_weight_local_reference_manifest.tsv"
+                   },
+    "fingerprint":  {
+                        "algorithm":  "sha256",
+                        "artifact_sha256":  "705442d6752575ca877f404e3841cc6471b6aed4716a021ce74b5b9b7a194d6e",
+                        "scoring_file_sha256":  "cac34b39b77ddd8a69b386c079680bb9cf9769d3b2f489d29dc2de5d5c274df7",
+                        "manifest_entries_sha256":  "226da18d6f9ef87e4ccae143d66697610eef28e5dbdb1bc576bf845938711d92"
+                    }
+}

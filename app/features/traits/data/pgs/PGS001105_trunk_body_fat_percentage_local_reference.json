@@ -1,0 +1,112 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Body fat percentage (trunk fat)",
+  "trait_id": "pgs001105_trunk_body_fat_percentage",
+  "display_name": "Trunk fat percentage tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 63,
+  "sample_count_included": 60,
+  "sample_count_excluded": 3,
+  "mean": 1.7659494433467313,
+  "sd": 0.9511055631735379,
+  "min": -0.2756406145616008,
+  "max": 3.6407152649056935,
+  "p5": 0.14655789446825043,
+  "p10": 0.5825712470174994,
+  "p25": 1.1452012116560004,
+  "p50": 1.8799795667433488,
+  "p75": 2.466414561499771,
+  "p90": 2.8398831750221536,
+  "p95": 3.3199837011628834,
+  "scoring_file_name": "PGS001105_trunk_body_fat_percentage.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001105_trunk_body_fat_percentage.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001105",
+    "pgs_name": "GBE_INI23127",
+    "trait_reported": "Body fat percentage (trunk fat)",
+    "genome_build": "GRCh37",
+    "variants_number": "25651",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001105; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001105_trunk_body_fat_percentage",
+    "display_name": "Trunk fat percentage tendency",
+    "reported_name": "Body fat percentage (trunk fat)",
+    "pgs_id": "PGS001105",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 1.7659494433467313,
+    "sd": 0.9511055631735379,
+    "min": -0.2756406145616008,
+    "max": 3.6407152649056935,
+    "p5": 0.14655789446825043,
+    "p10": 0.5825712470174994,
+    "p25": 1.1452012116560004,
+    "p50": 1.8799795667433488,
+    "p75": 2.466414561499771,
+    "p90": 2.8398831750221536,
+    "p95": 3.3199837011628834
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 25651,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 60
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs001105_trunk_body_fat_percentage",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 63,
+    "sample_count_included": 60,
+    "sample_count_excluded": 3,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T06:32:10Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "f9bcb7ef61a93e361160d926ac5e481f97ac41c7700d680551b2294a62fcffb7",
+    "artifact_sha256": "f8205553e844b8f6d972e618a7115c1bf5c2c95c0a033af08c91c2ba263c78e7"
+  }
+}

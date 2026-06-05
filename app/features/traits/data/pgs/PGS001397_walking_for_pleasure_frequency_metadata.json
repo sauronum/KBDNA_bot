@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001397_walking_for_pleasure_frequency",
+  "pgs_id": "PGS001397",
+  "display_name": "Walking-for-pleasure frequency tendency",
+  "short_name": "Walking for pleasure",
+  "group": "lifestyle",
+  "category": "consumer_lifestyle_trait",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing lifestyle trait that reports a cautious panel-relative signal for walking-for-pleasure frequency tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing movement trait describing a cautious inherited signal related to how often someone tends to walk for pleasure relative to the current local reference panel.",
+  "what_it_measures": "A panel-relative polygenic signal associated with frequency of walking for pleasure, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "This is a cautious panel-relative movement signal, not a direct readout of how often you currently go walking for pleasure. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a direct readout of current leisure walking habits, fitness, or health status.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Real-world leisure walking depends strongly on neighbourhood, safety, time, climate, age, health, and personal preferences.",
+    "This trait should not be used as a judgment of discipline, lifestyle quality, or cardiovascular fitness."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+  "product_status": "consumer_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer",
+  "tags": [
+    "lifestyle",
+    "walking",
+    "movement",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS001397_walking_for_pleasure_frequency_notes.md"
+}

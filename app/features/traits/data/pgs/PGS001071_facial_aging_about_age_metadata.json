@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001071_facial_aging_about_age",
+  "pgs_id": "PGS001071",
+  "display_name": "Age-congruent facial-aging tendency",
+  "short_name": "Facial aging",
+  "group": "appearance",
+  "category": "consumer_appearance",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing appearance trait that reports a cautious panel-relative signal for an age-congruent facial-aging tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing appearance trait with workable raw-array support and a clearer interpretation boundary between inherited age-congruent facial-aging tendency and the many non-genetic factors that affect how old someone looks day to day.",
+  "what_it_measures": "A panel-relative polygenic signal associated with a tendency toward age-congruent facial ageing, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Facial aging is presented here as a cautious relative appearance signal related to a tendency toward looking about one's age, not as a direct estimate of current visible age, biological age, or future ageing outcome. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic readout of how old someone looks right now.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Facial-ageing appearance is shaped by many non-genetic factors, including sun exposure, smoking, sleep, stress, weight change, skincare, health, and photography conditions.",
+    "This trait should be interpreted as a cautious relative appearance tendency, not as a promise about current or future visible ageing."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+  "product_status": "working_real_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer_general",
+  "tags": [
+    "usable",
+    "consumer",
+    "appearance",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS001071_facial_aging_about_age_notes.md"
+}

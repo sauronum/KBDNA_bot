@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Duration of walks",
+  "trait_id": "pgs001073_duration_of_walks",
+  "display_name": "Walk-duration tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 3.47312040245294,
+  "sd": 1.222820033884773,
+  "min": 0.8256777909999997,
+  "max": 5.997249514999999,
+  "p5": 1.3989273161000004,
+  "p10": 1.887031700299999,
+  "p25": 2.7318670062499995,
+  "p50": 3.53768703,
+  "p75": 4.1239974537499995,
+  "p90": 4.931263996479997,
+  "p95": 5.50162672765,
+  "scoring_file_name": "PGS001073_duration_of_walks.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS001073_duration_of_walks.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001073",
+    "pgs_name": "GBE_INI874",
+    "trait_reported": "Duration of walks",
+    "genome_build": "GRCh37",
+    "variants_number": "1323",
+    "weight_type": "NR",
+    "citation": "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS001073_duration_of_walks_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS001073_duration_of_walks_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 5,
+  "trait_block": {
+    "trait_id": "pgs001073_duration_of_walks",
+    "display_name": "Walk-duration tendency",
+    "reported_name": "Duration of walks",
+    "pgs_id": "PGS001073",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 3.47312040245294,
+    "sd": 1.222820033884773,
+    "min": 0.8256777909999997,
+    "max": 5.997249514999999,
+    "p5": 1.3989273161000004,
+    "p10": 1.887031700299999,
+    "p25": 2.7318670062499995,
+    "p50": 3.53768703,
+    "p75": 4.1239974537499995,
+    "p90": 4.931263996479997,
+    "p95": 5.50162672765
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 1323,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs001073_duration_of_walks",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-11T13:52:25Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS001073_duration_of_walks_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS001073_duration_of_walks_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "e580d3318dc9a24d431d542c1fefa8238435a0b92adbbaedd8e120cf42649c44",
+    "scoring_file_sha256": "86e81fc8b9ea23996811d8ec8b18afa63a70ed2b5e3d92eee79646e5e119e009",
+    "manifest_entries_sha256": "6f8af3109c3333a6a0ac1a0c62e74ff209e6e0b0e11488fa85f248a4d0c2cd5c"
+  }
+}

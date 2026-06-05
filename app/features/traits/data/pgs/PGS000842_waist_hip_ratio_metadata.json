@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs000842_waist_hip_ratio",
+    "pgs_id":  "PGS000842",
+    "display_name":  "Waist-to-hip ratio tendency",
+    "short_name":  "Waist-to-hip ratio",
+    "group":  "body",
+    "category":  "consumer_physical_trait",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing physical trait that reports a cautious panel-relative signal related to waist-to-hip ratio tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing physical trait with strong raw-array support and a clearer interpretation boundary between inherited body-shape tendency and current tape-measure proportions for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with waist-to-hip ratio tendency, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Waist-to-hip ratio tendency is presented here as a cautious relative body-shape signal, not as a direct tape-measure readout of your current waist and hip measurements. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result, a direct tape-measure estimate, or medical advice about body-fat distribution.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Real-world waist-to-hip ratio depends strongly on sex, age, hormones, training, nutrition, pregnancy history, illness, and current body composition, so this should not be treated as a precise measurement of present-day body shape.",
+                        "Waist-to-hip ratio is a simplified anthropometric measure and should not be treated as a diagnosis or a complete summary of metabolic health."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "physical_trait",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS000842_waist_hip_ratio_notes.md"
+}

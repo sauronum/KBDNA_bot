@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001245_moderate_skin_tanning",
+  "pgs_id": "PGS001245",
+  "display_name": "Moderate tanning tendency",
+  "short_name": "Moderate tanning",
+  "group": "appearance",
+  "category": "consumer_appearance_trait",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing appearance trait that reports a cautious panel-relative signal for moderate tanning tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing appearance trait with workable raw-array support and a clear interpretation boundary between inherited tendency and real-world phenotype or behavior.",
+  "what_it_measures": "A panel-relative polygenic signal associated with moderate tanning tendency, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Moderate tanning tendency is presented here as a cautious relative signal, not a direct measurement of the current real-world trait. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Real-world outcomes depend on environment, habits, culture, age, sex, health, and personal context.",
+    "This trait should be read as an exploratory consumer signal only."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from all parseable raw-array files under the local Autosomal folder; they are panel-relative, not population-wide.",
+  "product_status": "consumer_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer",
+  "tags": [
+    "appearance",
+    "appearance",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS001245_moderate_skin_tanning_notes.md"
+}

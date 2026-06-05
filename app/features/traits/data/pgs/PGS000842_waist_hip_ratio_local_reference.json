@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Waist-hip ratio",
+  "trait_id": "pgs000842_waist_hip_ratio",
+  "display_name": "Waist-to-hip ratio tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.5317352941176471,
+  "sd": 0.11128826078980382,
+  "min": 0.128,
+  "max": 0.7430000000000001,
+  "p5": 0.40815000000000007,
+  "p10": 0.42240000000000005,
+  "p25": 0.482,
+  "p50": 0.5205,
+  "p75": 0.6035,
+  "p90": 0.6696000000000001,
+  "p95": 0.6932500000000001,
+  "scoring_file_name": "PGS000842_waist_hip_ratio.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS000842_waist_hip_ratio.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000842",
+    "pgs_name": "WHR",
+    "trait_reported": "Waist-hip ratio",
+    "genome_build": "GRCh37",
+    "variants_number": "39",
+    "weight_type": "NR",
+    "citation": "Aly DM et al. Nat Genet (2021). doi:10.1038/s41588-021-00948-2"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS000842_waist_hip_ratio_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS000842_waist_hip_ratio_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 5,
+  "trait_block": {
+    "trait_id": "pgs000842_waist_hip_ratio",
+    "display_name": "Waist-to-hip ratio tendency",
+    "reported_name": "Waist-hip ratio",
+    "pgs_id": "PGS000842",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.5317352941176471,
+    "sd": 0.11128826078980382,
+    "min": 0.128,
+    "max": 0.7430000000000001,
+    "p5": 0.40815000000000007,
+    "p10": 0.42240000000000005,
+    "p25": 0.482,
+    "p50": 0.5205,
+    "p75": 0.6035,
+    "p90": 0.6696000000000001,
+    "p95": 0.6932500000000001
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 39,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs000842_waist_hip_ratio",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 5,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-03T21:02:06Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS000842_waist_hip_ratio_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS000842_waist_hip_ratio_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "b2b17137d5d7e916d3c87528cd5fac9fdf51ee3c7546c3ecb9fa87b36cf4eed9",
+    "scoring_file_sha256": "6cbc0d24d52efcab1c0b2ca57d3a3e77eaff7330cea14b13820761edb9e1067f",
+    "manifest_entries_sha256": "cdeb223d4166785793e9090ded6b87f50def2dd4d350b5debd2c5eef79e5068a"
+  }
+}

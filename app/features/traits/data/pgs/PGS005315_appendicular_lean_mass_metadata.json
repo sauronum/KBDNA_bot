@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs005315_appendicular_lean_mass",
+    "pgs_id":  "PGS005315",
+    "display_name":  "Appendicular lean mass tendency",
+    "short_name":  "Appendicular lean mass",
+    "group":  "body",
+    "category":  "consumer_physical_trait",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing physical trait that reports a cautious panel-relative signal related to appendicular lean mass tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing physical trait with workable raw-array support and a narrower interpretation boundary focused on appendicular lean mass, meaning lean tissue in the limbs, rather than whole-body composition for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with appendicular lean mass tendency, meaning lean mass in the arms and legs, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Appendicular lean mass tendency is presented here as a cautious panel-relative body-composition signal, not as a direct measurement of current muscle size, athletic performance, or gym response. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result, a direct body-composition measurement, or fitness advice.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Real-world appendicular lean mass depends strongly on sex, age, hormones, training, nutrition, illness, medication use, and hydration status, so this should not be treated as a precise estimate of current limb muscle mass.",
+                        "The source phenotype targets appendicular lean mass rather than total body composition, so interpretation should stay narrower than a general statement about whole-body build."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "physical_trait",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS005315_appendicular_lean_mass_notes.md"
+}

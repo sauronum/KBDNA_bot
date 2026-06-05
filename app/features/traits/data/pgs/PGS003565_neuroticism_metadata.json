@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs003565_neuroticism",
+    "pgs_id":  "PGS003565",
+    "display_name":  "Neuroticism tendency",
+    "short_name":  "Neuroticism",
+    "group":  "mind",
+    "category":  "consumer_personality",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing personality trait that reports a cautious panel-relative signal for neuroticism-related emotional reactivity tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing personality trait with strong raw-array support and a clearer interpretation boundary between inherited emotional reactivity tendency and current mood or mental-health state for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with neuroticism-related emotional reactivity tendency, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Neuroticism tendency is presented here as a cautious relative personality signal linked to emotional sensitivity and stress reactivity, not as a diagnosis of anxiety, depression, or any other mental-health condition. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result, a mental-health diagnosis, or a direct readout of current mood.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Neuroticism is a broad research personality construct rather than a clinical diagnosis, and real-world emotional experience is influenced strongly by life events, stress load, sleep, relationships, culture, and measurement method.",
+                        "The source score contains many variants, so raw-array overlap can remain modest in percentage terms even when matched-variant counts are large; interpret this as a cautious comparative signal, not as a precise personality measurement."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "personality",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS003565_neuroticism_notes.md"
+}

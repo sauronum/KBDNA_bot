@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "space": "G25",
+  "sets": [
+    {
+      "id": "steppe_russia",
+      "title": "🐎 Steppe / Russia",
+      "short_title": "Steppe / Russia",
+      "status": "ready",
+      "type": "g25_source_fit",
+      "description": "Проверка степного слоя и североевразийских источников.",
+      "interpretation_note": "Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+      "sources": [
+        {"label": "Maikop / Caucasus", "emoji": "🏔", "g25_name": "Maikop"},
+        {"label": "Sintashta / Steppe", "emoji": "🐎", "g25_name": "Steppe"},
+        {"label": "Yamnaya / Steppe", "emoji": "🐎", "g25_name": "Yamnaya"},
+        {"label": "East Eurasian proxy", "emoji": "🌏", "g25_name": "YR"}
+      ]
+    },
+    {
+      "id": "bronze_age_caucasus",
+      "title": "🏺 Bronze Age Caucasus",
+      "short_title": "Bronze Age Caucasus",
+      "status": "ready",
+      "type": "g25_source_fit",
+      "description": "Модель кавказских и бронзововековых источников.",
+      "interpretation_note": "Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+      "sources": [
+        {"label": "Maikop / Caucasus", "emoji": "🏔", "g25_name": "Maikop"},
+        {"label": "Kura-Araxes / Bronze Age Caucasus", "emoji": "🏺", "g25_name": "KuraAraxes"},
+        {"label": "Caucasus EBA", "emoji": "⛰", "g25_name": "Caucasus_EBA"},
+        {"label": "Anatolia BA", "emoji": "🏺", "g25_name": "Anatolia_BA"}
+      ]
+    },
+    {
+      "id": "caucasus_steppe",
+      "title": "⛰ Caucasus + Steppe",
+      "short_title": "Caucasus + Steppe",
+      "status": "ready",
+      "type": "g25_source_fit",
+      "description": "Проверка сочетания кавказской основы и степного слоя.",
+      "interpretation_note": "Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+      "sources": [
+        {"label": "Maikop / Caucasus", "emoji": "🏔", "g25_name": "Maikop"},
+        {"label": "Kura-Araxes / Bronze Age Caucasus", "emoji": "🏺", "g25_name": "KuraAraxes"},
+        {"label": "Steppe MLBA", "emoji": "🐎", "g25_name": "Steppe_MLBA"},
+        {"label": "Yamnaya / Steppe", "emoji": "🐎", "g25_name": "Yamnaya"}
+      ]
+    },
+    {
+      "id": "karachay_balkar_hypothesis",
+      "title": "🧬 Karachay-Balkar hypothesis",
+      "short_title": "Karachay-Balkar hypothesis",
+      "status": "ready",
+      "type": "g25_source_fit",
+      "description": "G25-модель для проверки сочетания кавказской основы, степного слоя и восточноевразийского proxy-компонента.",
+      "interpretation_note": "Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+      "sources": [
+        {"label": "Maikop / Caucasus", "emoji": "🏔", "g25_name": "Maikop"},
+        {"label": "Sintashta / Steppe", "emoji": "🐎", "g25_name": "Steppe"},
+        {"label": "East Eurasian proxy", "emoji": "🌏", "g25_name": "YR"},
+        {"label": "Kura-Araxes / Bronze Age Caucasus", "emoji": "🏺", "g25_name": "KuraAraxes"}
+      ]
+    },
+    {
+      "id": "caucasus_turkic_layer",
+      "title": "🌏 Caucasus + Turkic layer",
+      "short_title": "Caucasus + Turkic layer",
+      "status": "ready",
+      "type": "g25_source_fit",
+      "description": "Проверка восточноевразийского proxy-слоя поверх кавказско-степной модели.",
+      "interpretation_note": "Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+      "sources": [
+        {"label": "Caucasus EBA", "emoji": "⛰", "g25_name": "Caucasus_EBA"},
+        {"label": "Steppe MLBA", "emoji": "🐎", "g25_name": "Steppe_MLBA"},
+        {"label": "Yellow River LN", "emoji": "🌏", "g25_name": "Yellow_River_LN"},
+        {"label": "Angara River BA", "emoji": "🌏", "g25_name": "RUS_Angara_River_BA"}
+      ]
+    },
+    {
+      "id": "alan_sarmatian_hypothesis",
+      "title": "🏛 Alan / Sarmatian hypothesis",
+      "short_title": "Alan / Sarmatian hypothesis",
+      "status": "draft",
+      "type": "g25_source_fit",
+      "description": "Проверка модели с кавказскими и сармато-аланскими proxy-источниками.",
+      "interpretation_note": "Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+      "sources": [
+        {"label": "Caucasus EBA", "emoji": "⛰", "g25_name": "Caucasus_EBA"},
+        {"label": "Steppe MLBA", "emoji": "🐎", "g25_name": "Steppe_MLBA"},
+        {"label": "Yamnaya / Steppe", "emoji": "🐎", "g25_name": "Yamnaya"},
+        {"label": "BMAC / Oxus", "emoji": "🏺", "g25_name": "BMAC"}
+      ]
+    },
+    {
+      "id": "broad_west_eurasian",
+      "title": "🌍 Broad West Eurasian model",
+      "short_title": "Broad West Eurasian model",
+      "status": "ready",
+      "type": "g25_source_fit",
+      "description": "Широкая модель западноевразийских источников для первичной проверки fit.",
+      "interpretation_note": "Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+      "sources": [
+        {"label": "Maikop / Caucasus", "emoji": "🏔", "g25_name": "Maikop"},
+        {"label": "Anatolia BA", "emoji": "🏺", "g25_name": "Anatolia_BA"},
+        {"label": "Steppe MLBA", "emoji": "🐎", "g25_name": "Steppe_MLBA"},
+        {"label": "Baltic BA", "emoji": "🌲", "g25_name": "Baltic_BA"},
+        {"label": "BMAC / Oxus", "emoji": "🏺", "g25_name": "BMAC"},
+        {"label": "Yellow River LN", "emoji": "🌏", "g25_name": "Yellow_River_LN"}
+      ]
+    }
+  ]
+}

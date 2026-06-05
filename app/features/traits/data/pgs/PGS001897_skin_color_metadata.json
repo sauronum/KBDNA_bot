@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs001897_skin_pigmentation",
+    "pgs_id":  "PGS001897",
+    "display_name":  "Skin pigmentation tendency",
+    "short_name":  "Skin pigmentation",
+    "group":  "appearance",
+    "category":  "consumer_appearance",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing appearance trait that reports a cautious panel-relative signal for inherited skin-pigmentation tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing appearance trait with practical raw-array support and a clearer interpretation boundary between inherited pigmentation tendency and current visible skin tone for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with broader inherited skin-pigmentation tendency, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Skin pigmentation tendency is presented here as a cautious relative appearance signal related to inherited pigmentation, not as a direct readout of current observed skin tone in everyday conditions. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic readout of current observed skin tone.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Pigmentation traits are strongly population-structured, so this result should be interpreted as a panel-relative signal rather than a universal skin-color label.",
+                        "Visible appearance can also shift with tanning, sun exposure, season, lighting, cosmetics, and photography conditions."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "appearance",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS001897_skin_color_notes.md"
+}

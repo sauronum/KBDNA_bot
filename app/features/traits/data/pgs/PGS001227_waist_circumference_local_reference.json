@@ -1,0 +1,127 @@
+{
+    "artifact_type":  "pgs_reference_distribution",
+    "reference_schema_version":  1,
+    "engine_version":  "pgs-mvp-1",
+    "registry_version":  2,
+    "trait":  "Waist circumference",
+    "trait_id":  "pgs001227_waist_circumference",
+    "display_name":  "Waist circumference tendency",
+    "reference_type":  "local_empirical",
+    "valid":  true,
+    "warnings":  [
+
+                 ],
+    "invalid_reasons":  [
+
+                        ],
+    "sample_count_total":  34,
+    "sample_count_included":  34,
+    "sample_count_excluded":  0,
+    "mean":  6.605567103175368,
+    "sd":  1.4502025864023722,
+    "min":  3.995949548939997,
+    "max":  9.87901992651,
+    "p5":  4.508145601902515,
+    "p10":  5.001542974010404,
+    "p25":  5.489906002632506,
+    "p50":  6.376614584742001,
+    "p75":  7.4049067475540005,
+    "p90":  8.603941917161794,
+    "p95":  9.015006441233476,
+    "scoring_file_name":  "PGS001227_waist_circumference.txt.gz",
+    "scoring_file_path":  "M:\\CODEX\\dna_platform\\data\\pgs\\PGS001227_waist_circumference.txt.gz",
+    "scoring_metadata":  {
+                             "pgs_id":  "PGS001227",
+                             "pgs_name":  "GBE_INI48",
+                             "trait_reported":  "Waist circumference",
+                             "genome_build":  "GRCh37",
+                             "variants_number":  "25538",
+                             "weight_type":  "NR",
+                             "citation":  "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+                         },
+    "minimum_reference_samples":  5,
+    "manifest_json":  "M:\\CODEX\\dna_platform\\data\\pgs\\PGS001227_waist_circumference_local_reference_manifest.json",
+    "manifest_tsv":  "M:\\CODEX\\dna_platform\\data\\pgs\\PGS001227_waist_circumference_local_reference_manifest.tsv",
+    "input_dir":  "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "input_format_requested":  "auto",
+    "include_glob":  [
+
+                     ],
+    "exclude_glob":  [
+                         "MyHeritage_Adam.csv"
+                     ],
+    "minimum_overlap_percent":  10.0,
+    "minimum_matched_variants":  20,
+    "trait_block":  {
+                        "trait_id":  "pgs001227_waist_circumference",
+                        "display_name":  "Waist circumference tendency",
+                        "reported_name":  "Waist circumference",
+                        "pgs_id":  "PGS001227",
+                        "registry_status":  "usable"
+                    },
+    "distribution":  {
+                         "mean":  6.605567103175368,
+                         "sd":  1.4502025864023722,
+                         "min":  3.995949548939997,
+                         "max":  9.87901992651,
+                         "p5":  4.508145601902515,
+                         "p10":  5.001542974010404,
+                         "p25":  5.489906002632506,
+                         "p50":  6.376614584742001,
+                         "p75":  7.4049067475540005,
+                         "p90":  8.603941917161794,
+                         "p95":  9.015006441233476
+                     },
+    "variant_statistics":  {
+                               "total_scoring_variants":  25538,
+                               "minimum_matched_variants":  20,
+                               "minimum_overlap_percent":  10.0,
+                               "included_score_count":  34
+                           },
+    "source_dataset":  {
+                           "source_dataset_id":  "local_empirical::Autosomal::pgs001227_waist_circumference",
+                           "source_name":  "Autosomal",
+                           "input_dir":  "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+                           "sample_count_total":  34,
+                           "sample_count_included":  34,
+                           "sample_count_excluded":  0,
+                           "included_sample_ids_preview":  [
+                                                               "37_A_Ata_Chrom_Autoso_20260225",
+                                                               "37_A_Berberov_Chrom_Autoso_20260224",
+                                                               "37_A_Borlakova_Chrom_Autoso_20260202",
+                                                               "37_A_Hogayliev_Chrom_Autoso_20250717",
+                                                               "37_A_Khubiev_Chrom_Autoso_20260206",
+                                                               "37_A_Salpagarova_Chrom_Autoso_20260112",
+                                                               "37_E_Ashat_Chrom_Autoso_20251104",
+                                                               "37_E_Aznaur_Chrom_Autoso_20251108",
+                                                               "37_E_Nauruzbi_Chrom_Autoso_20251115",
+                                                               "37_K_Khasanov_Chrom_Autoso_20251118"
+                                                           ],
+                           "included_sample_ids_truncated":  true
+                       },
+    "build":  {
+                  "mode":  "pgs-build-reference",
+                  "input_format_requested":  "auto",
+                  "minimum_reference_samples":  5,
+                  "minimum_matched_variants":  20,
+                  "minimum_overlap_percent":  10.0,
+                  "include_glob":  [
+
+                                   ],
+                  "exclude_glob":  [
+                                       "MyHeritage_Adam.csv"
+                                   ]
+              },
+    "provenance":  {
+                       "build_timestamp_utc":  "2026-04-10T13:42:37Z",
+                       "build_mode":  "pgs-build-reference",
+                       "manifest_json":  "M:\\CODEX\\dna_platform\\data\\pgs\\PGS001227_waist_circumference_local_reference_manifest.json",
+                       "manifest_tsv":  "M:\\CODEX\\dna_platform\\data\\pgs\\PGS001227_waist_circumference_local_reference_manifest.tsv"
+                   },
+    "fingerprint":  {
+                        "algorithm":  "sha256",
+                        "artifact_sha256":  "a6d8c8c7270208edcf5490fe7490616cacc56703fee58f20308e1f7ecbd35f1e",
+                        "scoring_file_sha256":  "193543c70374a8fb842673d122a347807e1ef760628cf8469055f5920a92e5f8",
+                        "manifest_entries_sha256":  "054d1af47a109a35de1e7cfaa07a094bef2701a07c545e8b3bea25a6d2661323"
+                    }
+}

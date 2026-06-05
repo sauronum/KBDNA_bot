@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs002254_self_reported_physical_activity",
+  "pgs_id": "PGS002254",
+  "display_name": "Self-reported physical-activity tendency",
+  "short_name": "Self-reported activity",
+  "group": "lifestyle",
+  "category": "consumer_lifestyle_trait",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing lifestyle trait that reports a cautious panel-relative signal for self-reported physical-activity tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing activity trait describing a cautious inherited signal related to self-reported overall physical activity relative to the current local reference panel.",
+  "what_it_measures": "A panel-relative polygenic signal associated with the source score for self-reported physical activity, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "This is a cautious panel-relative activity signal, not a direct readout of how active you are right now. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a direct readout of current activity level, fitness, or health status.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Real-world physical activity depends strongly on health, injury, job demands, transport habits, time, environment, and motivation.",
+    "Because the source trait is self-reported, wording should stay especially cautious and non-deterministic."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+  "product_status": "consumer_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer",
+  "tags": [
+    "lifestyle",
+    "activity",
+    "movement",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS002254_self_reported_physical_activity_notes.md"
+}

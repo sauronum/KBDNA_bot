@@ -1,0 +1,35 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs000763_hearing",
+    "pgs_id":  "PGS000763",
+    "display_name":  "Hearing aid use",
+    "short_name":  "Hearing",
+    "group":  "internal",
+    "category":  "trait_smoke_test",
+    "status":  "smoke-test",
+    "consumer_ready":  false,
+    "short_description":  "Internal smoke-test real-trait example retained to exercise the strict no-imputation workflow; it is not intended for consumer interpretation.",
+    "summary_note":  "Internal smoke-test real trait kept to exercise the pipeline and inspect low-overlap behavior, not to serve as a consumer-facing result.",
+    "what_it_measures":  "A weak panel-relative signal associated with the bundled hearing-aid-use score, used here only as an internal pipeline exercise.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "This trait is smoke-test only and should stay internal. {interpretation}",
+    "caution_text":  "This internal smoke-test output is not consumer-ready. Overlap is low, the score is not medical-grade, and it should not be used for hearing-health interpretation.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "Overlap on tested raw-array data is low.",
+                        "This trait is not consumer-ready and should remain an internal validation artifact.",
+                        "Hearing aid use is not a direct readout of hearing status and can also reflect age, access, and clinical decisions."
+                    ],
+    "confidence_note":  "Confidence is expected to remain low for this smoke-test trait and should only be read as an internal pipeline health signal.",
+    "reference_note":  "A local empirical reference artifact exists for pipeline testing, but this trait remains an internal smoke-test example rather than a user-facing interpretation.",
+    "product_status":  "smoke_test_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "internal_validation",
+    "tags":  [
+                 "smoke_test",
+                 "real_trait",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS000763_hearing_aid_use_notes.md"
+}

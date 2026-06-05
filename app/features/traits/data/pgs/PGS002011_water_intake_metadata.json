@@ -1,0 +1,37 @@
+{
+    "schema_version": 1,
+    "trait_id": "pgs002011_water_intake",
+    "pgs_id": "PGS002011",
+    "display_name": "Water intake",
+    "short_name": "Water intake",
+    "group": "nutrition",
+    "category": "consumer_nutrition_trait",
+    "status": "usable",
+    "consumer_ready": true,
+    "short_description": "Consumer-facing nutrition trait that reports a cautious panel-relative signal for water-intake tendency within the current local reference panel.",
+    "summary_note": "Usable consumer-facing nutrition trait with workable raw-array support and a clearer interpretation boundary between inherited water-intake tendency and real-world hydration habits for the no-imputation workflow.",
+    "what_it_measures": "A panel-relative polygenic signal associated with a tendency toward higher or lower water intake, calibrated within the current local empirical reference panel.",
+    "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template": "Water intake is presented here as a cautious relative nutrition signal, not a direct readout of how much water you currently drink each day. {interpretation}",
+    "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result, a direct readout of current hydration behavior, or medical advice.",
+    "limitations": [
+        "No imputation is used.",
+        "No ancestry-adjusted normalization is used.",
+        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+        "Real-world water intake depends strongly on climate, physical activity, body size, diet, salt intake, work routine, fasting, illness, and personal habit.",
+        "This trait should not be treated as a hydration assessment, kidney-health signal, or medical guidance."
+    ],
+    "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status": "consumer_trait",
+    "reference_type": "local_empirical",
+    "input_workflow": "raw_array_no_imputation",
+    "audience": "consumer",
+    "tags": [
+        "nutrition",
+        "hydration",
+        "lifestyle",
+        "raw_array"
+    ],
+    "notes_file": "data/pgs/PGS002011_water_intake_notes.md"
+}

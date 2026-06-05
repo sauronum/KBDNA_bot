@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 1,
+  "trait": "Hair color, light brown",
+  "trait_id": "pgs001096_hair_light_brown",
+  "display_name": "Light-brown hair tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 39,
+  "sample_count_included": 38,
+  "sample_count_excluded": 1,
+  "mean": 0.5348139685329214,
+  "sd": 0.5363279844700836,
+  "min": -0.34345056769800003,
+  "max": 1.559835493371002,
+  "p5": -0.23235034741034988,
+  "p10": -0.06035741886169999,
+  "p25": 0.09638879279850003,
+  "p50": 0.6968454560230005,
+  "p75": 0.8492966765160004,
+  "p90": 1.2489665623363022,
+  "p95": 1.548460965746801,
+  "scoring_file_name": "PGS001096_hair_light_brown.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS001096_hair_light_brown.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001096",
+    "pgs_name": "GBE_BIN_FC3001747",
+    "trait_reported": "Hair color, light brown",
+    "genome_build": "GRCh37",
+    "variants_number": "2127",
+    "weight_type": "NR",
+    "citation": "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS001096_hair_light_brown_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS001096_hair_light_brown_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 150,
+  "trait_block": {
+    "trait_id": "pgs001096_hair_light_brown",
+    "display_name": "Light-brown hair tendency",
+    "reported_name": "Hair color, light brown",
+    "pgs_id": "PGS001096",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.5348139685329214,
+    "sd": 0.5363279844700836,
+    "min": -0.34345056769800003,
+    "max": 1.559835493371002,
+    "p5": -0.23235034741034988,
+    "p10": -0.06035741886169999,
+    "p25": 0.09638879279850003,
+    "p50": 0.6968454560230005,
+    "p75": 0.8492966765160004,
+    "p90": 1.2489665623363022,
+    "p95": 1.548460965746801
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 2127,
+    "minimum_matched_variants": 150,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 38
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs001096_hair_light_brown",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 39,
+    "sample_count_included": 38,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Dekkushev (ataul Mırzakai)_Chrom_Autoso_20251113",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_B_Esekku_Chrom_Autoso_20260208",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 150,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-03-27T17:06:34Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS001096_hair_light_brown_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS001096_hair_light_brown_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "ec55e1706a59540d52c0ae59d67a74c73be068bda2e9b08f12a8f0433dadc18e",
+    "scoring_file_sha256": "9070abb6cd64670cb7cf4545676360c0190d8c9f5fa0596e647b95d9342db0d4",
+    "manifest_entries_sha256": "d6c6a65f672a43c531224d2bee02e31f7863be4bad564fbff76fa391030a4659"
+  }
+}

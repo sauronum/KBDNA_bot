@@ -1,0 +1,112 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Dried fruit intake",
+  "trait_id": "pgs001389_dried_fruit_intake",
+  "display_name": "Dried fruit intake tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 63,
+  "sample_count_included": 63,
+  "sample_count_excluded": 0,
+  "mean": -0.0047225772945507965,
+  "sd": 0.027127113599707264,
+  "min": -0.05456906341620002,
+  "max": 0.04974167428999998,
+  "p5": -0.051457322177,
+  "p10": -0.041405528084,
+  "p25": -0.024274692540000004,
+  "p50": -0.0037950412400000427,
+  "p75": 0.012453811830000001,
+  "p90": 0.032590282028,
+  "p95": 0.040720382739999984,
+  "scoring_file_name": "PGS001389_dried_fruit_intake.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001389_dried_fruit_intake.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001389",
+    "pgs_name": "GBE_INI1319",
+    "trait_reported": "Dried fruit intake",
+    "genome_build": "GRCh37",
+    "variants_number": "989",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001389; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001389_dried_fruit_intake",
+    "display_name": "Dried fruit intake tendency",
+    "reported_name": "Dried fruit intake",
+    "pgs_id": "PGS001389",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": -0.0047225772945507965,
+    "sd": 0.027127113599707264,
+    "min": -0.05456906341620002,
+    "max": 0.04974167428999998,
+    "p5": -0.051457322177,
+    "p10": -0.041405528084,
+    "p25": -0.024274692540000004,
+    "p50": -0.0037950412400000427,
+    "p75": 0.012453811830000001,
+    "p90": 0.032590282028,
+    "p95": 0.040720382739999984
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 989,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 63
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs001389_dried_fruit_intake",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 63,
+    "sample_count_included": 63,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T06:31:40Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "bd16cf8a830c3564172121840dc067b66efd58ed3726e9673536705ce63cd9ba",
+    "artifact_sha256": "b533356d5b1e3858375b3ef68e3e7b2d2c120aca7b8f543687bd22475c930f4b"
+  }
+}

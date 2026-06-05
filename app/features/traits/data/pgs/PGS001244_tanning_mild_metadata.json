@@ -1,0 +1,36 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs001244_tanning",
+    "pgs_id":  "PGS001244",
+    "display_name":  "Skin tanning tendency",
+    "short_name":  "Tanning",
+    "group":  "appearance",
+    "category":  "consumer_appearance",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing appearance trait that reports a cautious panel-relative signal for skin tanning tendency after sun exposure within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing appearance trait with practical raw-array support and a clearer interpretation boundary between inherited tanning tendency and real-world sun exposure for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with a tendency toward mild or occasional skin tanning after sun exposure, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Skin tanning tendency is presented here as a cautious relative appearance signal, not a direct prediction of how your skin will look in everyday conditions. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result or as a direct prediction of visible tanning outcome.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Visible tanning outcome also depends strongly on sun exposure, sunscreen use, season, latitude, and baseline skin pigmentation, so this should not be treated as a deterministic prediction of real-world tanning outcome."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "appearance",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS001244_tanning_mild_notes.md"
+}

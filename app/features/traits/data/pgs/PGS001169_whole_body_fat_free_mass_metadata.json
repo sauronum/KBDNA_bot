@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs001169_lean_body_mass",
+    "pgs_id":  "PGS001169",
+    "display_name":  "Lean body mass tendency",
+    "short_name":  "Lean body mass",
+    "group":  "body",
+    "category":  "consumer_physical_trait",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing physical trait that reports a cautious panel-relative signal related to lean body mass tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing physical trait with workable raw-array support and a clearer interpretation boundary between inherited lean-mass tendency and current measured body composition, muscle size, or training status for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with lean body mass tendency, based on a score reported as whole body fat free mass and calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Lean body mass tendency is presented here as a cautious panel-relative body-composition signal, not as a direct measurement of your current muscle mass, fat-free mass, or fitness level. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result, a direct body-composition measurement, or fitness advice.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Real-world lean body mass depends strongly on sex, age, hormones, training, diet, illness, medication use, and hydration status, so this should not be treated as a precise estimate of current body composition.",
+                        "The underlying reported trait is whole body fat free mass, which is broader than visible muscle alone and can include bone, organs, and body water."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "physical_trait",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS001169_whole_body_fat_free_mass_notes.md"
+}

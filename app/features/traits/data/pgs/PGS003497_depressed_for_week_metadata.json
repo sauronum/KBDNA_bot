@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs003497_depression_episode",
+    "pgs_id":  "PGS003497",
+    "display_name":  "Depression-related polygenic signal",
+    "short_name":  "Depression-related",
+    "group":  "sensitive_research",
+    "category":  "experimental_mental_health",
+    "status":  "experimental",
+    "consumer_ready":  false,
+    "short_description":  "Experimental mental-health trait retained for research inspection of depression-related score behavior within the strict no-imputation raw-array workflow; it is not consumer-ready.",
+    "summary_note":  "Experimental non-consumer mental-health trait used to inspect how a depression-related score behaves under the current strict raw-array workflow without imputation.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with the bundled depression-related score, calibrated within the current local empirical reference panel for research inspection only.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "This is an experimental research-facing output, not a diagnosis of depression, not a screening result, and not a measure of current mental-health state. {interpretation}",
+    "caution_text":  "Experimental research output only. No imputation or ancestry-adjusted normalization is used, and the result should not be treated as a diagnosis, a screening result, or mental-health advice.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "This trait is not consumer-ready and should stay in research review unless a separate product decision is made.",
+                        "The source phenotype reflects a research depression-related measure rather than a clinical diagnosis, and real-world mental health depends strongly on life events, trauma, sleep, relationships, care access, and many non-modeled factors."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about mental-health status.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative research values, not population-wide or clinical benchmarks.",
+    "product_status":  "experimental_mental_health_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "research_review",
+    "tags":  [
+                 "experimental",
+                 "mental_health",
+                 "raw_array",
+                 "non_consumer"
+             ],
+    "notes_file":  "data/pgs/PGS003497_depressed_for_week_notes.md"
+}

@@ -1,0 +1,37 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs001097_hair_other",
+    "pgs_id":  "PGS001097",
+    "display_name":  "Other hair-color tendency",
+    "short_name":  "Other hair color",
+    "group":  "appearance",
+    "category":  "consumer_appearance",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing appearance trait that reports a cautious panel-relative signal for a broader residual hair-color tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing appearance trait with practical raw-array support, but the source phenotype is a broad residual hair-color bucket rather than a clean named shade, so interpretation should stay especially cautious in the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with the source model\u0027s residual \u0027other hair color\u0027 category, meaning a relative tendency away from the more directly named hair-color groupings represented by the companion scores in this project, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Other hair-color tendency is presented here as a cautious residual appearance signal, not a direct readout of current observed hair color or a precise named shade. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used. This score comes from a broad residual hair-color category, and the output should not be treated as a deterministic real-world result or as a direct label for current observed hair color.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "The source phenotype is a broad residual hair-color bucket rather than a single clean named shade, so this result should be interpreted as a loose comparative signal rather than as a precise visible-hair-color label.",
+                        "Observed hair color can also shift with age, graying, dyeing, bleaching, grooming, and other non-genetic factors."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "appearance",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS001097_hair_other_notes.md"
+}

@@ -1,6 +1,26 @@
+# Python/local environment
 .venv/
 __pycache__/
 *.pyc
-service_account.json
+
+# Local secrets
 .env
-g25_feature/runs/
+.env.*
+!.env.example
+service_account.json
+
+# Runtime databases and user uploads
+*.sqlite3
+storage/
+vahaduo_sources/
+vahaduo_targets/
+g25_access.json
+
+# Generated G25 run artifacts
+g25_core/runs/
+
+# Local previews and deployment scratch files
+tmp_*.png
+tmp_*.json
+tmp_*.tgz
+tmp_visuals/

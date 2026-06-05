@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Hair color, other",
+  "trait_id": "pgs001097_hair_other",
+  "display_name": "Other hair-color tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.06998924714705881,
+  "sd": 0.1375234016047639,
+  "min": -0.11095118,
+  "max": 0.29370199199999997,
+  "p5": -0.11095118,
+  "p10": -0.108568849,
+  "p25": -0.05488000725,
+  "p50": 0.06125527999999998,
+  "p75": 0.17220645999999998,
+  "p90": 0.28893732999999994,
+  "p95": 0.2897711458499999,
+  "scoring_file_name": "PGS001097_hair_other.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS001097_hair_other.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001097",
+    "pgs_name": "GBE_BIN_FC6001747",
+    "trait_reported": "Hair color, other",
+    "genome_build": "GRCh37",
+    "variants_number": "21",
+    "weight_type": "NR",
+    "citation": "Tanigawa Y et al. PLoS Genet (2022). doi:10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS001097_hair_other_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS001097_hair_other_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 3,
+  "trait_block": {
+    "trait_id": "pgs001097_hair_other",
+    "display_name": "Other hair-color tendency",
+    "reported_name": "Hair color, other",
+    "pgs_id": "PGS001097",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.06998924714705881,
+    "sd": 0.1375234016047639,
+    "min": -0.11095118,
+    "max": 0.29370199199999997,
+    "p5": -0.11095118,
+    "p10": -0.108568849,
+    "p25": -0.05488000725,
+    "p50": 0.06125527999999998,
+    "p75": 0.17220645999999998,
+    "p90": 0.28893732999999994,
+    "p95": 0.2897711458499999
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 21,
+    "minimum_matched_variants": 3,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs001097_hair_other",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 3,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-03T19:18:25Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS001097_hair_other_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS001097_hair_other_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "d2306320af11068851cba26a85cf5506ecf0b4e73801d90ce5d6d22d8e689994",
+    "scoring_file_sha256": "76ea399639beebebbe1cb4aeef2d441fbf42d95bd319c7319e44fd3fb9cd5f4a",
+    "manifest_entries_sha256": "b022bb27051a44dadbe346c55703aed4b49a649be0cf92c0371a5d10362aa35a"
+  }
+}

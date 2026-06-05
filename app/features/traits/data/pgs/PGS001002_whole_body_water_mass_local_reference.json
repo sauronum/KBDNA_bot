@@ -1,0 +1,112 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Whole body water mass",
+  "trait_id": "pgs001002_whole_body_water_mass",
+  "display_name": "Whole body water mass tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 63,
+  "sample_count_included": 61,
+  "sample_count_excluded": 2,
+  "mean": 1.6428681936370144,
+  "sd": 0.972469366283384,
+  "min": -0.7825010013805005,
+  "max": 3.630426118192997,
+  "p5": 0.2820177034768993,
+  "p10": 0.3997449931308008,
+  "p25": 0.9821420140468977,
+  "p50": 1.6028806428829994,
+  "p75": 2.3032606126914916,
+  "p90": 2.938050215256499,
+  "p95": 3.2546027653668,
+  "scoring_file_name": "PGS001002_whole_body_water_mass.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001002_whole_body_water_mass.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001002",
+    "pgs_name": "GBE_INI23102",
+    "trait_reported": "Whole body water mass",
+    "genome_build": "GRCh37",
+    "variants_number": "35046",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001002; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001002_whole_body_water_mass",
+    "display_name": "Whole body water mass tendency",
+    "reported_name": "Whole body water mass",
+    "pgs_id": "PGS001002",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 1.6428681936370144,
+    "sd": 0.972469366283384,
+    "min": -0.7825010013805005,
+    "max": 3.630426118192997,
+    "p5": 0.2820177034768993,
+    "p10": 0.3997449931308008,
+    "p25": 0.9821420140468977,
+    "p50": 1.6028806428829994,
+    "p75": 2.3032606126914916,
+    "p90": 2.938050215256499,
+    "p95": 3.2546027653668
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 35046,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 61
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs001002_whole_body_water_mass",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 63,
+    "sample_count_included": 61,
+    "sample_count_excluded": 2,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T06:31:55Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "35fc3e807f7717d3348668a7a6860277b34cc8e9dbc6b7ebd2793cc3f0779ae9",
+    "artifact_sha256": "e7c2b5b1065eb7bc026fe21f2d272fcef833e3eb064633fc82118ec24879793e"
+  }
+}

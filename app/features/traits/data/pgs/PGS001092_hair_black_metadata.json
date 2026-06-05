@@ -1,0 +1,36 @@
+{
+    "schema_version":  1,
+    "trait_id":  "pgs001092_hair_black",
+    "pgs_id":  "PGS001092",
+    "display_name":  "Black hair tendency",
+    "short_name":  "Black hair",
+    "group":  "appearance",
+    "category":  "consumer_appearance",
+    "status":  "usable",
+    "consumer_ready":  true,
+    "short_description":  "Consumer-facing appearance trait that reports a cautious panel-relative signal for natural black hair tendency within the current local reference panel.",
+    "summary_note":  "Usable consumer-facing appearance trait with practical raw-array support and a clearer interpretation boundary between inherited black-hair tendency and current observed hair color for the no-imputation workflow.",
+    "what_it_measures":  "A panel-relative polygenic signal associated with a tendency toward naturally black or very dark hair coloration, calibrated within the current local empirical reference panel.",
+    "result_summary_template":  "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template":  "Black hair tendency is presented here as a cautious relative appearance signal, not a direct readout of current observed hair color. {interpretation}",
+    "caution_text":  "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic real-world result or as a direct readout of current observed hair color.",
+    "limitations":  [
+                        "No imputation is used.",
+                        "No ancestry-adjusted normalization is used.",
+                        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+                        "Hair pigmentation traits are strongly population-structured, and visible hair color can also shift with age, graying, dyeing, bleaching, and other non-genetic factors, so this should not be treated as a deterministic prediction of current hair color."
+                    ],
+    "confidence_note":  "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note":  "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status":  "working_real_trait",
+    "reference_type":  "local_empirical",
+    "input_workflow":  "raw_array_no_imputation",
+    "audience":  "consumer_general",
+    "tags":  [
+                 "usable",
+                 "consumer",
+                 "appearance",
+                 "raw_array"
+             ],
+    "notes_file":  "data/pgs/PGS001092_hair_black_notes.md"
+}

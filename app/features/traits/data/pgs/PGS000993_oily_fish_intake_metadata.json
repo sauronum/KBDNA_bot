@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs000993_oily_fish_intake",
+  "pgs_id": "PGS000993",
+  "display_name": "Oily fish intake tendency",
+  "short_name": "Oily fish",
+  "group": "nutrition",
+  "category": "consumer_nutrition_trait",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Consumer-facing nutrition trait that reports a cautious panel-relative signal related to oily-fish intake tendency within the current local reference panel.",
+  "summary_note": "Usable consumer-facing nutrition trait with workable raw-array support and a clear interpretation boundary between inherited tendency and real-world food choices.",
+  "what_it_measures": "A panel-relative polygenic signal associated with a tendency toward higher or lower oily-fish intake, calibrated within the current local empirical reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Oily-fish intake is presented here as a cautious relative nutrition signal, not a direct readout of your current diet. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a deterministic readout of current diet, omega-3 status, cardiovascular health, or medical advice.",
+  "limitations": [
+    "No imputation is used.",
+    "No ancestry-adjusted normalization is used.",
+    "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+    "Real-world fish intake depends strongly on culture, region, food availability, price, religion, allergies, taste, and personal habit.",
+    "This trait should not be treated as an omega-3 assessment, cardiovascular-health signal, or dietary recommendation."
+  ],
+  "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+  "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from staged raw-array files in this project; they are panel-relative, not population-wide.",
+  "product_status": "consumer_trait",
+  "reference_type": "local_empirical",
+  "input_workflow": "raw_array_no_imputation",
+  "audience": "consumer",
+  "tags": [
+    "nutrition",
+    "fish",
+    "diet",
+    "raw_array"
+  ],
+  "notes_file": "data/pgs/PGS000993_oily_fish_intake_notes.md"
+}

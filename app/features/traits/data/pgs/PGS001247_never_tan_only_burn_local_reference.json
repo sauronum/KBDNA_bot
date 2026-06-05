@@ -1,0 +1,112 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Ease of skin tanning (never tan, only burn)",
+  "trait_id": "pgs001247_never_tan_only_burn",
+  "display_name": "Sunburn-only tanning tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 63,
+  "sample_count_included": 63,
+  "sample_count_excluded": 0,
+  "mean": 0.9190239709239844,
+  "sd": 0.5238503705224574,
+  "min": -0.09338363656000002,
+  "max": 2.1725127346899993,
+  "p5": 0.21566963958600013,
+  "p10": 0.2537798927023997,
+  "p25": 0.5403536949850001,
+  "p50": 0.8902012872899991,
+  "p75": 1.2504174456250006,
+  "p90": 1.6287555549243993,
+  "p95": 1.8533058150791997,
+  "scoring_file_name": "PGS001247_never_tan_only_burn.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001247_never_tan_only_burn.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001247",
+    "pgs_name": "GBE_BIN_FC40001727",
+    "trait_reported": "Ease of skin tanning (never tan, only burn)",
+    "genome_build": "GRCh37",
+    "variants_number": "3159",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001247; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001247_never_tan_only_burn",
+    "display_name": "Sunburn-only tanning tendency",
+    "reported_name": "Ease of skin tanning (never tan, only burn)",
+    "pgs_id": "PGS001247",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.9190239709239844,
+    "sd": 0.5238503705224574,
+    "min": -0.09338363656000002,
+    "max": 2.1725127346899993,
+    "p5": 0.21566963958600013,
+    "p10": 0.2537798927023997,
+    "p25": 0.5403536949850001,
+    "p50": 0.8902012872899991,
+    "p75": 1.2504174456250006,
+    "p90": 1.6287555549243993,
+    "p95": 1.8533058150791997
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 3159,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 63
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs001247_never_tan_only_burn",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 63,
+    "sample_count_included": 63,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T06:32:22Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "f1c076666738bb0d38c8c99318eebfdf1e63db3409dfc8583b01c3f6c8207330",
+    "artifact_sha256": "5fa90f42b9e800beed8aacdbe3faf2005fcacfdcd9c92ed04ba499c665763a8c"
+  }
+}

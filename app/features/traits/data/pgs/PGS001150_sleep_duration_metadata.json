@@ -1,0 +1,37 @@
+{
+    "schema_version": 1,
+    "trait_id": "pgs001150_sleep_duration",
+    "pgs_id": "PGS001150",
+    "display_name": "Sleep-duration tendency",
+    "short_name": "Sleep duration",
+    "group": "lifestyle",
+    "category": "consumer_lifestyle_trait",
+    "status": "usable",
+    "consumer_ready": true,
+    "short_description": "Consumer-facing lifestyle trait that reports a cautious panel-relative signal for sleep-duration tendency within the current local reference panel.",
+    "summary_note": "Usable consumer-facing sleep trait describing a cautious inherited signal related to longer or shorter habitual sleep duration relative to the current local reference panel.",
+    "what_it_measures": "A panel-relative polygenic signal associated with habitual sleep-duration tendency, calibrated within the current local empirical reference panel.",
+    "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+    "interpretation_template": "This is a cautious panel-relative lifestyle signal, not a direct measurement of how many hours you currently sleep. {interpretation}",
+    "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as a direct readout of how many hours you currently sleep, a sleep-quality score, or medical advice.",
+    "limitations": [
+        "No imputation is used.",
+        "No ancestry-adjusted normalization is used.",
+        "Percentiles and z-scores are relative to the local reference panel, not to a population-wide benchmark.",
+        "Real-world sleep duration depends strongly on work schedule, stress, caregiving, age, health, medication use, travel, and personal habits.",
+        "This trait should not be used as a sleep diagnosis, a sleep-quality assessment, or medical guidance."
+    ],
+    "confidence_note": "Confidence reflects overlap and reference robustness under the no-imputation raw-array workflow, not certainty about the real-world trait.",
+    "reference_note": "Percentiles and z-scores are calibrated against a local empirical reference artifact built from raw-array files in this project; they are panel-relative, not population-wide.",
+    "product_status": "consumer_trait",
+    "reference_type": "local_empirical",
+    "input_workflow": "raw_array_no_imputation",
+    "audience": "consumer",
+    "tags": [
+        "lifestyle",
+        "sleep",
+        "recovery",
+        "raw_array"
+    ],
+    "notes_file": "data/pgs/PGS001150_sleep_duration_notes.md"
+}

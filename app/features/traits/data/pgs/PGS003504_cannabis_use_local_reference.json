@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Ever taken cannabis",
+  "trait_id": "pgs003504_cannabis_use",
+  "display_name": "Cannabis-use polygenic signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.0047187595052675295,
+  "sd": 0.007028542773751684,
+  "min": -0.008220752731721386,
+  "max": 0.01988875367179349,
+  "p5": -0.005914917422945826,
+  "p10": -0.0038666211306730277,
+  "p25": -0.0022615889427557334,
+  "p50": 0.004954908339849713,
+  "p75": 0.010347219424745995,
+  "p90": 0.013507077599721333,
+  "p95": 0.014443564308112835,
+  "scoring_file_name": "PGS003504_cannabis_use.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS003504_cannabis_use.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS003504",
+    "pgs_name": "cont-decay-ever_cannabis",
+    "trait_reported": "Ever taken cannabis",
+    "genome_build": "GRCh37",
+    "variants_number": "979739",
+    "weight_type": "beta",
+    "citation": "Ding Y et al. bioRxiv (2022). doi:10.1101/2022.09.28.509988"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS003504_cannabis_use_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS003504_cannabis_use_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 100000,
+  "trait_block": {
+    "trait_id": "pgs003504_cannabis_use",
+    "display_name": "Cannabis-use polygenic signal",
+    "reported_name": "Ever taken cannabis",
+    "pgs_id": "PGS003504",
+    "registry_status": "experimental"
+  },
+  "distribution": {
+    "mean": 0.0047187595052675295,
+    "sd": 0.007028542773751684,
+    "min": -0.008220752731721386,
+    "max": 0.01988875367179349,
+    "p5": -0.005914917422945826,
+    "p10": -0.0038666211306730277,
+    "p25": -0.0022615889427557334,
+    "p50": 0.004954908339849713,
+    "p75": 0.010347219424745995,
+    "p90": 0.013507077599721333,
+    "p95": 0.014443564308112835
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 979739,
+    "minimum_matched_variants": 100000,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs003504_cannabis_use",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 100000,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-03T20:18:12Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS003504_cannabis_use_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS003504_cannabis_use_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "59b8d7f22c33293ce2349c91ff24df9b0ca6b0baaeaa211332e0ab4605afb7a6",
+    "scoring_file_sha256": "e4dde9685550ed81b5e1d8f2ecde6183e8f70445e5ce77e595bf59e61479fd9c",
+    "manifest_entries_sha256": "d45204f1e161e9d079a37c31baf48ac9496b5674eb38b8879a7f71b07dbd9fbe"
+  }
+}

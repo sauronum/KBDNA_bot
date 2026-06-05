@@ -1,0 +1,112 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Right arm mass (predicted)",
+  "trait_id": "pgs001235_right_arm_mass",
+  "display_name": "Right arm mass tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 63,
+  "sample_count_included": 61,
+  "sample_count_excluded": 2,
+  "mean": 0.1618541695816476,
+  "sd": 0.07772730710082952,
+  "min": -0.017074232605100017,
+  "max": 0.3114145694364997,
+  "p5": 0.03180026799490003,
+  "p10": 0.07045699419300007,
+  "p25": 0.10848596080909972,
+  "p50": 0.16637896481530012,
+  "p75": 0.22846727379510007,
+  "p90": 0.25374481401409993,
+  "p95": 0.2703081327415006,
+  "scoring_file_name": "PGS001235_right_arm_mass.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001235_right_arm_mass.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001235",
+    "pgs_name": "GBE_INI23122",
+    "trait_reported": "Right arm mass (predicted)",
+    "genome_build": "GRCh37",
+    "variants_number": "28988",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001235; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001235_right_arm_mass",
+    "display_name": "Right arm mass tendency",
+    "reported_name": "Right arm mass (predicted)",
+    "pgs_id": "PGS001235",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.1618541695816476,
+    "sd": 0.07772730710082952,
+    "min": -0.017074232605100017,
+    "max": 0.3114145694364997,
+    "p5": 0.03180026799490003,
+    "p10": 0.07045699419300007,
+    "p25": 0.10848596080909972,
+    "p50": 0.16637896481530012,
+    "p75": 0.22846727379510007,
+    "p90": 0.25374481401409993,
+    "p95": 0.2703081327415006
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 28988,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 61
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs001235_right_arm_mass",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 63,
+    "sample_count_included": 61,
+    "sample_count_excluded": 2,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T06:32:21Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "ff473fa8cea47064fbf05556560a83f3dd27501e74370bbe8b3ed15dee64c999",
+    "artifact_sha256": "50dab2de2a214c34fbbabc79ed8e5f3cf328a404e01ce177973ee475b90ae779"
+  }
+}

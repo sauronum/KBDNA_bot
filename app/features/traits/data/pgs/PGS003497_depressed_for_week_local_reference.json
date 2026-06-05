@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "Ever depressed for a whole week",
+  "trait_id": "pgs003497_depression_episode",
+  "display_name": "Depression-related polygenic signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": -0.002512353315345556,
+  "sd": 0.0070444285850841245,
+  "min": -0.014825516398070348,
+  "max": 0.015838441178569352,
+  "p5": -0.013274663992277443,
+  "p10": -0.011637677144861639,
+  "p25": -0.005668325680950944,
+  "p50": -0.00279199897447923,
+  "p75": 0.00025480843707125547,
+  "p90": 0.004818017835705282,
+  "p95": 0.01077124340759681,
+  "scoring_file_name": "PGS003497_depressed_for_week.txt.gz",
+  "scoring_file_path": "data\\pgs\\PGS003497_depressed_for_week.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS003497",
+    "pgs_name": "cont-decay-depressed_for_1w",
+    "trait_reported": "Ever depressed for a whole week",
+    "genome_build": "GRCh37",
+    "variants_number": "979739",
+    "weight_type": "beta",
+    "citation": "Ding Y et al. bioRxiv (2022). doi:10.1101/2022.09.28.509988"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "data\\pgs\\PGS003497_depressed_for_week_local_reference_manifest.json",
+  "manifest_tsv": "data\\pgs\\PGS003497_depressed_for_week_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 15.0,
+  "minimum_matched_variants": 100000,
+  "trait_block": {
+    "trait_id": "pgs003497_depression_episode",
+    "display_name": "Depression-related polygenic signal",
+    "reported_name": "Ever depressed for a whole week",
+    "pgs_id": "PGS003497",
+    "registry_status": "experimental"
+  },
+  "distribution": {
+    "mean": -0.002512353315345556,
+    "sd": 0.0070444285850841245,
+    "min": -0.014825516398070348,
+    "max": 0.015838441178569352,
+    "p5": -0.013274663992277443,
+    "p10": -0.011637677144861639,
+    "p25": -0.005668325680950944,
+    "p50": -0.00279199897447923,
+    "p75": 0.00025480843707125547,
+    "p90": 0.004818017835705282,
+    "p95": 0.01077124340759681
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 979739,
+    "minimum_matched_variants": 100000,
+    "minimum_overlap_percent": 15.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs003497_depression_episode",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 100000,
+    "minimum_overlap_percent": 15.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-03T20:18:07Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "data\\pgs\\PGS003497_depressed_for_week_local_reference_manifest.json",
+    "manifest_tsv": "data\\pgs\\PGS003497_depressed_for_week_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "b1a121167d8e4016a3339f25173805840dd8ea871568f97455e9955fe099ef5e",
+    "scoring_file_sha256": "dad48f80fb225ede8a8482a7de9107ae57b6e242713e0c538b33ae52aa7ef347",
+    "manifest_entries_sha256": "5c389e6634fb9c79cf89c7604b5876f1b4011b55c2efc6a623174c96caaca268"
+  }
+}

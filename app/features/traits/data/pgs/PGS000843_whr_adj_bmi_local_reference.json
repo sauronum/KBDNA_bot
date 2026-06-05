@@ -1,0 +1,119 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 2,
+  "trait": "WHR adjusted for BMI",
+  "trait_id": "pgs000843_whr_adjusted_bmi",
+  "display_name": "BMI-adjusted waist-to-hip ratio tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 34,
+  "sample_count_included": 34,
+  "sample_count_excluded": 0,
+  "mean": 0.7947058823529414,
+  "sd": 0.13234992153418085,
+  "min": 0.4730000000000001,
+  "max": 1.2370000000000005,
+  "p5": 0.6296500000000002,
+  "p10": 0.6662000000000002,
+  "p25": 0.7257500000000002,
+  "p50": 0.7895000000000003,
+  "p75": 0.8495000000000003,
+  "p90": 0.9357000000000003,
+  "p95": 0.9886500000000003,
+  "scoring_file_name": "PGS000843_whr_adj_bmi.txt.gz",
+  "scoring_file_path": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS000843_whr_adj_bmi.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000843",
+    "pgs_name": "WHRadjBMI",
+    "trait_reported": "WHR adjusted for BMI",
+    "genome_build": "GRCh37",
+    "variants_number": "63",
+    "weight_type": "NR",
+    "citation": "Aly DM et al. Nat Genet (2021). doi:10.1038/s41588-021-00948-2"
+  },
+  "minimum_reference_samples": 5,
+  "manifest_json": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS000843_whr_adj_bmi_local_reference_manifest.json",
+  "manifest_tsv": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS000843_whr_adj_bmi_local_reference_manifest.tsv",
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "MyHeritage_Adam.csv"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 20,
+  "trait_block": {
+    "trait_id": "pgs000843_whr_adjusted_bmi",
+    "display_name": "BMI-adjusted waist-to-hip ratio tendency",
+    "reported_name": "WHR adjusted for BMI",
+    "pgs_id": "PGS000843",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.7947058823529414,
+    "sd": 0.13234992153418085,
+    "min": 0.4730000000000001,
+    "max": 1.2370000000000005,
+    "p5": 0.6296500000000002,
+    "p10": 0.6662000000000002,
+    "p25": 0.7257500000000002,
+    "p50": 0.7895000000000003,
+    "p75": 0.8495000000000003,
+    "p90": 0.9357000000000003,
+    "p95": 0.9886500000000003
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 63,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 34
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::Autosomal::pgs000843_whr_adjusted_bmi",
+    "source_name": "Autosomal",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 34,
+    "sample_count_included": 34,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115",
+      "37_K_Khasanov_Chrom_Autoso_20251118"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "pgs-build-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 5,
+    "minimum_matched_variants": 20,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "MyHeritage_Adam.csv"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-04-10T13:21:20Z",
+    "build_mode": "pgs-build-reference",
+    "manifest_json": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS000843_whr_adj_bmi_local_reference_manifest.json",
+    "manifest_tsv": "M:\\CODEX\\dna_platform\\data\\pgs\\PGS000843_whr_adj_bmi_local_reference_manifest.tsv"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "artifact_sha256": "ffbb9acf342e92c5850f522075df5893e7f439e0853d4d3b0bc7374bc5aca280",
+    "scoring_file_sha256": "de572b6b8adc2374214a7adde04b5adc1e272f0346cd45a2118311965705d258",
+    "manifest_entries_sha256": "bb0c3901359562709ec6011d131c269b941266d84e2a71e3da66b4616067f5d8"
+  }
+}
