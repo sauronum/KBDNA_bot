@@ -28,7 +28,7 @@ def build_modeling_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("🏛 qpAdm classic", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm")],
-            [InlineKeyboardButton("ADMIXTOOLS2 qpAdm", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm_at2")],
+            [InlineKeyboardButton("🧬 Admixtool 2", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm_at2")],
             [InlineKeyboardButton("🌊 qpWave", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpwave")],
             [InlineKeyboardButton("📚 Source sets", callback_data=f"{MODELING_CALLBACK_PREFIX}:source_sets")],
             [InlineKeyboardButton("💾 Saved models", callback_data=f"{MODELING_CALLBACK_PREFIX}:saved")],
