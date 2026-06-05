@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from app.features.modeling.menu import build_modeling_keyboard, modeling_text
+from app.features.modeling.source_sets import _parse_source_set_import
 
 
 class ModelingUiTests(unittest.TestCase):
@@ -29,6 +30,36 @@ class ModelingUiTests(unittest.TestCase):
         self.assertEqual(len(footer), 2)
         self.assertEqual(footer[0].callback_data, "main:root")
         self.assertEqual(footer[1].callback_data, "main:cancel")
+
+    def test_source_set_import_accepts_spaced_left_right_format(self) -> None:
+        parsed = _parse_source_set_import(
+            "\n".join(
+                [
+                    "Name=testkam",
+                    "left = Russia_MLBA_Sintashta.AG,",
+                    "Mongolia_LBA_Ulaanzukh_2.AG,",
+                    "Russia_Caucasus_Maikop_Novosvobodnaya.AG",
+                    "right = Russia_AfontovaGora3_UP.AG:AfontovaGora3.AG,",
+                    "Israel_Natufian.AG",
+                ]
+            )
+        )
+
+        self.assertIsNotNone(parsed)
+        assert parsed is not None
+        self.assertEqual(parsed["name"], "testkam")
+        self.assertEqual(
+            parsed["sources"],
+            [
+                "Russia_MLBA_Sintashta.AG",
+                "Mongolia_LBA_Ulaanzukh_2.AG",
+                "Russia_Caucasus_Maikop_Novosvobodnaya.AG",
+            ],
+        )
+        self.assertEqual(
+            parsed["references"],
+            ["Russia_AfontovaGora3_UP.AG:AfontovaGora3.AG", "Israel_Natufian.AG"],
+        )
 
 
 if __name__ == "__main__":

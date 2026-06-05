@@ -106,6 +106,7 @@ from app.features.matching.menu import (
 from app.features.modeling.menu import (
     MODELING_CALLBACK_PREFIX as DNA_LAB_MODELING_CALLBACK_PREFIX,
     modeling_callback_handler as dna_lab_modeling_callback_handler,
+    modeling_text_input_handler as dna_lab_modeling_text_input_handler,
     show_modeling_menu as show_dna_lab_modeling_menu,
 )
 from app.features.my_data.menu import (
@@ -2085,6 +2086,7 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.Document.ALL, ystr_document_input_handler), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_matching_text_input_handler), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, pending_text_router), group=-2)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_modeling_text_input_handler), group=-1)
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, text_lookup_command))
 
     logger.info("Bot started: %s", BUILD_ID)

@@ -561,6 +561,11 @@ class MenuKeyboardTests(unittest.TestCase):
         self.assertIn("private_bottom_menu_handler,\n        ),\n        group=-6", source)
         self.assertIn("dna_lab_my_data_text_input_handler), group=-5", source)
         self.assertIn("dna_lab_vahaduo_text_input_handler), group=-4", source)
+        self.assertIn("dna_lab_modeling_text_input_handler), group=-1", source)
+        self.assertLess(
+            source.index("dna_lab_modeling_text_input_handler), group=-1"),
+            source.index("MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, text_lookup_command)"),
+        )
 
     def test_global_settings_keyboard_reuses_dna_lab_settings_ui(self) -> None:
         keyboard = settings_menu.build_settings_keyboard(

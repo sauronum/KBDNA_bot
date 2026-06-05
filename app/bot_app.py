@@ -24,7 +24,7 @@ from app.features.haplogroups.menu import (
 )
 from app.features.help.menu import HELP_CALLBACK_PREFIX, help_callback_handler
 from app.features.matching.menu import MATCHING_CALLBACK_PREFIX, matching_callback_handler, matching_text_input_handler, register_matching_services
-from app.features.modeling.menu import MODELING_CALLBACK_PREFIX, modeling_callback_handler
+from app.features.modeling.menu import MODELING_CALLBACK_PREFIX, modeling_callback_handler, modeling_text_input_handler
 from app.features.my_data.menu import (
     MY_DATA_CALLBACK_PREFIX,
     my_data_callback_handler,
@@ -103,6 +103,7 @@ def build_application():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, vahaduo_text_input_handler), group=1)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, matching_text_input_handler), group=2)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, haplogroups_text_input_handler), group=3)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, modeling_text_input_handler), group=4)
 
     return application
 
