@@ -61,8 +61,8 @@ _TEXTS: dict[str, dict[str, str]] = {
         "en": "🧬 Admixture",
     },
     "main.modeling": {
-        "ru": "🧱 AdmixLab",
-        "en": "🧱 AdmixLab",
+        "ru": "🏛 AdmixLab",
+        "en": "🏛 AdmixLab",
     },
     "main.matching": {
         "ru": "🧩 Matching",

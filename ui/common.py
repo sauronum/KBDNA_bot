@@ -12,21 +12,22 @@ BOTTOM_BUTTON_SETTINGS = "⚙️ Настройки"
 BOTTOM_BUTTON_YSTR = "🧬 Y-STR анализ"
 BOTTOM_BUTTON_SOZLUK = "📚 Словарь"
 BOTTOM_BUTTON_SUPPORT = "📚 Справка"
-BOTTOM_BUTTON_LOOKUP = "🔎 Поиск по фамилии"
+BOTTOM_BUTTON_LOOKUP = "🔎 Поиск"
 BOTTOM_BUTTON_MORE = "🧩 Прочее"
 BOTTOM_BUTTON_MY_DNA = "🧬 My DNA"
 BOTTOM_BUTTON_COORDINATE_SPACES = "🧭 Coordinate spaces"
 BOTTOM_BUTTON_VAHADUO = "📐 Vahaduo Lab"
 BOTTOM_BUTTON_MATCHING = "🧩 Matching"
-BOTTOM_BUTTON_MODELING = "🧱 AdmixLab"
+BOTTOM_BUTTON_MODELING = "🏛 AdmixLab"
 BOTTOM_BUTTON_TRAITS = "✨ Traits"
-MORE_BUTTON_ADMIXTURE = "🧬 Admixture"
+BOTTOM_BUTTON_SNP_REPORT = "🧬 SNP Lab"
+MORE_BUTTON_ADMIXTURE = "📊 Admixture"
 MORE_BUTTON_HAPLOGROUPS = "🌿 Haplogroups"
 BOTTOM_BUTTON_BACK = "Назад"
 BOTTOM_BUTTON_CANCEL = "Отмена"
 LAB_BUTTON_COORDINATES = "🧭 Coordinates"
-LAB_BUTTON_ADMIXTURE = "🧬 Admixture"
-LAB_BUTTON_MODELING = "🧱 AdmixLab"
+LAB_BUTTON_ADMIXTURE = "📊 Admixture"
+LAB_BUTTON_MODELING = "🏛 AdmixLab"
 LAB_BUTTON_GET_G25 = "🧬 Получить G25"
 MY_DNA_BUTTON_SAMPLES = "📁 Samples"
 MY_DNA_BUTTON_G25_PROFILES = "📍 G25-профили"
@@ -46,10 +47,10 @@ HELP_BUTTON_PGS = "🧾 Что такое PGS?"
 def build_lookup_start_text(build_id: str) -> str:
     return (
         "<b>KBDNA</b>\n"
-        "Поиск по фамилиям, аналитика базы и DNA-инструменты.\n\n"
+        "Поиск, аналитика базы и DNA-инструменты.\n\n"
         "<b>Быстрый вход</b>\n"
         "• напишите фамилию одним сообщением;\n"
-        "• откройте <b>DNA Lab</b> для My DNA, Vahaduo, AdmixLab, Traits, SNP Report и Matching;\n"
+        "• откройте <b>DNA Lab</b> для My DNA, Vahaduo, AdmixLab, Traits, SNP Lab и Matching;\n"
         "• откройте <b>Аналитику</b> для гаплогрупп, субкладов и Y-STR;\n"
         "• <b>Справка</b> объясняет raw, G25, SNP, qpAdm и ограничения.\n\n"
         "В личном чате используйте кнопки ниже.\n"
@@ -81,7 +82,7 @@ def build_lookup_result_keyboard(
 
 LOOKUP_HELP_TEXT = (
     "<b>Инструкция KBDNA</b>\n\n"
-    "<b>🔎 Найти фамилию</b>\n"
+    "<b>🔎 Поиск</b>\n"
     "Напишите фамилию одним сообщением.\n\n"
     "Можно также использовать команду:\n"
     "<code>/f Фамилия</code>\n\n"
@@ -122,15 +123,15 @@ LOOKUP_HELP_TEXT = (
 
 HELP_ROOT_TEXT = (
     "<b>ℹ️ Справка KBDNA</b>\n\n"
-    "Это справочник по основным разделам бота: поиск по базе, аналитика, My DNA, G25, словарь и настройки.\n\n"
+    "Это справочник по основным разделам бота: поиск, аналитика, My DNA, G25, словарь и настройки.\n\n"
     "Выберите тему ниже. Каждый раздел открывается отдельным экраном, чтобы не листать одну длинную инструкцию."
 )
 
 HELP_SECTIONS: dict[str, tuple[str, str]] = {
     "lookup": (
-        "🔎 Поиск по фамилии",
+        "🔎 Поиск",
         (
-            "<b>🔎 Поиск по фамилии</b>\n\n"
+            "<b>🔎 Поиск</b>\n\n"
             "Основной поиск работает по базе KBDNA. В приватном чате можно просто отправить фамилию одним сообщением. "
             "В группе используйте команду <code>/f Фамилия</code>.\n\n"
             "Бот показывает найденные записи, происхождение, гаплогруппу, субклад и близкие совпадения по той же ветви, "
@@ -160,8 +161,10 @@ HELP_SECTIONS: dict[str, tuple[str, str]] = {
             "<b>📁 My DNA</b> хранит samples, raw-файлы, G25-профили и сохраненные отчеты.\n\n"
             "<b>🧭 Coordinate spaces</b> показывает положение sample в готовых региональных пространствах.\n\n"
             "<b>📐 Vahaduo Lab</b> считает Distance, Single и Multi по target/source наборам.\n\n"
-            "<b>🧬 Admixture</b> и <b>🧱 AdmixLab</b> помогают разбирать компонентные профили и формальные модели.\n\n"
-            "<b>🧩 Matching</b>, <b>✨ Traits</b> и <b>🌿 Haplogroups</b> работают с сохраненными sample и отчетами.\n\n"
+            "<b>📊 Admixture</b> и <b>🏛 AdmixLab</b> помогают разбирать компонентные профили и формальные модели.\n\n"
+            "<b>🧩 Matching</b> сравнивает samples и SNP между ними.\n\n"
+            "<b>🧬 SNP Lab</b> проверяет отдельные SNP, открывает справочную SNP-базу и строит HTML-отчёт по raw.\n\n"
+            "<b>✨ Traits</b> и <b>🌿 Haplogroups</b> работают с сохраненными sample и отчетами.\n\n"
             "Практическое правило: если данные будут использоваться регулярно, сначала создайте sample в My DNA."
         ),
     ),
@@ -256,11 +259,12 @@ def build_group_sections_keyboard(menu_callback_prefix: str, include_g25: bool =
 def build_laboratory_inline_keyboard(lab_callback_prefix: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(BOTTOM_BUTTON_TRAITS, callback_data=f"{lab_callback_prefix}:traits")],
-        [InlineKeyboardButton(LAB_BUTTON_COORDINATES, callback_data=f"{lab_callback_prefix}:coordinates")],
-        [InlineKeyboardButton(BOTTOM_BUTTON_VAHADUO, callback_data=f"{lab_callback_prefix}:vahaduo")],
-        [InlineKeyboardButton(BOTTOM_BUTTON_MATCHING, callback_data=f"{lab_callback_prefix}:matching")],
         [InlineKeyboardButton(LAB_BUTTON_ADMIXTURE, callback_data=f"{lab_callback_prefix}:admixture")],
         [InlineKeyboardButton(LAB_BUTTON_MODELING, callback_data=f"{lab_callback_prefix}:modeling")],
+        [InlineKeyboardButton(BOTTOM_BUTTON_VAHADUO, callback_data=f"{lab_callback_prefix}:vahaduo")],
+        [InlineKeyboardButton(LAB_BUTTON_COORDINATES, callback_data=f"{lab_callback_prefix}:coordinates")],
+        [InlineKeyboardButton(BOTTOM_BUTTON_MATCHING, callback_data=f"{lab_callback_prefix}:matching")],
+        [InlineKeyboardButton(BOTTOM_BUTTON_SNP_REPORT, callback_data=f"{lab_callback_prefix}:snp_report")],
         [InlineKeyboardButton(MORE_BUTTON_HAPLOGROUPS, callback_data=f"{lab_callback_prefix}:haplogroups")],
         [InlineKeyboardButton(BOTTOM_BUTTON_CANCEL, callback_data=f"{lab_callback_prefix}:cancel")],
     ])
@@ -292,11 +296,11 @@ def build_my_dna_add_data_keyboard(my_dna_callback_prefix: str) -> InlineKeyboar
 def build_help_inline_keyboard(help_callback_prefix: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🚀 Быстрый старт", callback_data=f"{help_callback_prefix}:quick_start")],
-        [InlineKeyboardButton("🔎 Поиск по фамилиям", callback_data=f"{help_callback_prefix}:surname_search")],
+        [InlineKeyboardButton("🔎 Поиск", callback_data=f"{help_callback_prefix}:surname_search")],
         [InlineKeyboardButton("📊 Аналитика KBDNA", callback_data=f"{help_callback_prefix}:analytics")],
         [InlineKeyboardButton("🧬 Данные: raw, G25, SNP", callback_data=f"{help_callback_prefix}:data_formats")],
         [InlineKeyboardButton("🧪 Разделы DNA Lab", callback_data=f"{help_callback_prefix}:dna_lab_sections")],
-        [InlineKeyboardButton("🧱 AdmixLab / qpAdm", callback_data=f"{help_callback_prefix}:admixlab")],
+        [InlineKeyboardButton("🏛 AdmixLab / qpAdm", callback_data=f"{help_callback_prefix}:admixlab")],
         [InlineKeyboardButton("📖 Термины DNA", callback_data=f"{help_callback_prefix}:terms")],
         [InlineKeyboardButton("🛡 Ограничения", callback_data=f"{help_callback_prefix}:limitations")],
         [InlineKeyboardButton("📚 КБ словарь", callback_data=f"{help_callback_prefix}:dictionary")],

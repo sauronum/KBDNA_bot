@@ -28,14 +28,9 @@ _build_lookup_suggestions_keyboard = partial(build_lookup_suggestions_keyboard_u
 _build_lookup_result_keyboard = partial(build_lookup_result_keyboard_ui, LOOKUP_CALLBACK_PREFIX)
 
 
-def _with_base_label(text: str, base_label: str | None) -> str:
-    if not base_label:
-        return text
-    return f"📚 <b>База:</b> {html.escape(base_label)}\n\n{text}"
-
-
 async def _send_lookup_record(message, record: dict[str, object], base_label: str | None = None) -> None:
-    await message.reply_text(_with_base_label(str(record["text"]), base_label), parse_mode="HTML", do_quote=False)
+    del base_label
+    await message.reply_text(str(record["text"]), parse_mode="HTML", do_quote=False)
 
 
 async def lookup_suggestion_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -171,8 +166,6 @@ async def send_lookup_records(
         return
 
     header_lines = [f"<b>{html.escape(title_name.upper())}</b>"]
-    if base_label:
-        header_lines.append(f"База: <b>{html.escape(base_label)}</b>")
     sent = await message.reply_text(
         "\n".join(header_lines) + "\n\nВыберите вариант:",
         parse_mode="HTML",
@@ -230,7 +223,7 @@ async def handle_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, name
                     return
 
             sent = await message.reply_text(
-                f"Фамилия <b>{html.escape(normalized_name)}</b> не найдена в базе <b>{html.escape(base_label)}</b>.\n\n"
+                f"Фамилия <b>{html.escape(normalized_name)}</b> не найдена.\n\n"
                 + "Выберите подходящий вариант:",
                 parse_mode="HTML",
                 reply_markup=_build_lookup_suggestions_keyboard(similar_names),
@@ -245,10 +238,10 @@ async def handle_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, name
         else:
             usage_store.record_lookup(update, normalized_name, success=False)
             fallback = (
-                f"Фамилия <b>{html.escape(normalized_name)}</b> в такой форме не найдена в базе <b>{html.escape(base_label)}</b>.\n"
+                f"Фамилия <b>{html.escape(normalized_name)}</b> в такой форме не найдена.\n"
                 + "Попробуйте русскую форму написания или другой вариант."
                 if used_collective_form
-                else f"Фамилия <b>{html.escape(normalized_name)}</b> не найдена в базе <b>{html.escape(base_label)}</b>.\n"
+                else f"Фамилия <b>{html.escape(normalized_name)}</b> не найдена.\n"
                 + "Проверьте написание и попробуйте другой вариант."
             )
             await message.reply_text(

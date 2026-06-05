@@ -2,55 +2,33 @@ from __future__ import annotations
 
 import unittest
 
-from app.features.modeling.menu import build_modeling_keyboard, build_source_sets_keyboard, modeling_placeholder_text, modeling_text, source_sets_text
+from app.features.modeling.menu import build_modeling_keyboard, modeling_text
 
 
 class ModelingUiTests(unittest.TestCase):
-    def test_modeling_is_clean_formal_modeling_shell(self) -> None:
+    def test_modeling_menu_opens_live_formal_model_tools(self) -> None:
         keyboard = build_modeling_keyboard("ru")
-        labels = [button.text for row in keyboard.inline_keyboard for button in row]
+        buttons = [button for row in keyboard.inline_keyboard for button in row]
+        labels = [button.text for button in buttons]
+        callbacks = [button.callback_data for button in buttons]
 
-        self.assertIn("🧱 AdmixLab", modeling_text("ru"))
-        self.assertIn("Формальные модели: qpAdm, qpWave, sources и outgroups.", modeling_text("ru"))
-        self.assertIn("🏛 qpAdm", labels)
-        self.assertIn("〰️ qpWave", labels)
-        self.assertIn("📚 Source sets", labels)
-        self.assertIn("💾 Saved models", labels)
-        self.assertNotIn("🧩 Source fitting", labels)
-        self.assertNotIn("Modeling", modeling_text("ru"))
+        self.assertIn("AdmixLab", modeling_text("ru"))
+        self.assertTrue(any("qpAdm classic" in label for label in labels))
+        self.assertTrue(any("qpWave" in label for label in labels))
+        self.assertTrue(any("Source sets" in label for label in labels))
+        self.assertTrue(any("Saved models" in label for label in labels))
+        self.assertIn("modeling:qpadm", callbacks)
+        self.assertIn("modeling:qpwave", callbacks)
+        self.assertIn("modeling:source_sets", callbacks)
+        self.assertIn("modeling:saved", callbacks)
 
-    def test_modeling_source_sets_is_formal_placeholder(self) -> None:
-        text = source_sets_text(lang="ru")
-        labels = [button.text for row in build_source_sets_keyboard(lang="ru").inline_keyboard for button in row]
+    def test_modeling_menu_has_standard_footer(self) -> None:
+        keyboard = build_modeling_keyboard("ru")
+        footer = keyboard.inline_keyboard[-1]
 
-        self.assertIn("Наборы sources и outgroups для формальных моделей.", text)
-        self.assertIn("Функция пока не подключена.", text)
-        self.assertEqual(labels, ["⬅️ Назад", "Отмена"])
-        self.assertNotIn("Steppe", text)
-        self.assertNotIn("Karachay-Balkar hypothesis", text)
-
-    def test_modeling_placeholders_use_admixlab_copy(self) -> None:
-        qpadm = modeling_placeholder_text("qpadm", "ru")
-        qpwave = modeling_placeholder_text("qpwave", "ru")
-        source_sets = modeling_placeholder_text("source_sets", "ru")
-        saved = modeling_placeholder_text("saved", "ru")
-
-        self.assertIn("🏛 qpAdm", qpadm)
-        self.assertIn("Формальная проверка модели через target, sources и outgroups.", qpadm)
-        self.assertIn("Функция пока не подключена.", qpadm)
-        self.assertIn("〰️ qpWave", qpwave)
-        self.assertIn("Проверка числа потоков происхождения между группами.", qpwave)
-        self.assertIn("📚 Source sets", source_sets)
-        self.assertIn("Наборы sources и outgroups для формальных моделей.", source_sets)
-        self.assertIn("💾 Saved models", saved)
-        self.assertIn("Сохранённые результаты AdmixLab.", saved)
-        self.assertIn("Пока нет сохранённых моделей.", saved)
-
-    def test_old_source_fitting_callback_copy_redirects_to_vahaduo(self) -> None:
-        text = modeling_placeholder_text("source_fitting", "ru")
-
-        self.assertIn("Готовые G25-модели теперь находятся в Vahaduo Lab.", text)
-        self.assertIn("Откройте Vahaduo Lab → Ready models.", text)
+        self.assertEqual(len(footer), 2)
+        self.assertEqual(footer[0].callback_data, "main:root")
+        self.assertEqual(footer[1].callback_data, "main:cancel")
 
 
 if __name__ == "__main__":
