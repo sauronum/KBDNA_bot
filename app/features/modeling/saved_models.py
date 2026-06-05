@@ -133,6 +133,9 @@ def _record_summary(record: dict[str, Any]) -> list[str]:
         f"Тип: <code>{html.escape(_kind_label(record))}</code>",
         f"Dataset: <code>{html.escape(_dataset_label(record.get('dataset')))}</code>",
     ]
+    engine = str(record.get("engine_label") or record.get("engine") or "").strip()
+    if engine:
+        lines.append(f"Engine: <code>{html.escape(engine)}</code>")
     target = str(record.get("target") or "").strip()
     if target:
         lines.append(f"Target: <code>{html.escape(target)}</code>")

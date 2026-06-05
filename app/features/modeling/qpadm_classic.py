@@ -31,11 +31,14 @@ from app.main_menu import set_active_main_menu_message
 
 QPADM_FLOW_KEY = "qpadm_classic_flow"
 QPADM_QUEUE_KEY = "qpadm_classic_queue"
+QPADM_ENGINE_KEY = "qpadm_classic_engine"
 
 DNA_PLATFORM_ROOT = Path(os.getenv("DNA_PLATFORM_ROOT", "/srv/dna_platform"))
 DNA_PLATFORM_PYTHON = os.getenv("DNA_PLATFORM_PYTHON", "python3")
 ADMIXLAB_BIN_DIR = Path(os.getenv("ADMIXLAB_BIN_DIR", "/srv/dna_platform/tools/admixtools/bin"))
-ADMIXLAB_QPADM_BACKEND_CONFIG = os.getenv("ADMIXLAB_QPADM_BACKEND_CONFIG", "/etc/admixlab/qpadm_backend_config.json")
+ADMIXLAB_QPADM_BACKEND_CONFIG_DEFAULT = "/etc/admixlab/qpadm_backend_config.json"
+ADMIXLAB_QPADM_ADMIXTOOLS2_BACKEND_CONFIG_DEFAULT = "/etc/admixlab/qpadm_backend_config.admixtools2.json"
+ADMIXLAB_QPADM_BACKEND_CONFIG = os.getenv("ADMIXLAB_QPADM_BACKEND_CONFIG", ADMIXLAB_QPADM_BACKEND_CONFIG_DEFAULT)
 ADMIXLAB_RAW_MERGE_CONFIG = os.getenv("ADMIXLAB_RAW_MERGE_CONFIG", "/etc/admixlab/raw_merge_config.json")
 BOT_QPADM_OUTPUT_DIR = Path(
     os.getenv("KBDNA_QPADM_OUTPUT_DIR", str(DNA_PLATFORM_ROOT / "output" / "admixlab" / "bot"))
@@ -49,6 +52,20 @@ QPADM_SAMPLE_PAGE_SIZE = 10
 DATASET_LABELS = {
     "v62_1240k_public": "v62 1240k public",
     "human_origins": "Human Origins",
+}
+QPADM_ENGINE_CLASSIC = "classic_qpadm"
+QPADM_ENGINE_ADMIXTOOLS2 = "admixtools2_qpadm"
+QPADM_ENGINE_LABELS = {
+    QPADM_ENGINE_CLASSIC: "Classic ADMIXTOOLS qpAdm",
+    QPADM_ENGINE_ADMIXTOOLS2: "ADMIXTOOLS2 qpAdm",
+}
+QPADM_ENGINE_ALIASES = {
+    "classic": QPADM_ENGINE_CLASSIC,
+    "classic_qpadm": QPADM_ENGINE_CLASSIC,
+    "admixtools": QPADM_ENGINE_CLASSIC,
+    "admixtools_qpadm": QPADM_ENGINE_CLASSIC,
+    "admixtools2": QPADM_ENGINE_ADMIXTOOLS2,
+    "admixtools2_qpadm": QPADM_ENGINE_ADMIXTOOLS2,
 }
 ROLE_LABELS = {
     "target": "target",
@@ -74,6 +91,34 @@ def _dataset_label(dataset: object) -> str:
     return DATASET_LABELS.get(value, value or "not selected")
 
 
+def _qpadm_engine(value: object) -> str:
+    raw = str(value or "").strip().casefold()
+    return QPADM_ENGINE_ALIASES.get(raw, QPADM_ENGINE_CLASSIC)
+
+
+def _is_qpadm_engine(value: object) -> bool:
+    return str(value or "").strip().casefold() in QPADM_ENGINE_ALIASES
+
+
+def _qpadm_engine_label(engine: object) -> str:
+    return QPADM_ENGINE_LABELS.get(_qpadm_engine(engine), QPADM_ENGINE_LABELS[QPADM_ENGINE_CLASSIC])
+
+
+def _qpadm_engine_display(engine: object) -> str:
+    if _is_qpadm_engine(engine):
+        return _qpadm_engine_label(engine)
+    text = str(engine or "").strip()
+    return text or _qpadm_engine_label(QPADM_ENGINE_CLASSIC)
+
+
+def _qpadm_backend_config_for_engine(engine: object) -> str:
+    legacy_config = os.getenv("ADMIXLAB_QPADM_BACKEND_CONFIG", ADMIXLAB_QPADM_BACKEND_CONFIG)
+    classic_config = os.getenv("ADMIXLAB_QPADM_CLASSIC_BACKEND_CONFIG", legacy_config)
+    if _qpadm_engine(engine) == QPADM_ENGINE_ADMIXTOOLS2:
+        return os.getenv("ADMIXLAB_QPADM_ADMIXTOOLS2_BACKEND_CONFIG", ADMIXLAB_QPADM_ADMIXTOOLS2_BACKEND_CONFIG_DEFAULT)
+    return classic_config
+
+
 def _role_label(role: str, lang: str = "ru") -> str:
     labels = ROLE_LABELS if lang == "en" else ROLE_LABELS_RU
     return labels.get(role, role)
@@ -86,6 +131,7 @@ def _get_flow(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any] | None:
 
 def _snapshot_flow(flow: dict[str, Any]) -> dict[str, Any]:
     return {
+        "engine": _qpadm_engine(flow.get("engine")),
         "dataset": flow.get("dataset"),
         "target_type": flow.get("target_type"),
         "target": flow.get("target"),
@@ -95,8 +141,9 @@ def _snapshot_flow(flow: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _start_flow(context: ContextTypes.DEFAULT_TYPE, dataset: str) -> dict[str, Any]:
+def _start_flow(context: ContextTypes.DEFAULT_TYPE, dataset: str, *, engine: object = QPADM_ENGINE_CLASSIC) -> dict[str, Any]:
     flow: dict[str, Any] = {
+        "engine": _qpadm_engine(engine),
         "dataset": dataset,
         "target_type": None,
         "target": None,
@@ -279,19 +326,19 @@ def _apply_model_import(flow: dict[str, Any], value: str, *, allow_target: bool 
     return imported
 
 
-def _qpadm_env() -> dict[str, str]:
+def _qpadm_env(engine: object = QPADM_ENGINE_CLASSIC) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = f"{ADMIXLAB_BIN_DIR}:{env.get('PATH', '')}"
-    env["ADMIXLAB_QPADM_BACKEND_CONFIG"] = ADMIXLAB_QPADM_BACKEND_CONFIG
+    env["ADMIXLAB_QPADM_BACKEND_CONFIG"] = _qpadm_backend_config_for_engine(engine)
     env["ADMIXLAB_RAW_MERGE_CONFIG"] = ADMIXLAB_RAW_MERGE_CONFIG
     return env
 
 
-async def _run_process(args: list[str], *, timeout_seconds: int) -> str:
+async def _run_process(args: list[str], *, timeout_seconds: int, engine: object = QPADM_ENGINE_CLASSIC) -> str:
     proc = await asyncio.create_subprocess_exec(
         *heavy_command(args),
         cwd=str(DNA_PLATFORM_ROOT),
-        env=_qpadm_env(),
+        env=_qpadm_env(engine),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -319,19 +366,73 @@ async def show_qpadm_classic_dataset_menu(
 ) -> None:
     if context is not None:
         context.user_data.pop(QPADM_FLOW_KEY, None)
+        context.user_data.pop(QPADM_ENGINE_KEY, None)
         nav_enter(context, _cb("qpadm"))
     title = "🏛 qpAdm classic"
-    text = (
-        f"<b>{title}</b>\n\n"
-        "Выберите базу для модели.\n"
-        "После этого выберем target, sources, references и запустим расчет."
+    text = "\n".join(
+        [
+            f"<b>{title}</b>",
+            "",
+            "Выберите qpAdm engine.",
+            "Classic остается основным; ADMIXTOOLS2 использует отдельный backend config.",
+        ]
         if lang != "en"
-        else f"<b>{title}</b>\n\nChoose the dataset first, then target, sources, references, and run the model."
+        else [
+            f"<b>{title}</b>",
+            "",
+            "Choose the qpAdm engine.",
+            "Classic remains the default; ADMIXTOOLS2 uses a separate backend config.",
+        ]
     )
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("v62 / 1240k public", callback_data=_cb("qpadm_ds", "v62_1240k_public"))],
-            [InlineKeyboardButton("Human Origins", callback_data=_cb("qpadm_ds", "human_origins"))],
+            [InlineKeyboardButton("Classic ADMIXTOOLS qpAdm", callback_data=_cb("qpadm_engine", QPADM_ENGINE_CLASSIC))],
+            [InlineKeyboardButton("ADMIXTOOLS2 qpAdm", callback_data=_cb("qpadm_engine", QPADM_ENGINE_ADMIXTOOLS2))],
+            _footer_row(nav_back_callback(), lang),
+        ]
+    )
+    await _show_message(message, text, markup, edit_existing=edit_existing)
+
+
+async def _show_qpadm_dataset_menu(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    engine: object,
+    edit_existing: bool = True,
+    lang: str = "ru",
+) -> None:
+    selected_engine = _qpadm_engine(engine)
+    context.user_data[QPADM_ENGINE_KEY] = selected_engine
+    nav_enter(context, _cb("qpadm_engine", selected_engine))
+    title = "🏛 qpAdm classic"
+    text = "\n".join(
+        [
+            f"<b>{title}</b>",
+            "",
+            f"Engine: <code>{html.escape(_qpadm_engine_label(selected_engine))}</code>",
+            "",
+            "Выберите базу для модели.",
+            "После этого выберем target, sources, references и запустим расчет.",
+        ]
+        if lang != "en"
+        else [
+            f"<b>{title}</b>",
+            "",
+            f"Engine: <code>{html.escape(_qpadm_engine_label(selected_engine))}</code>",
+            "",
+            "Choose the dataset first, then target, sources, references, and run the model.",
+        ]
+    )
+    markup = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "v62 / 1240k public",
+                    callback_data=_cb("qpadm_ds", selected_engine, "v62_1240k_public"),
+                )
+            ],
+            [InlineKeyboardButton("Human Origins", callback_data=_cb("qpadm_ds", selected_engine, "human_origins"))],
             _footer_row(nav_back_callback(), lang),
         ]
     )
@@ -349,6 +450,7 @@ async def _show_target_menu(message, context: ContextTypes.DEFAULT_TYPE, *, edit
         [
             "<b>🏛 qpAdm classic</b>",
             "",
+            f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
             f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
             "",
             "Выберите target: свой sample из My DNA или population из выбранной базы.",
@@ -359,6 +461,7 @@ async def _show_target_menu(message, context: ContextTypes.DEFAULT_TYPE, *, edit
             [
                 "<b>🏛 qpAdm classic</b>",
                 "",
+                f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
                 f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
                 "",
                 "Choose the target: one of your samples or a dataset population.",
@@ -483,6 +586,7 @@ def _state_lines(flow: dict[str, Any]) -> list[str]:
     references = _as_list(flow, "references")
     target = _target_display(flow)
     lines = [
+        f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Target: <code>{html.escape(str(target))}</code>",
         f"Sources: <code>{len(sources)}</code>",
@@ -919,7 +1023,7 @@ async def qpadm_classic_text_input_handler(update: Update, context: ContextTypes
     await _deactivate_prompt_markup(context, flow, progress.message_id)
 
     try:
-        results = await _list_populations(str(flow.get("dataset")), query_text)
+        results = await _list_populations(str(flow.get("dataset")), query_text, engine=flow.get("engine"))
         flow["search_results"] = results
         flow["search_role"] = role
         flow["awaiting_query"] = None
@@ -1000,7 +1104,7 @@ async def _show_import_result(
     await _show_message(message, "\n".join(lines), InlineKeyboardMarkup(rows), edit_existing=True)
 
 
-async def _list_populations(dataset: str, query_text: str) -> list[dict[str, Any]]:
+async def _list_populations(dataset: str, query_text: str, *, engine: object = QPADM_ENGINE_CLASSIC) -> list[dict[str, Any]]:
     args = [
         DNA_PLATFORM_PYTHON,
         "dna_platform.py",
@@ -1012,7 +1116,7 @@ async def _list_populations(dataset: str, query_text: str) -> list[dict[str, Any
         "--limit",
         "10",
     ]
-    stdout = await _run_process(args, timeout_seconds=QPADM_SEARCH_TIMEOUT_SECONDS)
+    stdout = await _run_process(args, timeout_seconds=QPADM_SEARCH_TIMEOUT_SECONDS, engine=engine)
     payload = json.loads(stdout)
     populations = payload.get("populations")
     if not isinstance(populations, list):
@@ -1167,6 +1271,8 @@ def _qpadm_args(flow: dict[str, Any], command: str) -> list[str]:
         DNA_PLATFORM_PYTHON,
         "dna_platform.py",
         command,
+        "--engine",
+        _qpadm_engine(flow.get("engine")),
         "--dataset",
         str(flow.get("dataset")),
         "--target-type",
@@ -1267,7 +1373,11 @@ async def _run_preflight(message, context: ContextTypes.DEFAULT_TYPE, *, lang: s
     )
     started = time.monotonic()
     try:
-        stdout = await _run_process(_qpadm_args(flow, "admixlab-qpadm-preflight"), timeout_seconds=QPADM_PREFLIGHT_TIMEOUT_SECONDS)
+        stdout = await _run_process(
+            _qpadm_args(flow, "admixlab-qpadm-preflight"),
+            timeout_seconds=QPADM_PREFLIGHT_TIMEOUT_SECONDS,
+            engine=flow.get("engine"),
+        )
         text, can_run = _format_preflight(json.loads(stdout), elapsed_seconds=time.monotonic() - started, lang=lang)
     except Exception as exc:
         can_run = False
@@ -1294,6 +1404,7 @@ def _format_qpadm_summary(summary: dict[str, Any], *, elapsed_seconds: float, fl
     feasibility = summary.get("feasibility") if isinstance(summary.get("feasibility"), dict) else {}
     weights = summary.get("weights") if isinstance(summary.get("weights"), list) else []
     errors = summary.get("errors") if isinstance(summary.get("errors"), list) else []
+    engine_display = _qpadm_engine_display(summary.get("engine") or flow.get("engine"))
     target_label = _target_display(flow) or target.get("label") or target.get("display_label")
     references = _as_list(flow, "references")
 
@@ -1302,7 +1413,7 @@ def _format_qpadm_summary(summary: dict[str, Any], *, elapsed_seconds: float, fl
         "",
         f"База: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Статус: <code>{html.escape(str(summary.get('status', 'unknown')))}</code>",
-        f"Движок: <code>{html.escape(str(summary.get('engine', 'unknown')))}</code>",
+        f"Движок: <code>{html.escape(engine_display)}</code>",
         f"Target: <code>{html.escape(str(target_label or 'unknown'))}</code>",
         f"Fit: <code>{html.escape(str(feasibility.get('status', 'unknown')))}</code>",
         f"p-value: <code>{_format_number(fit.get('p_value'))}</code>",
@@ -1553,13 +1664,15 @@ async def _qpadm_worker(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any
 
 async def _run_qpadm_job(flow: dict[str, Any], user_id: int, *, job_id: int, lang: str) -> tuple[str, dict[str, Any]]:
     BOT_QPADM_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = BOT_QPADM_OUTPUT_DIR / f"classic_{user_id}_{int(time.time())}_{job_id}.json"
+    engine = _qpadm_engine(flow.get("engine"))
+    output_prefix = "admixtools2" if engine == QPADM_ENGINE_ADMIXTOOLS2 else "classic"
+    output_path = BOT_QPADM_OUTPUT_DIR / f"{output_prefix}_{user_id}_{int(time.time())}_{job_id}.json"
     started = time.monotonic()
     run_args = _qpadm_args(flow, "admixlab-run-qpadm")
     run_args.extend(["--details", "--summary", "--output", str(output_path)])
     summary_args = [DNA_PLATFORM_PYTHON, "dna_platform.py", "admixlab-summary", str(output_path), "--json"]
-    await _run_process(run_args, timeout_seconds=QPADM_TIMEOUT_SECONDS)
-    summary_stdout = await _run_process(summary_args, timeout_seconds=60)
+    await _run_process(run_args, timeout_seconds=QPADM_TIMEOUT_SECONDS, engine=flow.get("engine"))
+    summary_stdout = await _run_process(summary_args, timeout_seconds=60, engine=flow.get("engine"))
     summary_payload = json.loads(summary_stdout)
     elapsed = time.monotonic() - started
     text = _format_qpadm_summary(summary_payload, elapsed_seconds=elapsed, flow=flow, lang=lang)
@@ -1572,6 +1685,8 @@ async def _run_qpadm_job(flow: dict[str, Any], user_id: int, *, job_id: int, lan
         visual_error = str(exc)
     save_payload = {
         "kind": "qpadm_classic",
+        "engine": engine,
+        "engine_label": _qpadm_engine_label(engine),
         "title": f"{_target_display(flow)} · {_dataset_label(flow.get('dataset'))}",
         "dataset": flow.get("dataset"),
         "target": _target_display(flow),
@@ -1628,12 +1743,22 @@ async def qpadm_classic_callback_handler(
         return
     message = query.message
 
+    if action == "qpadm_engine" and len(parts) >= 3:
+        engine = _qpadm_engine(parts[2])
+        await _show_qpadm_dataset_menu(message, context, engine=engine, edit_existing=True, lang=lang)
+        return
+
     if action == "qpadm_ds" and len(parts) >= 3:
-        dataset = parts[2]
+        if len(parts) >= 4 and _is_qpadm_engine(parts[2]):
+            engine = _qpadm_engine(parts[2])
+            dataset = parts[3]
+        else:
+            engine = _qpadm_engine(context.user_data.get(QPADM_ENGINE_KEY))
+            dataset = parts[2]
         if dataset not in DATASET_LABELS:
             await show_qpadm_classic_dataset_menu(message, context, edit_existing=True, lang=lang)
             return
-        _start_flow(context, dataset)
+        _start_flow(context, dataset, engine=engine)
         await _show_target_menu(message, context, edit_existing=True, lang=lang)
         return
 
