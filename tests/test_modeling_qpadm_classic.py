@@ -17,7 +17,9 @@ from app.features.modeling.qpadm_classic import (
     _qpadm_backend_config_for_engine,
     _qpadm_env,
     _qpadm_title,
+    _has_supported_target_for_engine,
     _snapshot_flow,
+    _target_menu_markup,
 )
 
 
@@ -90,6 +92,25 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertEqual(result["added"], ["Mongolia_LBA_Ulaanzukh_2.AG"])
         self.assertEqual(flow["sources"], ["Mongolia_LBA_Ulaanzukh_2.AG"])
 
+    def test_admixtools2_target_menu_is_population_only(self) -> None:
+        classic_callbacks = [
+            button.callback_data
+            for row in _target_menu_markup({"engine": QPADM_ENGINE_CLASSIC}, "en").inline_keyboard
+            for button in row
+        ]
+        at2_callbacks = [
+            button.callback_data
+            for row in _target_menu_markup({"engine": QPADM_ENGINE_ADMIXTOOLS2}, "en").inline_keyboard
+            for button in row
+        ]
+
+        self.assertIn("modeling:qpadm_target_kind:sample", classic_callbacks)
+        self.assertIn("modeling:qpadm_target_kind:population", classic_callbacks)
+        self.assertIn("modeling:qpadm_import", classic_callbacks)
+        self.assertNotIn("modeling:qpadm_target_kind:sample", at2_callbacks)
+        self.assertIn("modeling:qpadm_target_kind:population", at2_callbacks)
+        self.assertIn("modeling:qpadm_import", at2_callbacks)
+
 
 class QpadmClassicEngineTests(unittest.TestCase):
     def test_qpadm_args_include_selected_engine(self) -> None:
@@ -150,6 +171,11 @@ class QpadmClassicEngineTests(unittest.TestCase):
         )
 
         self.assertEqual(snapshot["engine"], QPADM_ENGINE_ADMIXTOOLS2)
+
+    def test_admixtools2_supports_only_dataset_population_targets(self) -> None:
+        self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "dataset_population"}))
+        self.assertFalse(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "raw_file"}))
+        self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_CLASSIC, "target_type": "raw_file"}))
 
 
 if __name__ == "__main__":

@@ -96,6 +96,16 @@ def _qpadm_engine(value: object) -> str:
     return QPADM_ENGINE_ALIASES.get(raw, QPADM_ENGINE_CLASSIC)
 
 
+def _is_admixtools2_engine(value: object) -> bool:
+    return _qpadm_engine(value) == QPADM_ENGINE_ADMIXTOOLS2
+
+
+def _has_supported_target_for_engine(flow: dict[str, Any]) -> bool:
+    if not _is_admixtools2_engine(flow.get("engine")):
+        return True
+    return str(flow.get("target_type") or "") == "dataset_population"
+
+
 def _is_qpadm_engine(value: object) -> bool:
     return str(value or "").strip().casefold() in QPADM_ENGINE_ALIASES
 
@@ -132,6 +142,23 @@ def _qpadm_backend_config_for_engine(engine: object) -> str:
 def _role_label(role: str, lang: str = "ru") -> str:
     labels = ROLE_LABELS if lang == "en" else ROLE_LABELS_RU
     return labels.get(role, role)
+
+
+def _target_menu_markup(flow: dict[str, Any], lang: str) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]]
+    if _is_admixtools2_engine(flow.get("engine")):
+        rows = [
+            [InlineKeyboardButton("\U0001f310 Dataset populations", callback_data=_cb("qpadm_target_kind", "population"))],
+            [InlineKeyboardButton("\U0001f4cb Import population model", callback_data=_cb("qpadm_import"))],
+        ]
+    else:
+        rows = [
+            [InlineKeyboardButton("\U0001f9ec My samples", callback_data=_cb("qpadm_target_kind", "sample"))],
+            [InlineKeyboardButton("\U0001f310 Dataset populations", callback_data=_cb("qpadm_target_kind", "population"))],
+            [InlineKeyboardButton("\U0001f4cb Import Left/Right/Target", callback_data=_cb("qpadm_import"))],
+        ]
+    rows.append(_footer_row(nav_back_callback(), lang))
+    return InlineKeyboardMarkup(rows)
 
 
 def _get_flow(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any] | None:
@@ -511,7 +538,19 @@ async def _show_target_menu(message, context: ContextTypes.DEFAULT_TYPE, *, edit
             _footer_row(nav_back_callback(), lang),
         ]
     )
-    await _show_message(message, text, markup, edit_existing=edit_existing)
+    if _is_admixtools2_engine(flow.get("engine")):
+        text = "\n".join(
+            [
+                f"<b>{_flow_title(flow)}</b>",
+                "",
+                f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
+                f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
+                "",
+                "ADMIXTOOLS2 target must be a dataset population. My samples/raw are classic-only for now.",
+            ]
+        )
+    target_markup = _target_menu_markup(flow, lang) if _is_admixtools2_engine(flow.get("engine")) else markup
+    await _show_message(message, text, target_markup, edit_existing=edit_existing)
 
 
 def _safe_page(value: object) -> int:
@@ -529,6 +568,10 @@ async def _show_sample_menu(
     lang: str,
     page: int = 0,
 ) -> None:
+    flow = _get_flow(context)
+    if flow is not None and _is_admixtools2_engine(flow.get("engine")):
+        await _show_target_menu(message, context, edit_existing=True, lang=lang)
+        return
     user_id = int(update.effective_user.id) if update.effective_user is not None else 0
     store = context.application.bot_data.get("my_data_store")
     samples = []
@@ -590,6 +633,9 @@ async def _select_sample_target(
     lang: str,
 ) -> None:
     flow = _get_flow(context)
+    if flow is not None and _is_admixtools2_engine(flow.get("engine")):
+        await _show_target_menu(message, context, edit_existing=True, lang=lang)
+        return
     user_id = int(update.effective_user.id) if update.effective_user is not None else 0
     store = context.application.bot_data.get("my_data_store")
     if flow is None or store is None:
@@ -652,6 +698,9 @@ async def _show_target_ready_menu(
         await show_qpadm_classic_dataset_menu(message, context, edit_existing=edit_existing, lang=lang)
         return
     if not flow.get("target"):
+        await _show_target_menu(message, context, edit_existing=edit_existing, lang=lang)
+        return
+    if not _has_supported_target_for_engine(flow):
         await _show_target_menu(message, context, edit_existing=edit_existing, lang=lang)
         return
     nav_enter(context, _cb("qpadm_target_ready"))
@@ -850,6 +899,9 @@ async def _show_review_menu(
     sources = _as_list(flow, "sources")
     references = _as_list(flow, "references")
     if not flow.get("target"):
+        await _show_target_menu(message, context, edit_existing=edit_existing, lang=lang)
+        return
+    if not _has_supported_target_for_engine(flow):
         await _show_target_menu(message, context, edit_existing=edit_existing, lang=lang)
         return
     if not sources:
@@ -1785,6 +1837,9 @@ async def _enqueue_qpadm(message, update: Update, context: ContextTypes.DEFAULT_
         return
     if not flow.get("target") or not _as_list(flow, "sources") or not _as_list(flow, "references"):
         await _show_review_menu(message, context, edit_existing=True, lang=lang)
+        return
+    if not _has_supported_target_for_engine(flow):
+        await _show_target_menu(message, context, edit_existing=True, lang=lang)
         return
 
     frozen_flow = _snapshot_flow(flow)
