@@ -1212,13 +1212,21 @@ def _format_messages(items: object, limit: int = 4, *, lang: str = "ru", friendl
     if not isinstance(items, list):
         return []
     lines: list[str] = []
-    for item in items:
+    try:
+        safe_limit = max(0, int(limit))
+    except (TypeError, ValueError):
+        safe_limit = 4
+    for item in items[:safe_limit]:
         if isinstance(item, dict):
             message = item.get("message") or item.get("code") or item
         else:
             message = item
         text = _friendly_warning(message, lang) if friendly else str(message)
         lines.append(f"• {html.escape(text)}")
+    remaining = len(items) - len(lines)
+    if remaining > 0:
+        suffix = f"... and {remaining} more" if lang == "en" else f"... и еще {remaining}"
+        lines.append(f"• {html.escape(suffix)}")
     return lines
 
 
