@@ -11,7 +11,7 @@
   "short_description": "Panel-relative PGS signal for portion size.",
   "summary_note": "This score estimates a cautious, reference-panel-relative tendency for portion size.",
   "what_it_measures": "A polygenic score associated with Portion size in PGS Catalog.",
-  "result_summary_template": "Your result is {band_label} compared with the current local reference panel.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
   "interpretation_template": "Higher or lower values describe position within the current reference distribution, not a diagnosis or deterministic prediction.",
   "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
   "limitations": [
