@@ -7,6 +7,7 @@ from app.features.modeling.navigation import nav_pop, nav_reset, reset_callback_
 from app.features.modeling.qpadm_classic import (
     qpadm_classic_callback_handler,
     qpadm_classic_text_input_handler,
+    show_qpadm_admixtools2_dataset_menu,
     show_qpadm_classic_dataset_menu,
 )
 from app.features.modeling.qpwave import qpwave_callback_handler, qpwave_text_input_handler, show_qpwave_dataset_menu
@@ -27,6 +28,7 @@ def build_modeling_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("🏛 qpAdm classic", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm")],
+            [InlineKeyboardButton("ADMIXTOOLS2 qpAdm", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm_at2")],
             [InlineKeyboardButton("🌊 qpWave", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpwave")],
             [InlineKeyboardButton("📚 Source sets", callback_data=f"{MODELING_CALLBACK_PREFIX}:source_sets")],
             [InlineKeyboardButton("💾 Saved models", callback_data=f"{MODELING_CALLBACK_PREFIX}:saved")],
@@ -75,6 +77,9 @@ async def _dispatch_modeling_action(
         return
     if action == "qpadm":
         await show_qpadm_classic_dataset_menu(query.message, context, edit_existing=True, lang=lang)
+        return
+    if action == "qpadm_at2":
+        await show_qpadm_admixtools2_dataset_menu(query.message, context, edit_existing=True, lang=lang)
         return
     if action == "qpwave":
         await show_qpwave_dataset_menu(query.message, context, edit_existing=True, lang=lang)

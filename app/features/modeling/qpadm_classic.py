@@ -111,6 +111,16 @@ def _qpadm_engine_display(engine: object) -> str:
     return text or _qpadm_engine_label(QPADM_ENGINE_CLASSIC)
 
 
+def _qpadm_title(engine: object, *, prefix: str = "🏛", suffix: str | None = None) -> str:
+    base = "ADMIXTOOLS2 qpAdm" if _qpadm_engine(engine) == QPADM_ENGINE_ADMIXTOOLS2 else "qpAdm classic"
+    title = f"{prefix} {base}" if prefix else base
+    return f"{title} · {suffix}" if suffix else title
+
+
+def _flow_title(flow: dict[str, Any], *, prefix: str = "🏛", suffix: str | None = None) -> str:
+    return _qpadm_title(flow.get("engine"), prefix=prefix, suffix=suffix)
+
+
 def _qpadm_backend_config_for_engine(engine: object) -> str:
     legacy_config = os.getenv("ADMIXLAB_QPADM_BACKEND_CONFIG", ADMIXLAB_QPADM_BACKEND_CONFIG)
     classic_config = os.getenv("ADMIXLAB_QPADM_CLASSIC_BACKEND_CONFIG", legacy_config)
@@ -364,34 +374,51 @@ async def show_qpadm_classic_dataset_menu(
     edit_existing: bool = True,
     lang: str = "ru",
 ) -> None:
+    await _show_qpadm_entry_dataset_menu(
+        message,
+        context,
+        engine=QPADM_ENGINE_CLASSIC,
+        root_action="qpadm",
+        edit_existing=edit_existing,
+        lang=lang,
+    )
+
+
+async def show_qpadm_admixtools2_dataset_menu(
+    message,
+    context: ContextTypes.DEFAULT_TYPE | None = None,
+    *,
+    edit_existing: bool = True,
+    lang: str = "ru",
+) -> None:
+    await _show_qpadm_entry_dataset_menu(
+        message,
+        context,
+        engine=QPADM_ENGINE_ADMIXTOOLS2,
+        root_action="qpadm_at2",
+        edit_existing=edit_existing,
+        lang=lang,
+    )
+
+
+async def _show_qpadm_entry_dataset_menu(
+    message,
+    context: ContextTypes.DEFAULT_TYPE | None,
+    *,
+    engine: object,
+    root_action: str,
+    edit_existing: bool,
+    lang: str,
+) -> None:
     if context is not None:
         context.user_data.pop(QPADM_FLOW_KEY, None)
         context.user_data.pop(QPADM_ENGINE_KEY, None)
-        nav_enter(context, _cb("qpadm"))
-    title = "🏛 qpAdm classic"
-    text = "\n".join(
-        [
-            f"<b>{title}</b>",
-            "",
-            "Выберите qpAdm engine.",
-            "Classic остается основным; ADMIXTOOLS2 использует отдельный backend config.",
-        ]
-        if lang != "en"
-        else [
-            f"<b>{title}</b>",
-            "",
-            "Choose the qpAdm engine.",
-            "Classic remains the default; ADMIXTOOLS2 uses a separate backend config.",
-        ]
-    )
-    markup = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Classic ADMIXTOOLS qpAdm", callback_data=_cb("qpadm_engine", QPADM_ENGINE_CLASSIC))],
-            [InlineKeyboardButton("ADMIXTOOLS2 qpAdm", callback_data=_cb("qpadm_engine", QPADM_ENGINE_ADMIXTOOLS2))],
-            _footer_row(nav_back_callback(), lang),
-        ]
-    )
-    await _show_message(message, text, markup, edit_existing=edit_existing)
+        nav_enter(context, _cb(root_action))
+        await _show_qpadm_dataset_menu(message, context, engine=engine, edit_existing=edit_existing, lang=lang)
+        return
+    title = _qpadm_title(engine)
+    text = "\n".join([f"<b>{title}</b>", "", "Context is not available for qpAdm setup."])
+    await _show_message(message, text, InlineKeyboardMarkup([_footer_row(nav_back_callback(), lang)]), edit_existing=edit_existing)
 
 
 async def _show_qpadm_dataset_menu(
@@ -405,7 +432,7 @@ async def _show_qpadm_dataset_menu(
     selected_engine = _qpadm_engine(engine)
     context.user_data[QPADM_ENGINE_KEY] = selected_engine
     nav_enter(context, _cb("qpadm_engine", selected_engine))
-    title = "🏛 qpAdm classic"
+    title = _qpadm_title(selected_engine)
     text = "\n".join(
         [
             f"<b>{title}</b>",
@@ -448,7 +475,7 @@ async def _show_target_menu(message, context: ContextTypes.DEFAULT_TYPE, *, edit
 
     text = "\n".join(
         [
-            "<b>🏛 qpAdm classic</b>",
+            f"<b>{_flow_title(flow)}</b>",
             "",
             f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
             f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
@@ -459,7 +486,7 @@ async def _show_target_menu(message, context: ContextTypes.DEFAULT_TYPE, *, edit
     if lang == "en":
         text = "\n".join(
             [
-                "<b>🏛 qpAdm classic</b>",
+                f"<b>{_flow_title(flow)}</b>",
                 "",
                 f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
                 f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
@@ -638,7 +665,7 @@ async def _show_target_ready_menu(
                 _footer_row(nav_back_callback(), lang),
             ]
         )
-        title = "🏛 qpAdm classic · модель собрана"
+        title = _flow_title(flow, suffix="модель собрана")
         hint = "Модель собрана. Запустите проверку или отредактируйте отдельные части."
     else:
         if sources and not references:
@@ -676,7 +703,7 @@ async def _show_target_ready_menu(
                 _footer_row(nav_back_callback(), lang),
             ]
         )
-        title = "🏛 qpAdm classic · target выбран"
+        title = _flow_title(flow, suffix="target выбран")
 
     text = "\n".join(
         [
@@ -744,7 +771,7 @@ async def _show_sources_menu(
 
     text = "\n".join(
         [
-            "<b>🏛 qpAdm classic · sources</b>",
+            f"<b>{_flow_title(flow, suffix='sources')}</b>",
             "",
             *_state_lines(flow),
             "",
@@ -786,7 +813,7 @@ async def _show_references_menu(
 
     text = "\n".join(
         [
-            "<b>🏛 qpAdm classic · references</b>",
+            f"<b>{_flow_title(flow, suffix='references')}</b>",
             "",
             *_state_lines(flow),
             "",
@@ -826,7 +853,7 @@ async def _show_review_menu(
 
     text = "\n".join(
         [
-            "<b>🏛 qpAdm classic · проверка модели</b>",
+            f"<b>{_flow_title(flow, suffix='проверка модели')}</b>",
             "",
             *_state_lines(flow),
             "",
@@ -1336,14 +1363,20 @@ def _format_messages(items: object, limit: int = 4, *, lang: str = "ru", friendl
     return lines
 
 
-def _format_preflight(payload: dict[str, Any], *, elapsed_seconds: float, lang: str) -> tuple[str, bool]:
+def _format_preflight(
+    payload: dict[str, Any],
+    *,
+    elapsed_seconds: float,
+    lang: str,
+    product_title: str = "qpAdm classic",
+) -> tuple[str, bool]:
     can_run = _extract_can_run(payload)
     status = payload.get("status", "unknown")
     engine_status = payload.get("engine_status", "unknown")
     warnings = payload.get("warnings")
     errors = payload.get("errors")
     lines = [
-        "<b>🧪 qpAdm classic · проверка</b>",
+        f"<b>🧪 {html.escape(product_title)} · проверка</b>",
         "",
         f"Статус: <code>{html.escape(str(status))}</code>",
         f"Движок: <code>{html.escape(str(engine_status))}</code>",
@@ -1364,10 +1397,11 @@ async def _run_preflight(message, context: ContextTypes.DEFAULT_TYPE, *, lang: s
     if flow is None:
         await show_qpadm_classic_dataset_menu(message, context, edit_existing=True, lang=lang)
         return
+    product_title = _qpadm_title(flow.get("engine"), prefix="")
 
     await _show_message(
         message,
-        "<b>🧪 qpAdm classic preflight</b>\n\nПроверяю файлы, mapping и параметры...",
+        f"<b>🧪 {html.escape(product_title)} preflight</b>\n\nПроверяю файлы, mapping и параметры...",
         InlineKeyboardMarkup([_footer_row(_cb("qpadm_review"), lang)]),
         edit_existing=True,
     )
@@ -1378,10 +1412,15 @@ async def _run_preflight(message, context: ContextTypes.DEFAULT_TYPE, *, lang: s
             timeout_seconds=QPADM_PREFLIGHT_TIMEOUT_SECONDS,
             engine=flow.get("engine"),
         )
-        text, can_run = _format_preflight(json.loads(stdout), elapsed_seconds=time.monotonic() - started, lang=lang)
+        text, can_run = _format_preflight(
+            json.loads(stdout),
+            elapsed_seconds=time.monotonic() - started,
+            lang=lang,
+            product_title=product_title,
+        )
     except Exception as exc:
         can_run = False
-        text = f"<b>🧪 qpAdm classic preflight</b>\n\n<code>{html.escape(str(exc))}</code>"
+        text = f"<b>🧪 {html.escape(product_title)} preflight</b>\n\n<code>{html.escape(str(exc))}</code>"
 
     rows: list[list[InlineKeyboardButton]] = []
     if can_run:
@@ -1409,7 +1448,7 @@ def _format_qpadm_summary(summary: dict[str, Any], *, elapsed_seconds: float, fl
     references = _as_list(flow, "references")
 
     lines = [
-        "<b>🏛 qpAdm classic</b>",
+        f"<b>{_flow_title(flow)}</b>",
         "",
         f"База: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Статус: <code>{html.escape(str(summary.get('status', 'unknown')))}</code>",
@@ -1441,7 +1480,7 @@ def _format_qpadm_caption(summary: dict[str, Any], *, elapsed_seconds: float, fl
     fit = summary.get("fit") if isinstance(summary.get("fit"), dict) else {}
     return "\n".join(
         [
-            "<b>🏛 qpAdm classic</b>",
+            f"<b>{_flow_title(flow)}</b>",
             f"База: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
             f"Target: <code>{html.escape(_target_display(flow))}</code>",
             f"p-value: <code>{_format_number(fit.get('p_value'))}</code>",
@@ -1493,7 +1532,7 @@ def _format_queue_text(
     active_count: int,
 ) -> str:
     lines = [
-        "<b>🏛 qpAdm classic · очередь</b>",
+        f"<b>{_flow_title(flow, suffix='очередь')}</b>",
         "",
         *_state_lines(flow),
         "",
@@ -1508,7 +1547,7 @@ def _format_queue_text(
 
 def _format_started_text(flow: dict[str, Any], *, job_id: int, active_count: int) -> str:
     lines = [
-        "<b>🏛 qpAdm classic · расчет запущен</b>",
+        f"<b>{_flow_title(flow, suffix='расчет запущен')}</b>",
         "",
         *_state_lines(flow),
         "",
@@ -1647,7 +1686,7 @@ async def _qpadm_worker(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any
             caption = str(save_payload.get("caption_text") or "")
             visual_path = str(save_payload.get("visual_path") or "")
         except Exception as exc:
-            text = f"<b>qpAdm classic не прошел</b>\n\n<code>{html.escape(str(exc))}</code>"
+            text = f"<b>{html.escape(_flow_title(entry['flow'], prefix=''))} не прошел</b>\n\n<code>{html.escape(str(exc))}</code>"
 
         await _send_job_result(
             context,
@@ -1756,7 +1795,7 @@ async def qpadm_classic_callback_handler(
             engine = _qpadm_engine(context.user_data.get(QPADM_ENGINE_KEY))
             dataset = parts[2]
         if dataset not in DATASET_LABELS:
-            await show_qpadm_classic_dataset_menu(message, context, edit_existing=True, lang=lang)
+            await _show_qpadm_dataset_menu(message, context, engine=engine, edit_existing=True, lang=lang)
             return
         _start_flow(context, dataset, engine=engine)
         await _show_target_menu(message, context, edit_existing=True, lang=lang)
@@ -1842,8 +1881,17 @@ async def qpadm_classic_callback_handler(
         return
 
     if action == "qpadm_reset":
-        nav_reset(context, _cb("qpadm"))
-        await show_qpadm_classic_dataset_menu(message, context, edit_existing=True, lang=lang)
+        flow = _get_flow(context) or {}
+        engine = _qpadm_engine(flow.get("engine") or context.user_data.get(QPADM_ENGINE_KEY))
+        nav_reset(context, _cb("qpadm_at2" if engine == QPADM_ENGINE_ADMIXTOOLS2 else "qpadm"))
+        await _show_qpadm_entry_dataset_menu(
+            message,
+            context,
+            engine=engine,
+            root_action="qpadm_at2" if engine == QPADM_ENGINE_ADMIXTOOLS2 else "qpadm",
+            edit_existing=True,
+            lang=lang,
+        )
         return
 
     await show_qpadm_classic_dataset_menu(message, context, edit_existing=True, lang=lang)

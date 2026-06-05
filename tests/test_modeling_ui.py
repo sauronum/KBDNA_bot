@@ -15,10 +15,12 @@ class ModelingUiTests(unittest.TestCase):
 
         self.assertIn("AdmixLab", modeling_text("ru"))
         self.assertTrue(any("qpAdm classic" in label for label in labels))
+        self.assertTrue(any("ADMIXTOOLS2 qpAdm" in label for label in labels))
         self.assertTrue(any("qpWave" in label for label in labels))
         self.assertTrue(any("Source sets" in label for label in labels))
         self.assertTrue(any("Saved models" in label for label in labels))
         self.assertIn("modeling:qpadm", callbacks)
+        self.assertIn("modeling:qpadm_at2", callbacks)
         self.assertIn("modeling:qpwave", callbacks)
         self.assertIn("modeling:source_sets", callbacks)
         self.assertIn("modeling:saved", callbacks)

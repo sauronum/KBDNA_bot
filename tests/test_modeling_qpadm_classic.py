@@ -9,9 +9,12 @@ from app.features.modeling.qpadm_classic import (
     QPADM_ENGINE_CLASSIC,
     _format_messages,
     _format_preflight,
+    _format_qpadm_summary,
+    _format_queue_text,
     _qpadm_args,
     _qpadm_backend_config_for_engine,
     _qpadm_env,
+    _qpadm_title,
     _snapshot_flow,
 )
 
@@ -48,6 +51,27 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertIn("and 1 more", text)
         self.assertNotIn("warning 4", text)
         self.assertNotIn("error 4", text)
+
+    def test_admixtools2_titles_are_not_labeled_classic(self) -> None:
+        flow = {
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "dataset": "v62_1240k_public",
+            "target": "Balkar",
+            "sources": ["Sintashta"],
+            "references": ["Mbuti"],
+        }
+        summary = {
+            "status": "completed",
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "fit": {"p_value": 0.25},
+            "feasibility": {"status": "PASS"},
+            "weights": [],
+        }
+
+        self.assertIn("ADMIXTOOLS2 qpAdm", _qpadm_title(QPADM_ENGINE_ADMIXTOOLS2))
+        self.assertIn("ADMIXTOOLS2 qpAdm", _format_queue_text(flow, job_id=1, position=1, active_count=1))
+        self.assertIn("ADMIXTOOLS2 qpAdm", _format_qpadm_summary(summary, elapsed_seconds=1.0, flow=flow, lang="en"))
+        self.assertNotIn("qpAdm classic", _format_queue_text(flow, job_id=1, position=1, active_count=1))
 
 
 class QpadmClassicEngineTests(unittest.TestCase):
