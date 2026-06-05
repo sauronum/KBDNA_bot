@@ -11,6 +11,8 @@ from app.features.modeling.qpadm_classic import (
     _format_preflight,
     _format_qpadm_summary,
     _format_queue_text,
+    _looks_like_direct_qpadm_label,
+    _merge_role_items,
     _qpadm_args,
     _qpadm_backend_config_for_engine,
     _qpadm_env,
@@ -72,6 +74,21 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertIn("ADMIXTOOLS2 qpAdm", _format_queue_text(flow, job_id=1, position=1, active_count=1))
         self.assertIn("ADMIXTOOLS2 qpAdm", _format_qpadm_summary(summary, elapsed_seconds=1.0, flow=flow, lang="en"))
         self.assertNotIn("qpAdm classic", _format_queue_text(flow, job_id=1, position=1, active_count=1))
+
+    def test_exact_qpadm_label_can_be_added_without_population_search(self) -> None:
+        flow = {
+            "target": "Balkar",
+            "sources": [],
+            "references": [],
+        }
+
+        self.assertTrue(_looks_like_direct_qpadm_label("Mongolia_LBA_Ulaanzukh_2.AG"))
+        self.assertFalse(_looks_like_direct_qpadm_label("Sintashta"))
+
+        result = _merge_role_items(flow, "source", ["Mongolia_LBA_Ulaanzukh_2.AG"])
+
+        self.assertEqual(result["added"], ["Mongolia_LBA_Ulaanzukh_2.AG"])
+        self.assertEqual(flow["sources"], ["Mongolia_LBA_Ulaanzukh_2.AG"])
 
 
 class QpadmClassicEngineTests(unittest.TestCase):

@@ -103,7 +103,7 @@ def build_application():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, vahaduo_text_input_handler), group=1)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, matching_text_input_handler), group=2)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, haplogroups_text_input_handler), group=3)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, modeling_text_input_handler), group=4)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, modeling_text_input_handler), group=-1)
 
     return application
 

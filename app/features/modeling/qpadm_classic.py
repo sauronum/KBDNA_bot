@@ -249,6 +249,15 @@ def _looks_like_item_list(value: str) -> bool:
     return "\n" in value or "," in value or ";" in value
 
 
+def _looks_like_direct_qpadm_label(value: str) -> bool:
+    text = _clean_item(value)
+    if not text or any(char.isspace() for char in text):
+        return False
+    if any(separator in text for separator in (",", ";", "\n")):
+        return False
+    return "." in text or "_" in text or ":" in text
+
+
 def _parse_model_import(value: str) -> dict[str, list[str] | str]:
     parsed: dict[str, list[str] | str] = {}
     for match in MODEL_IMPORT_PATTERN.finditer(value):
@@ -1007,6 +1016,34 @@ async def qpadm_classic_text_input_handler(update: Update, context: ContextTypes
             set_active_main_menu_message(context, update.effective_chat.id, update.effective_user.id, progress.message_id)
         await _deactivate_prompt_markup(context, flow, progress.message_id)
         result = _merge_role_items(flow, str(role), _split_items(query_text))
+        flow["last_notice"] = result
+        _clear_search(flow)
+        if _has_complete_model(flow):
+            flow.pop("last_notice", None)
+            await _show_review_menu(progress, context, edit_existing=True, lang=lang)
+        elif role == "source":
+            await _show_sources_menu(progress, context, edit_existing=True, lang=lang)
+        else:
+            await _show_references_menu(progress, context, edit_existing=True, lang=lang)
+        return True
+
+    if role in {"target", "source", "reference"} and _looks_like_direct_qpadm_label(query_text):
+        progress = await update.message.reply_text("Добавляю exact label...", do_quote=False)
+        if update.effective_chat is not None and update.effective_user is not None:
+            set_active_main_menu_message(context, update.effective_chat.id, update.effective_user.id, progress.message_id)
+        await _deactivate_prompt_markup(context, flow, progress.message_id)
+        if role == "target":
+            label = _clean_item(query_text)
+            flow["target_type"] = "dataset_population"
+            flow["target"] = label
+            flow["target_label"] = label
+            _clear_search(flow)
+            if _has_complete_model(flow):
+                await _show_review_menu(progress, context, edit_existing=True, lang=lang)
+            else:
+                await _show_target_ready_menu(progress, context, edit_existing=True, lang=lang)
+            return True
+        result = _merge_role_items(flow, str(role), [_clean_item(query_text)])
         flow["last_notice"] = result
         _clear_search(flow)
         if _has_complete_model(flow):
