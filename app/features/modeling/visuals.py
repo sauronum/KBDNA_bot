@@ -25,11 +25,47 @@ PALETTE = [
     "#2dd4bf",
     "#e879f9",
 ]
+QPADM_ENGINE_ADMIXTOOLS2 = "admixtools2_qpadm"
+QPADM_CLASSIC_VISUAL = {
+    "title": "qpAdm classic",
+    "product": "qpAdm classic",
+    "version": "v2.1",
+    "prefix": "qpadm_result",
+    "background": "#10141b",
+    "panel": "#1d2630",
+    "accent": "#5eead4",
+    "outline": "#405066",
+    "palette": PALETTE,
+}
+QPADM_ADMIXTOOLS2_VISUAL = {
+    "title": "ADMIXTOOLS2 qpAdm",
+    "product": "ADMIXTOOLS2 qpAdm",
+    "version": "AT2",
+    "prefix": "qpadm_admixtools2_result",
+    "background": "#11130f",
+    "panel": "#24251d",
+    "accent": "#fbbf24",
+    "outline": "#5a5135",
+    "palette": ["#f59e0b", "#22c55e", "#38bdf8", "#ef4444", "#c084fc", "#14b8a6", "#facc15", "#fb7185"],
+}
 
 
 def _dataset_label(dataset: object) -> str:
     value = str(dataset or "")
     return DATASET_LABELS.get(value, value or "not selected")
+
+
+def _qpadm_engine(value: object) -> str:
+    raw = str(value or "").strip().casefold()
+    if raw in {"admixtools2", QPADM_ENGINE_ADMIXTOOLS2}:
+        return QPADM_ENGINE_ADMIXTOOLS2
+    return "classic_qpadm"
+
+
+def _qpadm_visual_profile(flow: dict[str, Any], summary: dict[str, Any] | None = None) -> dict[str, Any]:
+    summary = summary or {}
+    engine = _qpadm_engine(flow.get("engine") or summary.get("engine"))
+    return QPADM_ADMIXTOOLS2_VISUAL if engine == QPADM_ENGINE_ADMIXTOOLS2 else QPADM_CLASSIC_VISUAL
 
 
 def _font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
@@ -90,10 +126,16 @@ def _target_display(flow: dict[str, Any]) -> str:
     return str(flow.get("target_label") or flow.get("target") or "unknown")
 
 
-def _canvas(height: int, *, width: int = 1200) -> tuple[Image.Image, ImageDraw.ImageDraw]:
-    image = Image.new("RGB", (width, max(820, height)), "#10141b")
+def _canvas(
+    height: int,
+    *,
+    width: int = 1200,
+    background: str = "#10141b",
+    panel: str = "#1d2630",
+) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    image = Image.new("RGB", (width, max(820, height)), background)
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((28, 28, image.width - 28, image.height - 28), radius=24, fill="#1d2630")
+    draw.rounded_rectangle((28, 28, image.width - 28, image.height - 28), radius=24, fill=panel)
     return image, draw
 
 
@@ -119,7 +161,10 @@ def _draw_segment_bar(
     width: int,
     height: int,
     weights: list[float],
+    palette: list[str] | None = None,
+    outline: str = "#405066",
 ) -> None:
+    palette = palette or PALETTE
     points = _chamfer_points(x, y, width, height, cut=10)
     mask = Image.new("L", image.size, 0)
     mask_draw = ImageDraw.Draw(mask)
@@ -132,12 +177,12 @@ def _draw_segment_bar(
     if total > 0:
         for index, weight in enumerate(weights):
             segment_w = int(round(width * max(0.0, weight) / total))
-            color = PALETTE[index % len(PALETTE)]
+            color = palette[index % len(palette)]
             segment_draw.rectangle((cursor, y, min(x + width, cursor + segment_w), y + height), fill=color)
             cursor += segment_w
 
     image.paste(segments, (0, 0), mask)
-    draw.line(points + [points[0]], fill="#405066", width=2)
+    draw.line(points + [points[0]], fill=outline, width=2)
 
 
 def _draw_dna_icon(draw: ImageDraw.ImageDraw, x: int, y: int, color: str) -> None:
@@ -157,13 +202,21 @@ def _draw_dna_icon(draw: ImageDraw.ImageDraw, x: int, y: int, color: str) -> Non
         draw.line((lx, yy, rx, yy), fill="#2dd4bf", width=1)
 
 
-def _draw_footer(image: Image.Image, draw: ImageDraw.ImageDraw, *, product: str, version: str = "v2.1") -> None:
+def _draw_footer(
+    image: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    *,
+    product: str,
+    version: str = "v2.1",
+    accent: str = "#22d3ee",
+    outline: str = "#405066",
+) -> None:
     footer_font = _font(20)
     badge_font = _font(16, bold=True)
     y = image.height - 68
     right = image.width - 64
-    draw.line((64, y - 22, right, y - 22), fill="#334155", width=1)
-    _draw_dna_icon(draw, 64, y - 3, "#22d3ee")
+    draw.line((64, y - 22, right, y - 22), fill=outline, width=1)
+    _draw_dna_icon(draw, 64, y - 3, accent)
     draw.text((94, y), "KBDNA · DNA Lab", font=footer_font, fill="#9aa8bb")
 
     badge_text = version
@@ -175,7 +228,7 @@ def _draw_footer(image: Image.Image, draw: ImageDraw.ImageDraw, *, product: str,
     product_bbox = draw.textbbox((0, 0), product, font=footer_font)
     product_w = product_bbox[2] - product_bbox[0]
     draw.text((badge_x - product_w - 18, y), product, font=footer_font, fill="#a8b3c5")
-    draw.rounded_rectangle((badge_x, badge_y, badge_x + badge_w, badge_y + badge_h), radius=7, outline="#405066", width=1)
+    draw.rounded_rectangle((badge_x, badge_y, badge_x + badge_w, badge_y + badge_h), radius=7, outline=outline, width=1)
     draw.text((badge_x + 12, badge_y + 3), badge_text, font=badge_font, fill="#8fa0b5")
 
 
@@ -187,6 +240,7 @@ def _save(image: Image.Image, output_dir: Path, prefix: str) -> Path:
 
 
 def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float, output_dir: Path) -> Path:
+    profile = _qpadm_visual_profile(flow, summary)
     weights = summary.get("weights") if isinstance(summary.get("weights"), list) else []
     fit = summary.get("fit") if isinstance(summary.get("fit"), dict) else {}
     feasibility = summary.get("feasibility") if isinstance(summary.get("feasibility"), dict) else {}
@@ -196,7 +250,12 @@ def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapse
     qpadm_width = 940
     content_left = 64
     content_right = qpadm_width - 64
-    image, draw = _canvas(height, width=qpadm_width)
+    image, draw = _canvas(
+        height,
+        width=qpadm_width,
+        background=str(profile["background"]),
+        panel=str(profile["panel"]),
+    )
 
     title_font = _font(42, bold=True)
     h_font = _font(26, bold=True)
@@ -207,7 +266,7 @@ def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapse
     small_font = _font(20)
 
     y = 62
-    draw.text((64, y), "qpAdm classic", font=title_font, fill="#f8fafc")
+    draw.text((64, y), str(profile["title"]), font=title_font, fill="#f8fafc")
     y += 62
     meta = [
         ("Dataset", _dataset_label(flow.get("dataset"))),
@@ -221,7 +280,7 @@ def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapse
     for index, (label, value) in enumerate(meta):
         x = x1 if index % 2 == 0 else x2
         row_y = y + (index // 2) * 40
-        value_color = "#5eead4"
+        value_color = str(profile["accent"])
         font = value_font
         value_y = row_y
         if label == "p-value":
@@ -248,15 +307,26 @@ def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapse
         stderr = float(item.get("stderr_percent") or 0.0)
         positives.append((source, weight, stderr))
     bar_x, bar_y, bar_w, bar_h = content_left, y, content_right - content_left, 58
-    _draw_segment_bar(image, draw, x=bar_x, y=bar_y, width=bar_w, height=bar_h, weights=[weight for _, weight, _ in positives])
+    _draw_segment_bar(
+        image,
+        draw,
+        x=bar_x,
+        y=bar_y,
+        width=bar_w,
+        height=bar_h,
+        weights=[weight for _, weight, _ in positives],
+        palette=list(profile["palette"]),
+        outline=str(profile["outline"]),
+    )
     y += 76
 
     weight_x = content_right - 216
     source_text_width = weight_x - 120
     for index, (source, weight, stderr) in enumerate(positives):
-        color = PALETTE[index % len(PALETTE)]
+        palette = list(profile["palette"])
+        color = palette[index % len(palette)]
         draw.rounded_rectangle((content_left, y + 7, content_left + 22, y + 29), radius=5, fill=color)
-        draw.text((100, y), _fit_text(draw, source, mono_font, source_text_width), font=mono_font, fill="#5eead4")
+        draw.text((100, y), _fit_text(draw, source, mono_font, source_text_width), font=mono_font, fill=str(profile["accent"]))
         draw.text((weight_x, y), f"{_format_number(weight, percent=True)} ± {_format_number(stderr, percent=True)}", font=mono_font, fill="#f8fafc")
         y += 38
 
@@ -267,11 +337,18 @@ def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapse
         ref_y = y + index * ref_row_height
         x = content_left
         draw.text((x, ref_y), "•", font=small_font, fill="#94a3b8")
-        draw.text((x + 24, ref_y), _fit_text(draw, ref, small_font, content_right - x - 24), font=small_font, fill="#5eead4")
+        draw.text((x + 24, ref_y), _fit_text(draw, ref, small_font, content_right - x - 24), font=small_font, fill=str(profile["accent"]))
 
-    _draw_footer(image, draw, product="qpAdm classic", version="v2.1")
+    _draw_footer(
+        image,
+        draw,
+        product=str(profile["product"]),
+        version=str(profile["version"]),
+        accent=str(profile["accent"]),
+        outline=str(profile["outline"]),
+    )
 
-    return _save(image, output_dir, "qpadm_result")
+    return _save(image, output_dir, str(profile["prefix"]))
 
 
 def render_qpwave_result(
