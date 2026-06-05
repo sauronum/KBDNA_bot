@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001080_tiredness_lethargy",
+  "pgs_id": "PGS001080",
+  "display_name": "Tiredness/lethargy tendency",
+  "short_name": "Tiredness/lethargy",
+  "group": "lifestyle",
+  "category": "Lifestyle",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for tiredness/lethargy.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for tiredness/lethargy.",
+  "what_it_measures": "A polygenic score associated with Freq. of tiredness / lethargy in last 2 weeks in PGS Catalog.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Tiredness/lethargy is presented here as a cautious relative signal, not a direct measurement of the current real-world trait. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "lifestyle",
+    "pgs",
+    "pgs001080"
+  ],
+  "pgs_name": "GBE_QT_FC1002080",
+  "reported_trait": "Freq. of tiredness / lethargy in last 2 weeks",
+  "mapped_traits": "tiredness measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "5594",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001080/ScoringFiles/PGS001080.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001080_tiredness_lethargy_notes.md"
+}

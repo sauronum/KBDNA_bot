@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001022_embarrassment_worry",
+  "pgs_id": "PGS001022",
+  "display_name": "Embarrassment worry tendency",
+  "short_name": "Embarrassment worry",
+  "group": "mind",
+  "category": "Mind",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for embarrassment worry.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for embarrassment worry.",
+  "what_it_measures": "A polygenic score associated with Worry too long after an embarrassing experience in PGS Catalog.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Embarrassment worry is presented here as a cautious relative signal, not a direct measurement of the current real-world trait. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "mind",
+    "pgs",
+    "pgs001022"
+  ],
+  "pgs_name": "GBE_BIN2000",
+  "reported_trait": "Worry too long after an embarrassing experience",
+  "mapped_traits": "worry measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "7714",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001022/ScoringFiles/PGS001022.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001022_embarrassment_worry_notes.md"
+}

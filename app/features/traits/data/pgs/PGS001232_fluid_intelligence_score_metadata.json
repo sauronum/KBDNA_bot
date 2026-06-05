@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001232_fluid_intelligence_score",
+  "pgs_id": "PGS001232",
+  "display_name": "Fluid intelligence signal",
+  "short_name": "Fluid intelligence",
+  "group": "mind",
+  "category": "Mind",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for fluid intelligence.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for fluid intelligence.",
+  "what_it_measures": "A polygenic score associated with Fluid intelligence score in PGS Catalog.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Fluid intelligence is presented here as a cautious relative signal, not a direct measurement of the current real-world trait. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "mind",
+    "pgs",
+    "pgs001232"
+  ],
+  "pgs_name": "GBE_INI20016",
+  "reported_trait": "Fluid intelligence score",
+  "mapped_traits": "intelligence",
+  "genome_build": "GRCh37",
+  "variants_number": "10055",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001232/ScoringFiles/PGS001232.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001232_fluid_intelligence_score_notes.md"
+}

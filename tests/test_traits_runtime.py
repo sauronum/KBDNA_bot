@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from string import Formatter
 
 from app.features.traits.domain.catalog import TraitCatalog
 from app.features.traits.import_artifacts import import_trait_artifacts
@@ -43,6 +44,34 @@ class TraitsRuntimeTests(unittest.TestCase):
         self.assertEqual(sleep_duration.entry.display_name, "Sleep-duration tendency")
         self.assertEqual(sleep_duration.entry.status, "usable")
         self.assertTrue(sleep_duration.entry.reference_panel is not None)
+
+    def test_trait_passport_templates_use_runtime_context_fields(self) -> None:
+        allowed_fields = {
+            "display_name",
+            "short_name",
+            "interpretation",
+            "confidence",
+            "overlap_percent",
+            "matched_variants",
+            "total_variants",
+            "percentile",
+            "z_score",
+        }
+        formatter = Formatter()
+
+        for entry in self.catalog.list_traits():
+            for key in ("result_summary_template", "interpretation_template"):
+                template = str(entry.passport.get(key, ""))
+                fields = {
+                    field_name.split(".", 1)[0].split("[", 1)[0]
+                    for _literal, field_name, _format_spec, _conversion in formatter.parse(template)
+                    if field_name
+                }
+                unknown_fields = fields - allowed_fields
+                self.assertFalse(
+                    unknown_fields,
+                    f"{entry.trait_id} {key} uses unknown fields: {sorted(unknown_fields)}",
+                )
 
     def test_runtime_scores_single_trait_against_demo_raw(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

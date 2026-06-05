@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001924_glasses_contact_lenses",
+  "pgs_id": "PGS001924",
+  "display_name": "Glasses/contact lenses tendency",
+  "short_name": "Glasses/contact lenses",
+  "group": "appearance",
+  "category": "Appearance",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for glasses/contact lenses.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for glasses/contact lenses.",
+  "what_it_measures": "A polygenic score associated with Wears glasses or contact lenses in PGS Catalog.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Glasses/contact lenses is presented here as a cautious relative signal, not a direct measurement of the current real-world trait. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "appearance",
+    "pgs",
+    "pgs001924"
+  ],
+  "pgs_name": "portability-PLR_glasses",
+  "reported_trait": "Wears glasses or contact lenses",
+  "mapped_traits": "eye measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "311",
+  "publication_pmid": "34995502",
+  "publication_doi": "10.1016/j.ajhg.2021.11.008",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001924/ScoringFiles/PGS001924.txt.gz",
+  "release_date": "2022-01-10",
+  "notes_file": "data/pgs/PGS001924_glasses_contact_lenses_notes.md"
+}
