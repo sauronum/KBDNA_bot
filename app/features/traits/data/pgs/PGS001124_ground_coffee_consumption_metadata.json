@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001124_ground_coffee_consumption",
+  "pgs_id": "PGS001124",
+  "display_name": "Ground coffee consumption tendency",
+  "short_name": "Ground coffee consumption",
+  "group": "nutrition",
+  "category": "Nutrition",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for ground coffee consumption.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for ground coffee consumption.",
+  "what_it_measures": "A polygenic score associated with Coffee consumption (ground coffee) in PGS Catalog.",
+  "result_summary_template": "Your result is {band_label} compared with the current local reference panel.",
+  "interpretation_template": "Higher or lower values describe position within the current reference distribution, not a diagnosis or deterministic prediction.",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "nutrition",
+    "pgs",
+    "pgs001124"
+  ],
+  "pgs_name": "GBE_BIN_FC30001508",
+  "reported_trait": "Coffee consumption (ground coffee)",
+  "mapped_traits": "coffee consumption measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "9694",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001124/ScoringFiles/PGS001124.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001124_ground_coffee_consumption_notes.md"
+}

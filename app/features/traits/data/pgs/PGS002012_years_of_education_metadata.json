@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs002012_years_of_education",
+  "pgs_id": "PGS002012",
+  "display_name": "Years of education tendency",
+  "short_name": "Years of education",
+  "group": "lifestyle",
+  "category": "Lifestyle",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for years of education.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for years of education.",
+  "what_it_measures": "A polygenic score associated with Qualifications (years of education) in PGS Catalog.",
+  "result_summary_template": "Your result is {band_label} compared with the current local reference panel.",
+  "interpretation_template": "Higher or lower values describe position within the current reference distribution, not a diagnosis or deterministic prediction.",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "lifestyle",
+    "pgs",
+    "pgs002012"
+  ],
+  "pgs_name": "portability-PLR_years_of_edu",
+  "reported_trait": "Qualifications (years of education)",
+  "mapped_traits": "educational attainment",
+  "genome_build": "GRCh37",
+  "variants_number": "50413",
+  "publication_pmid": "34995502",
+  "publication_doi": "10.1016/j.ajhg.2021.11.008",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS002012/ScoringFiles/PGS002012.txt.gz",
+  "release_date": "2022-01-10",
+  "notes_file": "data/pgs/PGS002012_years_of_education_notes.md"
+}

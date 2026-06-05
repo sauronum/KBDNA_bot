@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001161_whole_body_impedance",
+  "pgs_id": "PGS001161",
+  "display_name": "Whole body impedance tendency",
+  "short_name": "Whole body impedance",
+  "group": "body",
+  "category": "Body",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for whole body impedance.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for whole body impedance.",
+  "what_it_measures": "A polygenic score associated with Whole body impedance in PGS Catalog.",
+  "result_summary_template": "Your result is {band_label} compared with the current local reference panel.",
+  "interpretation_template": "Higher or lower values describe position within the current reference distribution, not a diagnosis or deterministic prediction.",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "body",
+    "pgs",
+    "pgs001161"
+  ],
+  "pgs_name": "GBE_INI23106",
+  "reported_trait": "Whole body impedance",
+  "mapped_traits": "body composition measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "32218",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001161/ScoringFiles/PGS001161.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001161_whole_body_impedance_notes.md"
+}

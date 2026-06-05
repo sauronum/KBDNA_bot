@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001154_left_arm_impedance",
+  "pgs_id": "PGS001154",
+  "display_name": "Left arm impedance tendency",
+  "short_name": "Left arm impedance",
+  "group": "body",
+  "category": "Body",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for left arm impedance.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for left arm impedance.",
+  "what_it_measures": "A polygenic score associated with Impedance (left arm) in PGS Catalog.",
+  "result_summary_template": "Your result is {band_label} compared with the current local reference panel.",
+  "interpretation_template": "Higher or lower values describe position within the current reference distribution, not a diagnosis or deterministic prediction.",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "body",
+    "pgs",
+    "pgs001154"
+  ],
+  "pgs_name": "GBE_INI23110",
+  "reported_trait": "Impedance (left arm)",
+  "mapped_traits": "body composition measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "26740",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001154/ScoringFiles/PGS001154.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001154_left_arm_impedance_notes.md"
+}

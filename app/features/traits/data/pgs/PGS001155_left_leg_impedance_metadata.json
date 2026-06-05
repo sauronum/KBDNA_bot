@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001155_left_leg_impedance",
+  "pgs_id": "PGS001155",
+  "display_name": "Left leg impedance tendency",
+  "short_name": "Left leg impedance",
+  "group": "body",
+  "category": "Body",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for left leg impedance.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for left leg impedance.",
+  "what_it_measures": "A polygenic score associated with Impedance (left leg) in PGS Catalog.",
+  "result_summary_template": "Your result is {band_label} compared with the current local reference panel.",
+  "interpretation_template": "Higher or lower values describe position within the current reference distribution, not a diagnosis or deterministic prediction.",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "body",
+    "pgs",
+    "pgs001155"
+  ],
+  "pgs_name": "GBE_INI23108",
+  "reported_trait": "Impedance (left leg)",
+  "mapped_traits": "body composition measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "28999",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001155/ScoringFiles/PGS001155.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001155_left_leg_impedance_notes.md"
+}

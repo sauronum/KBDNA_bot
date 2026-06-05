@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001044_glucosamine_intake",
+  "pgs_id": "PGS001044",
+  "display_name": "Glucosamine intake tendency",
+  "short_name": "Glucosamine intake",
+  "group": "nutrition",
+  "category": "Nutrition",
+  "status": "usable",
+  "consumer_ready": true,
+  "short_description": "Panel-relative PGS signal for glucosamine intake.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative tendency for glucosamine intake.",
+  "what_it_measures": "A polygenic score associated with Glucosamine intake in PGS Catalog.",
+  "result_summary_template": "Your result is {band_label} compared with the current local reference panel.",
+  "interpretation_template": "Higher or lower values describe position within the current reference distribution, not a diagnosis or deterministic prediction.",
+  "caution_text": "Use as a cautious panel-relative signal only. No imputation or ancestry-adjusted normalization is used, and the output should not be treated as deterministic, diagnostic, medical, or lifestyle advice.",
+  "limitations": [
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate.",
+    "Consumer traits should be treated as exploratory signals only."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files.",
+  "tags": [
+    "nutrition",
+    "pgs",
+    "pgs001044"
+  ],
+  "pgs_name": "GBE_BIN_FC2006179",
+  "reported_trait": "Glucosamine intake",
+  "mapped_traits": "vitamin supplement exposure measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "324",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001044/ScoringFiles/PGS001044.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001044_glucosamine_intake_notes.md"
+}
