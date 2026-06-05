@@ -108,7 +108,8 @@ class ModelingRenderingTests(unittest.TestCase):
             self.assertTrue(classic_path.name.startswith("qpadm_result_"))
             self.assertTrue(at2_path.name.startswith("qpadm_admixtools2_result_"))
             with Image.open(classic_path) as classic_image, Image.open(at2_path) as at2_image:
-                self.assertEqual(classic_image.size, at2_image.size)
+                self.assertNotEqual(classic_image.size, at2_image.size)
+                self.assertGreater(at2_image.width, classic_image.width)
                 self.assertNotEqual(classic_image.getpixel((50, 50)), at2_image.getpixel((50, 50)))
 
 

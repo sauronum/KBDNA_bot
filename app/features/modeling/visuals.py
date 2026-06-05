@@ -89,6 +89,8 @@ def _format_number(value: object, *, percent: bool = False) -> str:
     except (TypeError, ValueError):
         return str(value)
     suffix = "%" if percent else ""
+    if not percent and number != 0 and abs(number) < 0.001:
+        return f"{number:.2e}"
     text = f"{number:.3f}".rstrip("0").rstrip(".")
     if text == "-0":
         text = "0"
@@ -120,6 +122,29 @@ def _fit_text(draw: ImageDraw.ImageDraw, text: object, font: ImageFont.ImageFont
             break
         value = value[:-1]
     return value.rstrip() + suffix if value else suffix
+
+
+def _number(value: object) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _weight_percent(item: dict[str, Any]) -> float:
+    percent = _number(item.get("weight_percent"))
+    if percent is not None:
+        return percent
+    weight = _number(item.get("weight"))
+    return weight * 100.0 if weight is not None else 0.0
+
+
+def _stderr_percent(item: dict[str, Any]) -> float:
+    percent = _number(item.get("stderr_percent"))
+    if percent is not None:
+        return percent
+    stderr = _number(item.get("stderr"))
+    return stderr * 100.0 if stderr is not None else 0.0
 
 
 def _target_display(flow: dict[str, Any]) -> str:
@@ -239,7 +264,130 @@ def _save(image: Image.Image, output_dir: Path, prefix: str) -> Path:
     return path
 
 
+def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float, output_dir: Path) -> Path:
+    weights = summary.get("weights") if isinstance(summary.get("weights"), list) else []
+    fit = summary.get("fit") if isinstance(summary.get("fit"), dict) else {}
+    feasibility = summary.get("feasibility") if isinstance(summary.get("feasibility"), dict) else {}
+    references = [str(item) for item in flow.get("references", []) if str(item)]
+    rows: list[tuple[str, float, float]] = []
+    for item in weights:
+        if not isinstance(item, dict):
+            continue
+        rows.append((str(item.get("source") or "unknown"), _weight_percent(item), _stderr_percent(item)))
+
+    width = 1080
+    ref_rows = max(1, (len(references) + 1) // 2)
+    height = 610 + max(1, len(rows)) * 64 + ref_rows * 38
+    image, draw = _canvas(height, width=width, background="#0b1117", panel="#171d22")
+    content_left = 64
+    content_right = width - 64
+    accent = "#f5b942"
+    axis = "#53616e"
+    title_font = _font(44, bold=True)
+    subtitle_font = _font(21)
+    metric_label_font = _font(16, bold=True)
+    metric_value_font = _font(24, bold=True)
+    h_font = _font(27, bold=True)
+    row_font = _font(20)
+    mono_font = _font(21)
+    small_font = _font(17)
+
+    y = 58
+    draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
+    draw.text((content_left, y + 54), "signed source weights / dataset population mode", font=subtitle_font, fill="#99a8b5")
+    status = str(summary.get("status", "unknown"))
+    status_color = "#22c55e" if status == "completed" else "#f97316"
+    badge = f" {status.upper()} "
+    badge_bbox = draw.textbbox((0, 0), badge, font=metric_label_font)
+    badge_w = badge_bbox[2] - badge_bbox[0] + 20
+    draw.rounded_rectangle((content_right - badge_w, y + 12, content_right, y + 42), radius=8, fill="#202a32", outline=status_color, width=1)
+    draw.text((content_right - badge_w + 10, y + 19), badge, font=metric_label_font, fill=status_color)
+
+    y += 114
+    draw.rounded_rectangle((content_left, y, content_right, y + 58), radius=10, fill="#10171d", outline="#2b3742", width=1)
+    draw.text((content_left + 18, y + 16), "Dataset", font=metric_label_font, fill="#8fa0b5")
+    draw.text((content_left + 116, y + 13), _fit_text(draw, _dataset_label(flow.get("dataset")), row_font, 250), font=row_font, fill="#e5edf5")
+    draw.text((content_left + 396, y + 16), "Target", font=metric_label_font, fill="#8fa0b5")
+    draw.text((content_left + 480, y + 13), _fit_text(draw, _target_display(flow), row_font, content_right - content_left - 500), font=row_font, fill=accent)
+
+    y += 86
+    metrics = [
+        ("p-value", _format_number(fit.get("p_value"))),
+        ("chisq", _format_number(fit.get("chisq"))),
+        ("dof", _format_number(fit.get("dof"))),
+        ("rank", _format_number(fit.get("rankdrop", fit.get("f4rank")))),
+        ("fit", str(feasibility.get("status", "unknown"))),
+        ("time", f"{elapsed_seconds:.1f}s"),
+    ]
+    tile_gap = 12
+    tile_w = (content_right - content_left - tile_gap * (len(metrics) - 1)) // len(metrics)
+    for index, (label, value) in enumerate(metrics):
+        x = content_left + index * (tile_w + tile_gap)
+        draw.rounded_rectangle((x, y, x + tile_w, y + 82), radius=10, fill="#202830", outline="#33424e", width=1)
+        draw.text((x + 14, y + 13), label.upper(), font=metric_label_font, fill="#8fa0b5")
+        value_color = accent
+        if label == "fit" and str(value).upper() == "PASS":
+            value_color = "#22c55e"
+        elif label == "fit" and str(value).upper() in {"FAIL", "WARNING"}:
+            value_color = "#fb7185"
+        draw.text((x + 14, y + 38), _fit_text(draw, value, metric_value_font, tile_w - 28), font=metric_value_font, fill=value_color)
+
+    y += 122
+    draw.text((content_left, y), "Source Weight Bars", font=h_font, fill="#f8fafc")
+    draw.text((content_right - 264, y + 8), "left of zero = negative", font=small_font, fill="#8fa0b5")
+    y += 48
+    bar_left = content_left + 430
+    bar_right = content_right
+    bar_w = bar_right - bar_left
+    zero_x = bar_left + bar_w // 2
+    max_abs = max([abs(weight) for _, weight, _ in rows] + [1.0])
+    row_h = 64
+    if not rows:
+        draw.rounded_rectangle((content_left, y, content_right, y + 46), radius=9, fill="#10171d", outline="#2b3742", width=1)
+        draw.text((content_left + 18, y + 13), "No source weights returned.", font=row_font, fill="#a8b3c5")
+        y += row_h
+    for index, (source, weight, stderr) in enumerate(rows):
+        row_y = y + index * row_h
+        color = "#22c55e" if weight >= 0 else "#fb7185"
+        draw.text((content_left, row_y), _fit_text(draw, source, row_font, 270), font=row_font, fill="#e5edf5")
+        draw.text((content_left + 282, row_y), f"{weight:+.2f}%", font=mono_font, fill=color)
+        draw.text((content_left + 282, row_y + 26), f"+/- {_format_number(stderr, percent=True)}", font=small_font, fill="#8fa0b5")
+        baseline_y = row_y + 35
+        draw.line((bar_left, baseline_y, bar_right, baseline_y), fill="#2b3742", width=2)
+        draw.line((zero_x, baseline_y - 18, zero_x, baseline_y + 18), fill=axis, width=2)
+        half = bar_w // 2 - 10
+        end_x = zero_x + int(round((weight / max_abs) * half))
+        left = min(zero_x, end_x)
+        right = max(zero_x, end_x)
+        if right - left < 4:
+            right = left + 4
+        draw.rounded_rectangle((left, baseline_y - 12, right, baseline_y + 12), radius=6, fill=color)
+        if stderr:
+            err = min(half, int(round(abs(stderr) / max_abs * half)))
+            whisker_x = end_x
+            draw.line((max(bar_left, whisker_x - err), baseline_y, min(bar_right, whisker_x + err), baseline_y), fill="#f8fafc", width=1)
+            draw.line((whisker_x, baseline_y - 16, whisker_x, baseline_y + 16), fill="#f8fafc", width=1)
+    y += max(1, len(rows)) * row_h + 28
+
+    draw.text((content_left, y), "Reference Panel", font=h_font, fill="#f8fafc")
+    y += 42
+    pill_w = (content_right - content_left - 16) // 2
+    for index, ref in enumerate(references or ["none"]):
+        col = index % 2
+        row = index // 2
+        x = content_left + col * (pill_w + 16)
+        yy = y + row * 38
+        draw.rounded_rectangle((x, yy, x + pill_w, yy + 28), radius=8, fill="#10171d", outline="#2b3742", width=1)
+        draw.text((x + 12, yy + 5), _fit_text(draw, ref, small_font, pill_w - 24), font=small_font, fill="#cbd5e1")
+
+    _draw_footer(image, draw, product="ADMIXTOOLS2 qpAdm", version="AT2", accent=accent, outline="#33424e")
+    return _save(image, output_dir, str(QPADM_ADMIXTOOLS2_VISUAL["prefix"]))
+
+
 def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float, output_dir: Path) -> Path:
+    if _qpadm_engine(flow.get("engine") or summary.get("engine")) == QPADM_ENGINE_ADMIXTOOLS2:
+        return render_admixtools2_qpadm_result(summary, flow=flow, elapsed_seconds=elapsed_seconds, output_dir=output_dir)
+
     profile = _qpadm_visual_profile(flow, summary)
     weights = summary.get("weights") if isinstance(summary.get("weights"), list) else []
     fit = summary.get("fit") if isinstance(summary.get("fit"), dict) else {}
