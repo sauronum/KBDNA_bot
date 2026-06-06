@@ -23,7 +23,7 @@ from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
 from app.features.modeling.ui import page_nav_row
 from app.features.modeling.ui import show_message as _show_message
-from app.features.modeling.visuals import render_qpadm_result
+from app.features.modeling.visuals import render_admixtools2_qpadm_batch_result, render_qpadm_result
 from app.heavy_runtime import heavy_command
 from app.i18n import get_user_language
 from app.main_menu import set_active_main_menu_message
@@ -103,7 +103,8 @@ def _is_admixtools2_engine(value: object) -> bool:
 def _has_supported_target_for_engine(flow: dict[str, Any]) -> bool:
     if not _is_admixtools2_engine(flow.get("engine")):
         return True
-    return str(flow.get("target_type") or "") == "dataset_population" and bool(_targets_list(flow))
+    target_type = str(flow.get("target_type") or "")
+    return target_type in {"dataset_population", "raw_file"} and bool(_targets_list(flow))
 
 
 def _is_qpadm_engine(value: object) -> bool:
@@ -148,7 +149,8 @@ def _target_menu_markup(flow: dict[str, Any], lang: str) -> InlineKeyboardMarkup
     rows: list[list[InlineKeyboardButton]]
     if _is_admixtools2_engine(flow.get("engine")):
         rows = [
-            [InlineKeyboardButton("🌐 Выбрать population(s)", callback_data=_cb("qpadm_target_kind", "population"))],
+            [InlineKeyboardButton("🧬 My raw samples", callback_data=_cb("qpadm_target_kind", "sample"))],
+            [InlineKeyboardButton("🌐 Dataset population(s)", callback_data=_cb("qpadm_target_kind", "population"))],
             [InlineKeyboardButton("\U0001f4cb Import population model", callback_data=_cb("qpadm_import"))],
         ]
     else:
@@ -174,6 +176,7 @@ def _snapshot_flow(flow: dict[str, Any]) -> dict[str, Any]:
         "target": flow.get("target"),
         "target_label": flow.get("target_label"),
         "targets": _targets_list(flow),
+        "target_labels": _target_labels_list(flow),
         "sources": _as_list(flow, "sources"),
         "references": _as_list(flow, "references"),
     }
@@ -187,6 +190,7 @@ def _start_flow(context: ContextTypes.DEFAULT_TYPE, dataset: str, *, engine: obj
         "target": None,
         "target_label": None,
         "targets": [],
+        "target_labels": [],
         "sources": [],
         "references": [],
         "search_results": [],
@@ -222,45 +226,101 @@ def _targets_list(flow: dict[str, Any]) -> list[str]:
     return [target] if target else []
 
 
+def _target_labels_list(flow: dict[str, Any]) -> list[str]:
+    labels = _as_list(flow, "target_labels")
+    targets = _targets_list(flow)
+    if labels:
+        if len(labels) < len(targets):
+            labels.extend(targets[len(labels) :])
+        return labels[: len(targets)]
+    label = str(flow.get("target_label") or "").strip()
+    if label and targets:
+        return [label, *targets[1:]]
+    return list(targets)
+
+
+def _target_entries(flow: dict[str, Any]) -> list[dict[str, str]]:
+    target_type = str(flow.get("target_type") or "dataset_population")
+    targets = _targets_list(flow)
+    labels = _target_labels_list(flow)
+    entries: list[dict[str, str]] = []
+    for index, target in enumerate(targets):
+        label = labels[index] if index < len(labels) else target
+        entries.append({"target_type": target_type, "target": target, "target_label": label})
+    return entries
+
+
 def _sync_primary_target(flow: dict[str, Any]) -> None:
     targets = _targets_list(flow)
     if not targets:
         flow["target"] = None
         flow["target_label"] = None
         flow["targets"] = []
+        flow["target_labels"] = []
         return
+    labels = _target_labels_list(flow)
     flow["targets"] = targets
+    flow["target_labels"] = labels
     flow["target"] = targets[0]
-    flow["target_label"] = targets[0]
+    flow["target_label"] = labels[0] if labels else targets[0]
 
 
 def _set_single_target(flow: dict[str, Any], label: str, target_type: str = "dataset_population") -> None:
     flow["target_type"] = target_type
     flow["target"] = label
     flow["target_label"] = label
-    flow["targets"] = [label] if target_type == "dataset_population" else []
+    flow["targets"] = [label] if target_type in {"dataset_population", "raw_file"} else []
+    flow["target_labels"] = [label] if target_type in {"dataset_population", "raw_file"} else []
 
 
 def _add_dataset_target(flow: dict[str, Any], label: str) -> None:
     if not _is_admixtools2_engine(flow.get("engine")):
         _set_single_target(flow, label)
         return
-    targets = _targets_list(flow)
+    targets = _targets_list(flow) if flow.get("target_type") == "dataset_population" else []
     if label not in targets:
         targets.append(label)
     flow["target_type"] = "dataset_population"
     flow["targets"] = targets
+    flow["target_labels"] = targets
+    _sync_primary_target(flow)
+
+
+def _add_raw_target(flow: dict[str, Any], path: str, label: str) -> None:
+    if not _is_admixtools2_engine(flow.get("engine")):
+        flow["target_type"] = "raw_file"
+        flow["target"] = path
+        flow["target_label"] = label
+        flow["targets"] = []
+        flow["target_labels"] = []
+        return
+    targets = _targets_list(flow) if flow.get("target_type") == "raw_file" else []
+    labels = _target_labels_list(flow) if flow.get("target_type") == "raw_file" else []
+    if path not in targets:
+        targets.append(path)
+        labels.append(label)
+    flow["target_type"] = "raw_file"
+    flow["targets"] = targets
+    flow["target_labels"] = labels
+    _sync_primary_target(flow)
+
+
+def _remove_target(flow: dict[str, Any], index: int) -> None:
+    targets = _targets_list(flow)
+    labels = _target_labels_list(flow)
+    try:
+        del targets[index]
+        if index < len(labels):
+            del labels[index]
+    except (IndexError, TypeError):
+        return
+    flow["targets"] = targets
+    flow["target_labels"] = labels
     _sync_primary_target(flow)
 
 
 def _remove_dataset_target(flow: dict[str, Any], index: int) -> None:
-    targets = _targets_list(flow)
-    try:
-        del targets[index]
-    except (IndexError, TypeError):
-        return
-    flow["targets"] = targets
-    _sync_primary_target(flow)
+    _remove_target(flow, index)
 
 
 def _has_complete_model(flow: dict[str, Any]) -> bool:
@@ -268,9 +328,10 @@ def _has_complete_model(flow: dict[str, Any]) -> bool:
 
 
 def _target_display(flow: dict[str, Any]) -> str:
-    targets = _targets_list(flow)
+    entries = _target_entries(flow)
+    targets = [entry["target"] for entry in entries]
     if len(targets) > 1:
-        preview = ", ".join(_clip(item, 28) for item in targets[:3])
+        preview = ", ".join(_clip(entry["target_label"], 28) for entry in entries[:3])
         suffix = f" +{len(targets) - 3}" if len(targets) > 3 else ""
         return f"{len(targets)} targets: {preview}{suffix}"
     label = str(flow.get("target_label") or "").strip()
@@ -600,9 +661,8 @@ async def _show_target_menu(message, context: ContextTypes.DEFAULT_TYPE, *, edit
                 f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
                 f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
                 "",
-                "ADMIXTOOLS2 targets must be dataset populations.",
-                "Выберите одну population или несколько populations для batch run.",
-                "My samples/raw are classic-only for now.",
+                "Выберите target для ADMIXTOOLS2: dataset population(s) или raw sample(s) из My DNA.",
+                "Для batch run можно выбрать несколько targets одного типа.",
             ]
         )
     target_markup = _target_menu_markup(flow, lang) if _is_admixtools2_engine(flow.get("engine")) else markup
@@ -625,9 +685,6 @@ async def _show_sample_menu(
     page: int = 0,
 ) -> None:
     flow = _get_flow(context)
-    if flow is not None and _is_admixtools2_engine(flow.get("engine")):
-        await _show_target_menu(message, context, edit_existing=True, lang=lang)
-        return
     user_id = int(update.effective_user.id) if update.effective_user is not None else 0
     store = context.application.bot_data.get("my_data_store")
     samples = []
@@ -689,9 +746,6 @@ async def _select_sample_target(
     lang: str,
 ) -> None:
     flow = _get_flow(context)
-    if flow is not None and _is_admixtools2_engine(flow.get("engine")):
-        await _show_target_menu(message, context, edit_existing=True, lang=lang)
-        return
     user_id = int(update.effective_user.id) if update.effective_user is not None else 0
     store = context.application.bot_data.get("my_data_store")
     if flow is None or store is None:
@@ -709,9 +763,7 @@ async def _select_sample_target(
         return
 
     raw_path = store.resolve_raw_file_path(raw_file)
-    flow["target_type"] = "raw_file"
-    flow["target"] = str(raw_path)
-    flow["target_label"] = sample.display_name
+    _add_raw_target(flow, str(raw_path), sample.display_name)
     _clear_search(flow)
     if _has_complete_model(flow):
         await _show_review_menu(message, context, edit_existing=True, lang=lang)
@@ -822,13 +874,15 @@ async def _show_target_ready_menu(
         title = _flow_title(flow, suffix="target выбран")
 
     targets = _targets_list(flow)
-    if len(targets) > 1:
+    if _is_admixtools2_engine(flow.get("engine")) and targets:
+        entries = _target_entries(flow)
         target_rows = [
-            [InlineKeyboardButton(f"✕ {_clip(target, 42)}", callback_data=_cb("qpadm_del", "target", index))]
-            for index, target in enumerate(targets[:8])
+            [InlineKeyboardButton(f"✕ {_clip(entry['target_label'], 42)}", callback_data=_cb("qpadm_del", "target", index))]
+            for index, entry in enumerate(entries[:8])
         ]
+        add_callback = _cb("qpadm_samples_page", 0) if flow.get("target_type") == "raw_file" else _cb("qpadm_search", "target")
         rows[0:0] = target_rows
-        rows.insert(len(target_rows), [InlineKeyboardButton("➕ Добавить target", callback_data=_cb("qpadm_search", "target"))])
+        rows.insert(len(target_rows), [InlineKeyboardButton("➕ Добавить target", callback_data=add_callback)])
 
     text = "\n".join(
         [
@@ -997,6 +1051,7 @@ async def _show_review_menu(
                 InlineKeyboardButton("Sources", callback_data=_cb("qpadm_sources")),
                 InlineKeyboardButton("References", callback_data=_cb("qpadm_refs")),
             ],
+            [InlineKeyboardButton("Изменить target", callback_data=_cb("qpadm_target_ready"))],
             [InlineKeyboardButton("💾 Сохранить Source set", callback_data=_cb("ss_save_current"))],
             [InlineKeyboardButton("Начать заново", callback_data=_cb("qpadm_reset"))],
             _footer_row(nav_back_callback(), lang),
@@ -1452,7 +1507,7 @@ async def _delete_item(
         return
     if role == "target":
         try:
-            _remove_dataset_target(flow, int(index_text))
+            _remove_target(flow, int(index_text))
         except ValueError:
             pass
         if _targets_list(flow):
@@ -1928,12 +1983,23 @@ async def _run_qpadm_job(flow: dict[str, Any], user_id: int, *, job_id: int, lan
     return text, save_payload
 
 
-def _flow_for_target(flow: dict[str, Any], target: str) -> dict[str, Any]:
+def _flow_for_target(flow: dict[str, Any], target: object) -> dict[str, Any]:
+    if isinstance(target, dict):
+        target_type = str(target.get("target_type") or flow.get("target_type") or "dataset_population")
+        target_value = str(target.get("target") or "")
+        target_label = str(target.get("target_label") or target_value)
+    else:
+        target_type = str(flow.get("target_type") or "dataset_population")
+        if target_type not in {"dataset_population", "raw_file"}:
+            target_type = "dataset_population"
+        target_value = str(target)
+        target_label = str(target)
     single = dict(flow)
-    single["target_type"] = "dataset_population"
-    single["target"] = target
-    single["target_label"] = target
-    single["targets"] = [target]
+    single["target_type"] = target_type
+    single["target"] = target_value
+    single["target_label"] = target_label
+    single["targets"] = [target_value]
+    single["target_labels"] = [target_label]
     return single
 
 
@@ -1952,7 +2018,7 @@ def _format_qpadm_batch_summary(batch_payload: dict[str, Any], *, flow: dict[str
     for item in results:
         if not isinstance(item, dict):
             continue
-        target = str(item.get("target") or "unknown")
+        target = str(item.get("target_label") or item.get("target") or "unknown")
         status = str(item.get("status") or "unknown")
         if status != "completed":
             error = str(item.get("error") or status)
@@ -1984,10 +2050,11 @@ async def _run_qpadm_batch_job(flow: dict[str, Any], user_id: int, *, job_id: in
     engine = _qpadm_engine(flow.get("engine"))
     started = time.monotonic()
     batch_results: list[dict[str, Any]] = []
-    targets = _targets_list(flow)
+    target_entries = _target_entries(flow)
+    targets = [entry["target"] for entry in target_entries]
 
-    for index, target in enumerate(targets, start=1):
-        single_flow = _flow_for_target(flow, target)
+    for index, target_entry in enumerate(target_entries, start=1):
+        single_flow = _flow_for_target(flow, target_entry)
         output_path = BOT_QPADM_OUTPUT_DIR / f"admixtools2_batch_{user_id}_{int(time.time())}_{job_id}_{index}.json"
         run_args = _qpadm_args(single_flow, "admixlab-run-qpadm")
         run_args.extend(["--details", "--summary", "--output", str(output_path)])
@@ -1998,7 +2065,9 @@ async def _run_qpadm_batch_job(flow: dict[str, Any], user_id: int, *, job_id: in
             summary_payload = json.loads(summary_stdout)
             batch_results.append(
                 {
-                    "target": target,
+                    "target": target_entry["target"],
+                    "target_label": target_entry["target_label"],
+                    "target_type": target_entry["target_type"],
                     "status": "completed",
                     "summary": summary_payload,
                     "output_path": str(output_path),
@@ -2007,7 +2076,9 @@ async def _run_qpadm_batch_job(flow: dict[str, Any], user_id: int, *, job_id: in
         except Exception as exc:
             batch_results.append(
                 {
-                    "target": target,
+                    "target": target_entry["target"],
+                    "target_label": target_entry["target_label"],
+                    "target_type": target_entry["target_type"],
                     "status": "failed",
                     "error": str(exc),
                     "output_path": str(output_path),
@@ -2020,12 +2091,24 @@ async def _run_qpadm_batch_job(flow: dict[str, Any], user_id: int, *, job_id: in
         "engine": engine,
         "dataset": flow.get("dataset"),
         "targets": targets,
+        "target_entries": target_entries,
         "sources": _as_list(flow, "sources"),
         "references": _as_list(flow, "references"),
         "results": batch_results,
     }
     text = _format_qpadm_batch_summary(batch_payload, elapsed_seconds=elapsed, flow=flow, lang=lang)
     caption = _format_qpadm_batch_caption(batch_payload, elapsed_seconds=elapsed, flow=flow)
+    visual_path: Path | None = None
+    visual_error: str | None = None
+    try:
+        visual_path = render_admixtools2_qpadm_batch_result(
+            batch_payload,
+            flow=flow,
+            elapsed_seconds=elapsed,
+            output_dir=BOT_QPADM_OUTPUT_DIR,
+        )
+    except Exception as exc:
+        visual_error = str(exc)
     save_payload = {
         "kind": "qpadm_batch",
         "engine": engine,
@@ -2038,8 +2121,8 @@ async def _run_qpadm_batch_job(flow: dict[str, Any], user_id: int, *, job_id: in
         "references": _as_list(flow, "references"),
         "result_text": text,
         "caption_text": caption,
-        "visual_path": "",
-        "visual_error": "batch visual pending",
+        "visual_path": str(visual_path or ""),
+        "visual_error": visual_error,
         "result_payload": batch_payload,
         "output_path": "",
     }

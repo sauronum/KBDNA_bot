@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from app.features.modeling.visuals import render_qpadm_result
+from app.features.modeling.visuals import render_admixtools2_qpadm_batch_result, render_qpadm_result
 from app.features.vahaduo.ready_models_rendering import CANVAS_WIDTH, MIN_CANVAS_HEIGHT, build_rendered_source_fit_card, render_source_fit_card, source_fit_caption
 from app.features.vahaduo.ready_models_runtime import SourceFitComponent, SourceFitResult
 
@@ -111,6 +111,58 @@ class ModelingRenderingTests(unittest.TestCase):
                 self.assertNotEqual(classic_image.size, at2_image.size)
                 self.assertGreater(at2_image.width, classic_image.width)
                 self.assertNotEqual(classic_image.getpixel((50, 50)), at2_image.getpixel((50, 50)))
+
+    def test_admixtools2_batch_renderer_returns_png(self) -> None:
+        flow = {
+            "engine": "admixtools2_qpadm",
+            "dataset": "human_origins",
+            "target_type": "dataset_population",
+            "target": "Balkar.HO",
+            "targets": ["Balkar.HO", "Karachay.HO"],
+            "sources": ["Barcin_N", "YuzhniyOleniyOstrov", "Satsurblia"],
+            "references": ["Mbuti.DG", "Russia_UstIshim_IUP.DG"],
+        }
+        batch_payload = {
+            "status": "completed",
+            "results": [
+                {
+                    "target": "Balkar.HO",
+                    "target_label": "Balkar.HO",
+                    "status": "completed",
+                    "summary": {
+                        "fit": {"p_value": 0.849},
+                        "feasibility": {"status": "PASS"},
+                        "weights": [
+                            {"source": "Barcin_N", "weight_percent": 33.7},
+                            {"source": "YuzhniyOleniyOstrov", "weight_percent": 21.3},
+                            {"source": "Satsurblia", "weight_percent": 8.1},
+                        ],
+                    },
+                },
+                {
+                    "target": "Karachay.HO",
+                    "target_label": "Karachay.HO",
+                    "status": "completed",
+                    "summary": {
+                        "fit": {"p_value": 0.096},
+                        "feasibility": {"status": "WARNING"},
+                        "weights": [
+                            {"source": "Barcin_N", "weight_percent": 34.9},
+                            {"source": "YuzhniyOleniyOstrov", "weight_percent": 18.9},
+                            {"source": "Satsurblia", "weight_percent": 7.6},
+                        ],
+                    },
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = render_admixtools2_qpadm_batch_result(batch_payload, flow=flow, elapsed_seconds=9.4, output_dir=Path(temp_dir))
+
+            self.assertTrue(path.name.startswith("qpadm_admixtools2_batch_"))
+            with Image.open(path) as image:
+                self.assertEqual(image.width, 1440)
+                self.assertGreaterEqual(image.height, 820)
 
 
 if __name__ == "__main__":

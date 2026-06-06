@@ -13,6 +13,7 @@ from app.features.modeling.qpadm_classic import (
     _format_queue_text,
     _flow_for_target,
     _add_dataset_target,
+    _add_raw_target,
     _looks_like_direct_qpadm_label,
     _merge_role_items,
     _qpadm_args,
@@ -95,7 +96,7 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertEqual(result["added"], ["Mongolia_LBA_Ulaanzukh_2.AG"])
         self.assertEqual(flow["sources"], ["Mongolia_LBA_Ulaanzukh_2.AG"])
 
-    def test_admixtools2_target_menu_is_population_only(self) -> None:
+    def test_admixtools2_target_menu_supports_population_and_raw_samples(self) -> None:
         classic_callbacks = [
             button.callback_data
             for row in _target_menu_markup({"engine": QPADM_ENGINE_CLASSIC}, "en").inline_keyboard
@@ -110,7 +111,7 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertIn("modeling:qpadm_target_kind:sample", classic_callbacks)
         self.assertIn("modeling:qpadm_target_kind:population", classic_callbacks)
         self.assertIn("modeling:qpadm_import", classic_callbacks)
-        self.assertNotIn("modeling:qpadm_target_kind:sample", at2_callbacks)
+        self.assertIn("modeling:qpadm_target_kind:sample", at2_callbacks)
         self.assertIn("modeling:qpadm_target_kind:population", at2_callbacks)
         self.assertNotIn("modeling:qpadm_target_kind:multi_population", at2_callbacks)
         self.assertIn("modeling:qpadm_import", at2_callbacks)
@@ -217,13 +218,48 @@ class QpadmClassicEngineTests(unittest.TestCase):
         self.assertIn("--source", args)
         self.assertIn("--reference", args)
 
-    def test_admixtools2_supports_only_dataset_population_targets(self) -> None:
+    def test_admixtools2_flow_can_collect_multiple_raw_targets(self) -> None:
+        flow = {
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "dataset": "human_origins",
+            "target_type": None,
+            "target": None,
+            "target_label": None,
+            "targets": [],
+            "target_labels": [],
+            "sources": ["Barcin_N"],
+            "references": ["Mbuti.DG"],
+        }
+
+        _add_raw_target(flow, "/tmp/sample_a.txt", "Sample A")
+        _add_raw_target(flow, "/tmp/sample_b.txt", "Sample B")
+        _add_raw_target(flow, "/tmp/sample_a.txt", "Sample A")
+
+        self.assertEqual(_targets_list(flow), ["/tmp/sample_a.txt", "/tmp/sample_b.txt"])
+        self.assertEqual(flow["target"], "/tmp/sample_a.txt")
+        self.assertEqual(flow["target_label"], "Sample A")
+        self.assertIn("2 targets", _format_queue_text(flow, job_id=1, position=1, active_count=1))
+        self.assertEqual(_snapshot_flow(flow)["target_labels"], ["Sample A", "Sample B"])
+
+        single = _flow_for_target(
+            flow,
+            {"target_type": "raw_file", "target": "/tmp/sample_b.txt", "target_label": "Sample B"},
+        )
+        args = _qpadm_args(single, "admixlab-run-qpadm")
+
+        self.assertEqual(single["target_type"], "raw_file")
+        self.assertEqual(single["target_label"], "Sample B")
+        self.assertEqual(args[args.index("--target-type") + 1], "raw_file")
+        self.assertEqual(args[args.index("--target") + 1], "/tmp/sample_b.txt")
+
+    def test_admixtools2_supports_dataset_population_and_raw_targets(self) -> None:
         self.assertTrue(
             _has_supported_target_for_engine(
                 {"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "dataset_population", "target": "Balkar.HO"}
             )
         )
         self.assertFalse(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "dataset_population"}))
+        self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "raw_file", "target": "/tmp/raw.txt"}))
         self.assertFalse(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "raw_file"}))
         self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_CLASSIC, "target_type": "raw_file"}))
 
