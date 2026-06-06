@@ -229,6 +229,17 @@ _RU_SHORT_TRAIT_LABELS = {
     "pgs001016_sensitivity_hurt_feelings": "Чувствительность",
     "pgs001396_unenthusiasm_disinterest": "Потеря интереса",
     "pgs001021_worry_anxiety_feelings": "Тревожность",
+    "pgs000660_hdl_cholesterol": "HDL холестерин",
+    "pgs000661_ldl_cholesterol": "LDL холестерин",
+    "pgs000658_total_cholesterol": "Общий холестерин",
+    "pgs000659_triglycerides": "Триглицериды",
+    "pgs000301_systolic_blood_pressure": "Систолическое давление",
+    "pgs000302_diastolic_blood_pressure": "Диастолическое давление",
+    "pgs000300_heart_rate": "Пульс",
+    "pgs000304_hba1c": "HbA1c",
+    "pgs000305_fasting_glucose": "Глюкоза натощак",
+    "pgs000877_insulin_resistance": "Инсулинорезистентность",
+    "pgs000832_type2_diabetes": "Диабет 2 типа",
     "pgs003504_cannabis_use": "Употребление каннабиса",
     "pgs004243_colorectal_cancer": "Колоректальный рак",
     "pgs003497_depression_episode": "Депрессивный эпизод",
@@ -266,6 +277,7 @@ _TRAIT_GROUP_EMOJIS = {
     "nutrition": "🥗",
     "lifestyle": "☕",
     "mind": "🧠",
+    "health_research": "🧬",
     "sensitive_research": "🔬",
 }
 _TRAIT_GROUP_LABELS = {
@@ -275,6 +287,7 @@ _TRAIT_GROUP_LABELS = {
         "nutrition": "Питание",
         "lifestyle": "Образ жизни",
         "mind": "Психика",
+        "health_research": "Здоровье",
         "sensitive_research": "Исследовательские",
     },
     "en": {
@@ -283,6 +296,7 @@ _TRAIT_GROUP_LABELS = {
         "nutrition": "Nutrition",
         "lifestyle": "Lifestyle",
         "mind": "Mind",
+        "health_research": "Health Research",
         "sensitive_research": "Research",
     },
 }

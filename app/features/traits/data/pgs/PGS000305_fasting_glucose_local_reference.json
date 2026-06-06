@@ -1,0 +1,116 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Fasting glucose",
+  "trait_id": "pgs000305_fasting_glucose",
+  "display_name": "Fasting glucose research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [
+    "research_only_not_medical"
+  ],
+  "invalid_reasons": [],
+  "sample_count_total": 97,
+  "sample_count_included": 91,
+  "sample_count_excluded": 6,
+  "mean": 0.6000131868131868,
+  "sd": 0.06319191440681354,
+  "min": 0.4441,
+  "max": 0.7821000000000001,
+  "p5": 0.5184,
+  "p10": 0.5312,
+  "p25": 0.5554,
+  "p50": 0.588,
+  "p75": 0.6376,
+  "p90": 0.6911,
+  "p95": 0.69905,
+  "scoring_file_name": "PGS000305_fasting_glucose.txt.gz",
+  "scoring_file_path": "data/pgs/PGS000305_fasting_glucose.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000305",
+    "pgs_name": "GRS31_FG",
+    "trait_reported": "Fasting glucose",
+    "genome_build": "GRCh37",
+    "variants_number": "31",
+    "weight_type": "Beta (corrected for sample overlap)",
+    "citation": "PGS Catalog PGS000305; PMID 32527150; doi 10.1161/circgen.119.002775"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs000305_fasting_glucose",
+    "display_name": "Fasting glucose research signal",
+    "reported_name": "Fasting glucose",
+    "pgs_id": "PGS000305",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.6000131868131868,
+    "sd": 0.06319191440681354,
+    "min": 0.4441,
+    "max": 0.7821000000000001,
+    "p5": 0.5184,
+    "p10": 0.5312,
+    "p25": 0.5554,
+    "p50": 0.588,
+    "p75": 0.6376,
+    "p90": 0.6911,
+    "p95": 0.69905
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 31,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 91,
+    "median_matched_variants": 18,
+    "median_overlap_percent": 58.06451612903226
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs000305_fasting_glucose",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 97,
+    "sample_count_included": 91,
+    "sample_count_excluded": 6,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T23:50:50Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "acc15e85584dfa4ed771b3fdfd41d5f0b261e4b9b6730ac8bf02372c7e0d1e4a",
+    "artifact_sha256": "93252f3751405d32965568c5853457d669502c36b57cb60f1259c93b3677759a"
+  }
+}

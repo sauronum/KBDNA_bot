@@ -1,0 +1,116 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Systolic blood pressure",
+  "trait_id": "pgs000301_systolic_blood_pressure",
+  "display_name": "Systolic blood pressure research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [
+    "research_only_not_medical"
+  ],
+  "invalid_reasons": [],
+  "sample_count_total": 97,
+  "sample_count_included": 96,
+  "sample_count_excluded": 1,
+  "mean": 40.54152214583333,
+  "sd": 3.9058213170691563,
+  "min": 28.11211200000001,
+  "max": 47.00021900000001,
+  "p5": 32.0298395,
+  "p10": 36.375009000000006,
+  "p25": 39.424974,
+  "p50": 40.945162499999995,
+  "p75": 42.894037,
+  "p90": 44.785398,
+  "p95": 45.74072699999999,
+  "scoring_file_name": "PGS000301_systolic_blood_pressure.txt.gz",
+  "scoring_file_path": "data/pgs/PGS000301_systolic_blood_pressure.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000301",
+    "pgs_name": "GRS970_SBP",
+    "trait_reported": "Systolic blood pressure",
+    "genome_build": "GRCh37",
+    "variants_number": "970",
+    "weight_type": "Beta (corrected for sample overlap)",
+    "citation": "PGS Catalog PGS000301; PMID 32527150; doi 10.1161/circgen.119.002775"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs000301_systolic_blood_pressure",
+    "display_name": "Systolic blood pressure research signal",
+    "reported_name": "Systolic blood pressure",
+    "pgs_id": "PGS000301",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 40.54152214583333,
+    "sd": 3.9058213170691563,
+    "min": 28.11211200000001,
+    "max": 47.00021900000001,
+    "p5": 32.0298395,
+    "p10": 36.375009000000006,
+    "p25": 39.424974,
+    "p50": 40.945162499999995,
+    "p75": 42.894037,
+    "p90": 44.785398,
+    "p95": 45.74072699999999
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 970,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 96,
+    "median_matched_variants": 149.0,
+    "median_overlap_percent": 15.360824742268042
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs000301_systolic_blood_pressure",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 97,
+    "sample_count_included": 96,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T23:50:50Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "15c5994d074db4b06159d42af73cdab41593697855fc75ae9bbfa0464006d682",
+    "artifact_sha256": "530a846c11a2b3664bdd0379a08ce0232fca17aa5d9a5c4f25b9c2d0c3c155c6"
+  }
+}

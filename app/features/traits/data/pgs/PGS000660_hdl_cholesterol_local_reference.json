@@ -1,0 +1,116 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "HDL cholesterol",
+  "trait_id": "pgs000660_hdl_cholesterol",
+  "display_name": "HDL cholesterol research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [
+    "research_only_not_medical"
+  ],
+  "invalid_reasons": [],
+  "sample_count_total": 97,
+  "sample_count_included": 93,
+  "sample_count_excluded": 4,
+  "mean": 3.024907849462366,
+  "sd": 0.4138402513779227,
+  "min": 2.1211699999999998,
+  "max": 3.8458399999999995,
+  "p5": 2.2291000000000003,
+  "p10": 2.491358000000001,
+  "p25": 2.75762,
+  "p50": 3.0937200000000002,
+  "p75": 3.3363400000000003,
+  "p90": 3.5417680000000002,
+  "p95": 3.6066819999999997,
+  "scoring_file_name": "PGS000660_hdl_cholesterol.txt.gz",
+  "scoring_file_path": "data/pgs/PGS000660_hdl_cholesterol.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000660",
+    "pgs_name": "PRS-HDL",
+    "trait_reported": "HDL cholesterol",
+    "genome_build": "GRCh37",
+    "variants_number": "549",
+    "weight_type": "beta",
+    "citation": "PGS Catalog PGS000660; PMID 33608049; doi 10.1186/s13073-021-00831-z"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs000660_hdl_cholesterol",
+    "display_name": "HDL cholesterol research signal",
+    "reported_name": "HDL cholesterol",
+    "pgs_id": "PGS000660",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 3.024907849462366,
+    "sd": 0.4138402513779227,
+    "min": 2.1211699999999998,
+    "max": 3.8458399999999995,
+    "p5": 2.2291000000000003,
+    "p10": 2.491358000000001,
+    "p25": 2.75762,
+    "p50": 3.0937200000000002,
+    "p75": 3.3363400000000003,
+    "p90": 3.5417680000000002,
+    "p95": 3.6066819999999997
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 549,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 93,
+    "median_matched_variants": 73,
+    "median_overlap_percent": 13.296903460837886
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs000660_hdl_cholesterol",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 97,
+    "sample_count_included": 93,
+    "sample_count_excluded": 4,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T23:50:50Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "2d8d0beea6f30b55ca362471024b09539a5ea8e4260673b9ba20ff91bd3b10a6",
+    "artifact_sha256": "aac13e68b04278970bb72259834496e1e8fcbbfdecfce2c50543f6294e18049d"
+  }
+}

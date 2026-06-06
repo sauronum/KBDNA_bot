@@ -56,6 +56,7 @@ _GROUP_ORDER = (
     "nutrition",
     "lifestyle",
     "mind",
+    "health_research",
     "sensitive_research",
     "internal",
 )
@@ -65,6 +66,7 @@ _GROUP_CODES = {
     "nutrition": "nt",
     "lifestyle": "ls",
     "mind": "md",
+    "health_research": "hr",
     "sensitive_research": "sr",
     "internal": "in",
 }
@@ -75,6 +77,7 @@ _ROOT_GROUP_LABELS = {
         "nutrition": "🥗 Питание",
         "lifestyle": "☕ Образ жизни",
         "mind": "🧠 Психика",
+        "health_research": "🧬 Здоровье",
         "sensitive_research": "🔬 Исследовательские",
     },
     "en": {
@@ -83,6 +86,7 @@ _ROOT_GROUP_LABELS = {
         "nutrition": "🥗 Nutrition",
         "lifestyle": "☕ Lifestyle",
         "mind": "🧠 Mind",
+        "health_research": "🧬 Health Research",
         "sensitive_research": "🔬 Research",
     },
 }

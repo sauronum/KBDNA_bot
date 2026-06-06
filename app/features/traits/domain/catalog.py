@@ -43,6 +43,7 @@ TRAIT_GROUPS = (
     "nutrition",
     "lifestyle",
     "mind",
+    "health_research",
     "sensitive_research",
     "internal",
 )

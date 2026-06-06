@@ -1,0 +1,116 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Type 2 diabetes (T2D)",
+  "trait_id": "pgs000832_type2_diabetes",
+  "display_name": "Type 2 diabetes research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [
+    "research_only_not_medical"
+  ],
+  "invalid_reasons": [],
+  "sample_count_total": 97,
+  "sample_count_included": 96,
+  "sample_count_excluded": 1,
+  "mean": 0.3906739583333334,
+  "sd": 0.6011956375239685,
+  "min": -1.8980000000000006,
+  "max": 1.7810000000000001,
+  "p5": -0.4970000000000001,
+  "p10": -0.31299999999999983,
+  "p25": -0.02775000000000001,
+  "p50": 0.38950000000000007,
+  "p75": 0.7159999999999994,
+  "p90": 1.243,
+  "p95": 1.2997500000000004,
+  "scoring_file_name": "PGS000832_type2_diabetes.txt.gz",
+  "scoring_file_path": "data/pgs/PGS000832_type2_diabetes.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000832",
+    "pgs_name": "T2D-GRS",
+    "trait_reported": "Type 2 diabetes (T2D)",
+    "genome_build": "GRCh37",
+    "variants_number": "384",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS000832; PMID 34737425; doi 10.1038/s41588-021-00948-2"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs000832_type2_diabetes",
+    "display_name": "Type 2 diabetes research signal",
+    "reported_name": "Type 2 diabetes (T2D)",
+    "pgs_id": "PGS000832",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.3906739583333334,
+    "sd": 0.6011956375239685,
+    "min": -1.8980000000000006,
+    "max": 1.7810000000000001,
+    "p5": -0.4970000000000001,
+    "p10": -0.31299999999999983,
+    "p25": -0.02775000000000001,
+    "p50": 0.38950000000000007,
+    "p75": 0.7159999999999994,
+    "p90": 1.243,
+    "p95": 1.2997500000000004
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 384,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 96,
+    "median_matched_variants": 62.0,
+    "median_overlap_percent": 16.145833333333336
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::recursive_autosomal::pgs000832_type2_diabetes",
+    "source_name": "recursive_autosomal_raws",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 97,
+    "sample_count_included": 96,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108",
+      "37_E_Nauruzbi_Chrom_Autoso_20251115"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "recursive-local-reference",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": []
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-05T23:50:50Z",
+    "build_mode": "recursive-local-reference"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "caa48ee5a89ceab20fb40429d6a082b69576609a9276d40fc3468e2f84522266",
+    "artifact_sha256": "2e49be13fda285d97c3f8bcfb96456e1ef30a3b99a1f71f0b4e27285cfee9ac6"
+  }
+}
