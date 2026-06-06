@@ -277,7 +277,7 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
 
     width = 1080
     ref_rows = max(1, (len(references) + 1) // 2)
-    height = 590 + max(1, len(rows)) * 72 + ref_rows * 38
+    height = 580 + max(1, len(rows)) * 74 + ref_rows * 38
     image, draw = _canvas(height, width=width, background=str(QPADM_ADMIXTOOLS2_VISUAL["background"]), panel=str(QPADM_ADMIXTOOLS2_VISUAL["panel"]))
     content_left = 64
     content_right = width - 64
@@ -292,6 +292,7 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     row_font = _font(20)
     mono_font = _font(21)
     small_font = _font(17)
+    source_label_font = _font(14, bold=True)
 
     y = 58
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
@@ -335,13 +336,14 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
 
     y += 118
     draw.text((content_left, y), "Source Weight Bars", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 256, y + 8), "bar length = |weight|", font=small_font, fill="#8fa0b5")
+    draw.text((content_right - 252, y + 8), "SE left · weight right", font=small_font, fill="#8fa0b5")
     y += 46
-    bar_left = content_left + 416
-    bar_right = content_right
+    se_x = content_left + 48
+    bar_left = content_left + 116
+    bar_right = content_right - 104
     bar_w = bar_right - bar_left
     max_abs = max([abs(weight) + abs(stderr) for _, weight, stderr in rows] + [1.0]) * 1.08
-    row_h = 72
+    row_h = 74
     if not rows:
         draw.rounded_rectangle((content_left, y, content_right, y + 46), radius=9, fill="#10171d", outline="#2b3742", width=1)
         draw.text((content_left + 18, y + 13), "No source weights returned.", font=row_font, fill="#a8b3c5")
@@ -349,14 +351,18 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     for index, (source, weight, stderr) in enumerate(rows):
         row_y = y + index * row_h
         color = "#fb7185" if weight < 0 else palette[index % len(palette)]
-        label = _fit_text(draw, source, row_font, 252)
+        label = _fit_text(draw, source, source_label_font, bar_w - 20)
         value_text = f"{weight:+.2f}%"
-        value_bbox = draw.textbbox((0, 0), value_text, font=mono_font)
+        se_text = f"± {_format_number(stderr, percent=True)}"
+        label_bbox = draw.textbbox((0, 0), label, font=source_label_font)
+        label_w = label_bbox[2] - label_bbox[0]
+        value_bbox = draw.textbbox((0, 0), value_text, font=source_label_font)
         value_w = value_bbox[2] - value_bbox[0]
-        draw.text((content_left, row_y + 3), label, font=row_font, fill="#e5edf5")
-        draw.text((content_left + 362 - value_w, row_y + 1), value_text, font=mono_font, fill=color)
-        draw.text((content_left + 286, row_y + 31), f"± {_format_number(stderr, percent=True)}", font=small_font, fill="#98a7b7")
-        baseline_y = row_y + 43
+        label_x = bar_left + max(0, (bar_w - label_w) // 2)
+        draw.text((label_x, row_y + 2), label, font=source_label_font, fill="#eef6ff")
+        baseline_y = row_y + 38
+        draw.text((se_x, baseline_y - 10), se_text, font=source_label_font, fill="#aab6c4")
+        draw.text((content_right - value_w, baseline_y - 10), value_text, font=source_label_font, fill=color)
         draw.line((bar_left, baseline_y, bar_right, baseline_y), fill="#2b3742", width=2)
         draw.line((bar_left, baseline_y - 11, bar_left, baseline_y + 11), fill=axis, width=2)
         available_w = bar_w - 10
