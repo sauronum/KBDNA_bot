@@ -103,7 +103,7 @@ def _is_admixtools2_engine(value: object) -> bool:
 def _has_supported_target_for_engine(flow: dict[str, Any]) -> bool:
     if not _is_admixtools2_engine(flow.get("engine")):
         return True
-    return str(flow.get("target_type") or "") == "dataset_population"
+    return str(flow.get("target_type") or "") == "dataset_population" and bool(_targets_list(flow))
 
 
 def _is_qpadm_engine(value: object) -> bool:
@@ -173,6 +173,7 @@ def _snapshot_flow(flow: dict[str, Any]) -> dict[str, Any]:
         "target_type": flow.get("target_type"),
         "target": flow.get("target"),
         "target_label": flow.get("target_label"),
+        "targets": _targets_list(flow),
         "sources": _as_list(flow, "sources"),
         "references": _as_list(flow, "references"),
     }
@@ -185,6 +186,7 @@ def _start_flow(context: ContextTypes.DEFAULT_TYPE, dataset: str, *, engine: obj
         "target_type": None,
         "target": None,
         "target_label": None,
+        "targets": [],
         "sources": [],
         "references": [],
         "search_results": [],
@@ -212,11 +214,65 @@ def _as_list(flow: dict[str, Any], key: str) -> list[str]:
     return []
 
 
+def _targets_list(flow: dict[str, Any]) -> list[str]:
+    targets = _as_list(flow, "targets")
+    if targets:
+        return targets
+    target = str(flow.get("target") or "").strip()
+    return [target] if target else []
+
+
+def _sync_primary_target(flow: dict[str, Any]) -> None:
+    targets = _targets_list(flow)
+    if not targets:
+        flow["target"] = None
+        flow["target_label"] = None
+        flow["targets"] = []
+        return
+    flow["targets"] = targets
+    flow["target"] = targets[0]
+    flow["target_label"] = targets[0]
+
+
+def _set_single_target(flow: dict[str, Any], label: str, target_type: str = "dataset_population") -> None:
+    flow["target_type"] = target_type
+    flow["target"] = label
+    flow["target_label"] = label
+    flow["targets"] = [label] if target_type == "dataset_population" else []
+
+
+def _add_dataset_target(flow: dict[str, Any], label: str) -> None:
+    if not _is_admixtools2_engine(flow.get("engine")):
+        _set_single_target(flow, label)
+        return
+    targets = _targets_list(flow)
+    if label not in targets:
+        targets.append(label)
+    flow["target_type"] = "dataset_population"
+    flow["targets"] = targets
+    _sync_primary_target(flow)
+
+
+def _remove_dataset_target(flow: dict[str, Any], index: int) -> None:
+    targets = _targets_list(flow)
+    try:
+        del targets[index]
+    except (IndexError, TypeError):
+        return
+    flow["targets"] = targets
+    _sync_primary_target(flow)
+
+
 def _has_complete_model(flow: dict[str, Any]) -> bool:
-    return bool(flow.get("target") and _as_list(flow, "sources") and _as_list(flow, "references"))
+    return bool(_targets_list(flow) and _as_list(flow, "sources") and _as_list(flow, "references"))
 
 
 def _target_display(flow: dict[str, Any]) -> str:
+    targets = _targets_list(flow)
+    if len(targets) > 1:
+        preview = ", ".join(_clip(item, 28) for item in targets[:3])
+        suffix = f" +{len(targets) - 3}" if len(targets) > 3 else ""
+        return f"{len(targets)} targets: {preview}{suffix}"
     label = str(flow.get("target_label") or "").strip()
     if label:
         return label
@@ -346,9 +402,7 @@ def _apply_model_import(flow: dict[str, Any], value: str, *, allow_target: bool 
 
     target = parsed.get("target")
     if isinstance(target, str) and target and allow_target:
-        flow["target_type"] = "dataset_population"
-        flow["target"] = target
-        flow["target_label"] = target
+        _set_single_target(flow, target)
         imported["target"] = target
     elif isinstance(target, str) and target:
         imported["target_ignored"] = target
@@ -546,7 +600,9 @@ async def _show_target_menu(message, context: ContextTypes.DEFAULT_TYPE, *, edit
                 f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
                 f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
                 "",
-                "ADMIXTOOLS2 target must be a dataset population. My samples/raw are classic-only for now.",
+                "ADMIXTOOLS2 targets must be dataset populations.",
+                "Можно выбрать одну или несколько populations для batch run.",
+                "My samples/raw are classic-only for now.",
             ]
         )
     target_markup = _target_menu_markup(flow, lang) if _is_admixtools2_engine(flow.get("engine")) else markup
@@ -666,11 +722,13 @@ async def _select_sample_target(
 def _state_lines(flow: dict[str, Any]) -> list[str]:
     sources = _as_list(flow, "sources")
     references = _as_list(flow, "references")
+    targets = _targets_list(flow)
     target = _target_display(flow)
+    target_label = "Targets" if len(targets) > 1 else "Target"
     lines = [
         f"Engine: <code>{html.escape(_qpadm_engine_label(flow.get('engine')))}</code>",
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
-        f"Target: <code>{html.escape(str(target))}</code>",
+        f"{target_label}: <code>{html.escape(str(target))}</code>",
         f"Sources: <code>{len(sources)}</code>",
         f"References: <code>{len(references)}</code>",
     ]
@@ -762,6 +820,15 @@ async def _show_target_ready_menu(
             ]
         )
         title = _flow_title(flow, suffix="target выбран")
+
+    targets = _targets_list(flow)
+    if len(targets) > 1:
+        target_rows = [
+            [InlineKeyboardButton(f"✕ {_clip(target, 42)}", callback_data=_cb("qpadm_del", "target", index))]
+            for index, target in enumerate(targets[:8])
+        ]
+        rows[0:0] = target_rows
+        rows.insert(len(target_rows), [InlineKeyboardButton("➕ Добавить target", callback_data=_cb("qpadm_search", "target"))])
 
     text = "\n".join(
         [
@@ -966,7 +1033,7 @@ async def _start_population_search(
             "Например: <code>Balkar</code>, <code>Mbuti</code>, <code>Sintashta</code>.",
         ]
     )
-    if role in {"source", "reference"}:
+    if role in {"source", "reference"} or (role == "target" and _is_admixtools2_engine(flow.get("engine"))):
         text += "\n\nМожно вставить сразу список: строками или через запятую."
     markup = InlineKeyboardMarkup([_footer_row(_back_callback_for_role(role), lang)])
     await _show_message(message, text, markup, edit_existing=True)
@@ -1062,6 +1129,21 @@ async def qpadm_classic_text_input_handler(update: Update, context: ContextTypes
             await _show_import_result(progress, context, imported, lang=lang, left_right_only=(role == "import_lr"))
         return True
 
+    if role == "target" and _is_admixtools2_engine(flow.get("engine")) and _looks_like_item_list(query_text):
+        progress = await update.message.reply_text("Добавляю targets...", do_quote=False)
+        if update.effective_chat is not None and update.effective_user is not None:
+            set_active_main_menu_message(context, update.effective_chat.id, update.effective_user.id, progress.message_id)
+        await _deactivate_prompt_markup(context, flow, progress.message_id)
+        for label in _split_items(query_text):
+            if _looks_like_direct_qpadm_label(label):
+                _add_dataset_target(flow, _clean_item(label))
+        _clear_search(flow)
+        if _has_complete_model(flow):
+            await _show_review_menu(progress, context, edit_existing=True, lang=lang)
+        else:
+            await _show_target_ready_menu(progress, context, edit_existing=True, lang=lang)
+        return True
+
     if role in {"source", "reference"} and _looks_like_item_list(query_text):
         progress = await update.message.reply_text("Добавляю список...", do_quote=False)
         if update.effective_chat is not None and update.effective_user is not None:
@@ -1086,9 +1168,7 @@ async def qpadm_classic_text_input_handler(update: Update, context: ContextTypes
         await _deactivate_prompt_markup(context, flow, progress.message_id)
         if role == "target":
             label = _clean_item(query_text)
-            flow["target_type"] = "dataset_population"
-            flow["target"] = label
-            flow["target_label"] = label
+            _add_dataset_target(flow, label)
             _clear_search(flow)
             if _has_complete_model(flow):
                 await _show_review_menu(progress, context, edit_existing=True, lang=lang)
@@ -1274,6 +1354,8 @@ def _search_results_text(
         lines.extend(["", "Ничего не найдено. Попробуйте другой запрос."])
         return "\n".join(lines)
     lines.extend(["", "Выберите population:"])
+    if role == "target" and _is_admixtools2_engine(flow.get("engine")):
+        lines[-1] = "Выберите population для добавления в targets:"
     for index, item in enumerate(results, start=1):
         label = html.escape(str(item.get("label") or item.get("id")))
         count = item.get("sample_count")
@@ -1334,9 +1416,7 @@ async def _pick_population(
 
     population_id = str(item.get("id") or item.get("label"))
     if role == "target":
-        flow["target_type"] = "dataset_population"
-        flow["target"] = population_id
-        flow["target_label"] = population_id
+        _add_dataset_target(flow, population_id)
         _clear_search(flow)
         if _has_complete_model(flow):
             await _show_review_menu(message, context, edit_existing=True, lang=lang)
@@ -1367,6 +1447,16 @@ async def _delete_item(
     flow = _get_flow(context)
     if flow is None:
         await show_qpadm_classic_dataset_menu(message, context, edit_existing=True, lang=lang)
+        return
+    if role == "target":
+        try:
+            _remove_dataset_target(flow, int(index_text))
+        except ValueError:
+            pass
+        if _targets_list(flow):
+            await _show_target_ready_menu(message, context, edit_existing=True, lang=lang)
+        else:
+            await _show_target_menu(message, context, edit_existing=True, lang=lang)
         return
     key = "sources" if role == "source" else "references"
     items = _as_list(flow, key)
@@ -1513,7 +1603,8 @@ async def _run_preflight(message, context: ContextTypes.DEFAULT_TYPE, *, lang: s
 
     rows: list[list[InlineKeyboardButton]] = []
     if can_run:
-        rows.append([InlineKeyboardButton("🚀 Запустить qpAdm", callback_data=_cb("qpadm_run"))])
+        run_label = "🚀 Запустить batch" if len(_targets_list(flow)) > 1 else "🚀 Запустить qpAdm"
+        rows.append([InlineKeyboardButton(run_label, callback_data=_cb("qpadm_run"))])
     rows.extend(
         [
             [
@@ -1635,12 +1726,14 @@ def _format_queue_text(
 
 
 def _format_started_text(flow: dict[str, Any], *, job_id: int, active_count: int) -> str:
+    targets = _targets_list(flow)
+    mode_line = f"Batch targets: <code>{len(targets)}</code>" if len(targets) > 1 else "Обычно это занимает от минуты до нескольких минут."
     lines = [
         f"<b>{_flow_title(flow, suffix='расчет запущен')}</b>",
         "",
         *_state_lines(flow),
         "",
-        "Обычно это занимает от минуты до нескольких минут.",
+        mode_line,
     ]
     return "\n".join(lines)
 
@@ -1791,6 +1884,9 @@ async def _qpadm_worker(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any
 
 
 async def _run_qpadm_job(flow: dict[str, Any], user_id: int, *, job_id: int, lang: str) -> tuple[str, dict[str, Any]]:
+    if _is_admixtools2_engine(flow.get("engine")) and len(_targets_list(flow)) > 1:
+        return await _run_qpadm_batch_job(flow, user_id, job_id=job_id, lang=lang)
+
     BOT_QPADM_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     engine = _qpadm_engine(flow.get("engine"))
     output_prefix = "admixtools2" if engine == QPADM_ENGINE_ADMIXTOOLS2 else "classic"
@@ -1826,6 +1922,124 @@ async def _run_qpadm_job(flow: dict[str, Any], user_id: int, *, job_id: int, lan
         "visual_error": visual_error,
         "result_payload": summary_payload,
         "output_path": str(output_path),
+    }
+    return text, save_payload
+
+
+def _flow_for_target(flow: dict[str, Any], target: str) -> dict[str, Any]:
+    single = dict(flow)
+    single["target_type"] = "dataset_population"
+    single["target"] = target
+    single["target_label"] = target
+    single["targets"] = [target]
+    return single
+
+
+def _format_qpadm_batch_summary(batch_payload: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float, lang: str) -> str:
+    results = batch_payload.get("results") if isinstance(batch_payload.get("results"), list) else []
+    completed = sum(1 for item in results if isinstance(item, dict) and item.get("status") == "completed")
+    lines = [
+        f"<b>{_flow_title(flow, suffix='batch')}</b>",
+        "",
+        f"База: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
+        f"Targets: <code>{completed}/{len(results)}</code>",
+        f"Время: <code>{elapsed_seconds:.1f}s</code>",
+        "",
+        "<b>Results</b>",
+    ]
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        target = str(item.get("target") or "unknown")
+        status = str(item.get("status") or "unknown")
+        if status != "completed":
+            error = str(item.get("error") or status)
+            lines.append(f"• <code>{html.escape(target)}</code>: <code>{html.escape(error)}</code>")
+            continue
+        summary = item.get("summary") if isinstance(item.get("summary"), dict) else {}
+        fit = summary.get("fit") if isinstance(summary.get("fit"), dict) else {}
+        feasibility = summary.get("feasibility") if isinstance(summary.get("feasibility"), dict) else {}
+        p_value = _format_number(fit.get("p_value"))
+        fit_status = html.escape(str(feasibility.get("status", "unknown")))
+        lines.append(f"• <code>{html.escape(target)}</code>: p=<code>{p_value}</code>, fit=<code>{fit_status}</code>")
+    return "\n".join(lines)
+
+
+def _format_qpadm_batch_caption(batch_payload: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float) -> str:
+    results = batch_payload.get("results") if isinstance(batch_payload.get("results"), list) else []
+    completed = sum(1 for item in results if isinstance(item, dict) and item.get("status") == "completed")
+    return "\n".join(
+        [
+            f"<b>{_flow_title(flow, suffix='batch')}</b>",
+            f"База: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
+            f"Targets: <code>{completed}/{len(results)}</code>",
+        ]
+    )
+
+
+async def _run_qpadm_batch_job(flow: dict[str, Any], user_id: int, *, job_id: int, lang: str) -> tuple[str, dict[str, Any]]:
+    BOT_QPADM_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    engine = _qpadm_engine(flow.get("engine"))
+    started = time.monotonic()
+    batch_results: list[dict[str, Any]] = []
+    targets = _targets_list(flow)
+
+    for index, target in enumerate(targets, start=1):
+        single_flow = _flow_for_target(flow, target)
+        output_path = BOT_QPADM_OUTPUT_DIR / f"admixtools2_batch_{user_id}_{int(time.time())}_{job_id}_{index}.json"
+        run_args = _qpadm_args(single_flow, "admixlab-run-qpadm")
+        run_args.extend(["--details", "--summary", "--output", str(output_path)])
+        summary_args = [DNA_PLATFORM_PYTHON, "dna_platform.py", "admixlab-summary", str(output_path), "--json"]
+        try:
+            await _run_process(run_args, timeout_seconds=QPADM_TIMEOUT_SECONDS, engine=engine)
+            summary_stdout = await _run_process(summary_args, timeout_seconds=60, engine=engine)
+            summary_payload = json.loads(summary_stdout)
+            batch_results.append(
+                {
+                    "target": target,
+                    "status": "completed",
+                    "summary": summary_payload,
+                    "output_path": str(output_path),
+                }
+            )
+        except Exception as exc:
+            batch_results.append(
+                {
+                    "target": target,
+                    "status": "failed",
+                    "error": str(exc),
+                    "output_path": str(output_path),
+                }
+            )
+
+    elapsed = time.monotonic() - started
+    batch_payload = {
+        "status": "completed" if all(item.get("status") == "completed" for item in batch_results) else "partial",
+        "engine": engine,
+        "dataset": flow.get("dataset"),
+        "targets": targets,
+        "sources": _as_list(flow, "sources"),
+        "references": _as_list(flow, "references"),
+        "results": batch_results,
+    }
+    text = _format_qpadm_batch_summary(batch_payload, elapsed_seconds=elapsed, flow=flow, lang=lang)
+    caption = _format_qpadm_batch_caption(batch_payload, elapsed_seconds=elapsed, flow=flow)
+    save_payload = {
+        "kind": "qpadm_batch",
+        "engine": engine,
+        "engine_label": _qpadm_engine_label(engine),
+        "title": f"{len(targets)} targets · {_dataset_label(flow.get('dataset'))}",
+        "dataset": flow.get("dataset"),
+        "target": _target_display(flow),
+        "targets": targets,
+        "sources": _as_list(flow, "sources"),
+        "references": _as_list(flow, "references"),
+        "result_text": text,
+        "caption_text": caption,
+        "visual_path": "",
+        "visual_error": "batch visual pending",
+        "result_payload": batch_payload,
+        "output_path": "",
     }
     return text, save_payload
 

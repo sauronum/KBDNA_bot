@@ -11,6 +11,8 @@ from app.features.modeling.qpadm_classic import (
     _format_preflight,
     _format_qpadm_summary,
     _format_queue_text,
+    _flow_for_target,
+    _add_dataset_target,
     _looks_like_direct_qpadm_label,
     _merge_role_items,
     _qpadm_args,
@@ -20,6 +22,7 @@ from app.features.modeling.qpadm_classic import (
     _has_supported_target_for_engine,
     _snapshot_flow,
     _target_menu_markup,
+    _targets_list,
 )
 
 
@@ -172,8 +175,54 @@ class QpadmClassicEngineTests(unittest.TestCase):
 
         self.assertEqual(snapshot["engine"], QPADM_ENGINE_ADMIXTOOLS2)
 
+    def test_admixtools2_flow_can_collect_multiple_population_targets(self) -> None:
+        flow = {
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "dataset": "human_origins",
+            "target_type": None,
+            "target": None,
+            "target_label": None,
+            "targets": [],
+            "sources": ["Barcin_N"],
+            "references": ["Mbuti.DG"],
+        }
+
+        _add_dataset_target(flow, "Balkar.HO")
+        _add_dataset_target(flow, "Karachay.HO")
+        _add_dataset_target(flow, "Balkar.HO")
+
+        self.assertEqual(_targets_list(flow), ["Balkar.HO", "Karachay.HO"])
+        self.assertEqual(flow["target"], "Balkar.HO")
+        self.assertIn("2 targets", _format_queue_text(flow, job_id=1, position=1, active_count=1))
+        self.assertEqual(_snapshot_flow(flow)["targets"], ["Balkar.HO", "Karachay.HO"])
+
+    def test_batch_flow_for_target_keeps_sources_and_references(self) -> None:
+        flow = {
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "dataset": "human_origins",
+            "target_type": "dataset_population",
+            "target": "Balkar.HO",
+            "target_label": "Balkar.HO",
+            "targets": ["Balkar.HO", "Karachay.HO"],
+            "sources": ["Barcin_N"],
+            "references": ["Mbuti.DG"],
+        }
+
+        single = _flow_for_target(flow, "Karachay.HO")
+        args = _qpadm_args(single, "admixlab-run-qpadm")
+
+        self.assertEqual(single["targets"], ["Karachay.HO"])
+        self.assertEqual(args[args.index("--target") + 1], "Karachay.HO")
+        self.assertIn("--source", args)
+        self.assertIn("--reference", args)
+
     def test_admixtools2_supports_only_dataset_population_targets(self) -> None:
-        self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "dataset_population"}))
+        self.assertTrue(
+            _has_supported_target_for_engine(
+                {"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "dataset_population", "target": "Balkar.HO"}
+            )
+        )
+        self.assertFalse(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "dataset_population"}))
         self.assertFalse(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "raw_file"}))
         self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_CLASSIC, "target_type": "raw_file"}))
 
