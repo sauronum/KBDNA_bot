@@ -421,11 +421,16 @@ def render_admixtools2_qpadm_batch_result(
     ]
     p_values = [_number(_batch_p_value(item)) for item in completed_results]
     p_values = [value for value in p_values if value is not None]
-    best_item = min(completed_results, key=lambda item: _number(_batch_p_value(item)) if _number(_batch_p_value(item)) is not None else 999.0, default=None)
+    best_item = max(completed_results, key=lambda item: _number(_batch_p_value(item)) if _number(_batch_p_value(item)) is not None else -1.0, default=None)
+    positive_sums = []
+    for item in completed_results:
+        weight_map = _batch_weight_map(item)
+        positive_sums.append(sum(max(0.0, weight_map.get(source, 0.0)) for source in sources))
+    positive_scale = max([100.0, *positive_sums]) if positive_sums else 100.0
 
     width = 1440
     legend_rows = max(1, math.ceil(max(1, len(sources)) / 5))
-    row_h = 72
+    row_h = 84
     table_h = 166 + max(1, len(results)) * row_h + legend_rows * 34
     metrics_h = 190
     height = 320 + table_h + metrics_h + 120
@@ -446,7 +451,7 @@ def render_admixtools2_qpadm_batch_result(
 
     y = 54
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
-    draw.text((content_left, y + 62), "multi-target comparison / source weights", font=subtitle_font, fill="#9aa8bb")
+    draw.text((content_left, y + 62), "multi-target comparison / signed source weights", font=subtitle_font, fill="#9aa8bb")
     status = str(batch_payload.get("status") or "unknown").upper()
     status_color = "#22c55e" if status == "COMPLETED" else "#f59e0b"
     badge = f" {status} "
@@ -467,7 +472,7 @@ def render_admixtools2_qpadm_batch_result(
     panel_bottom = y + table_h
     draw.rounded_rectangle((content_left, panel_top, content_right, panel_bottom), radius=12, fill="#0d151c", outline=outline, width=1)
     draw.text((content_left + 22, y + 24), "Source weight comparison across targets", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 230, y + 31), "each bar sums to 100%", font=small_font, fill="#9aa8bb")
+    draw.text((content_right - 288, y + 31), "red tags = negative weights", font=small_font, fill="#9aa8bb")
 
     legend_y = y + 76
     legend_x = content_left + 180
@@ -484,14 +489,14 @@ def render_admixtools2_qpadm_batch_result(
     header_y = legend_y + legend_rows * 34 + 22
     draw.line((content_left, header_y, content_right, header_y), fill=outline, width=1)
     draw.text((content_left + 22, header_y + 24), "Target", font=small_font, fill="#9aa8bb")
-    draw.text((content_left + 392, header_y + 24), "Source weights (proportion %)", font=small_font, fill="#9aa8bb")
-    draw.text((content_right - 260, header_y + 24), "P-VALUE", font=small_font, fill="#9aa8bb")
-    draw.text((content_right - 108, header_y + 24), "FIT", font=small_font, fill="#9aa8bb")
+    draw.text((content_left + 424, header_y + 24), "Signed source weights (%)", font=small_font, fill="#9aa8bb")
+    draw.text((content_right - 280, header_y + 24), "P-VALUE", font=small_font, fill="#9aa8bb")
+    draw.text((content_right - 126, header_y + 24), "FIT", font=small_font, fill="#9aa8bb")
     row_start_y = header_y + 60
-    bar_x = content_left + 178
+    bar_x = content_left + 210
     bar_w = content_right - bar_x - 300
-    p_x = content_right - 260
-    fit_x = content_right - 112
+    p_x = content_right - 280
+    fit_x = content_right - 126
 
     if not results:
         draw.text((content_left + 22, row_start_y + 18), "No batch results returned.", font=row_font, fill="#a8b3c5")
@@ -499,47 +504,63 @@ def render_admixtools2_qpadm_batch_result(
         row_y = row_start_y + row_index * row_h
         draw.line((content_left, row_y, content_right, row_y), fill="#1d2a35", width=1)
         target_label = _batch_target_label(item)
-        draw.text((content_left + 22, row_y + 23), _fit_text(draw, target_label, row_font, 148), font=row_font, fill=accent)
+        draw.text((content_left + 22, row_y + 28), _fit_text(draw, target_label, row_font, 172), font=row_font, fill=accent)
 
         if item.get("status") != "completed":
             error = _fit_text(draw, str(item.get("error") or "failed"), small_font, bar_w + 150)
-            draw.text((bar_x, row_y + 24), error, font=small_font, fill="#fb7185")
+            draw.text((bar_x, row_y + 30), error, font=small_font, fill="#fb7185")
             continue
 
         weight_map = _batch_weight_map(item)
-        positive_weights = [max(0.0, weight_map.get(source, 0.0)) for source in sources]
-        total = sum(positive_weights)
-        use_positive_weights = total > 0
-        if total <= 0:
-            positive_weights = [abs(weight_map.get(source, 0.0)) for source in sources]
-            total = sum(positive_weights)
-        draw.rounded_rectangle((bar_x, row_y + 15, bar_x + bar_w, row_y + 50), radius=7, fill="#071019", outline="#1d2a35", width=1)
+        negative_items = [(source, weight_map.get(source, 0.0)) for source in sources if weight_map.get(source, 0.0) < 0]
+        tag_y = row_y + 8
+        tag_x = bar_x
+        for source, raw_weight in negative_items[:2]:
+            tag_text = f"{raw_weight:+.1f}% {_fit_text(draw, source, small_font, 120)}"
+            tag_bbox = draw.textbbox((0, 0), tag_text, font=small_font)
+            tag_w = min(190, tag_bbox[2] - tag_bbox[0] + 18)
+            draw.rounded_rectangle((tag_x, tag_y, tag_x + tag_w, tag_y + 24), radius=6, fill="#34151a", outline="#fb7185", width=1)
+            draw.text((tag_x + 9, tag_y + 4), _fit_text(draw, tag_text, small_font, tag_w - 18), font=small_font, fill="#fb7185")
+            tag_x += tag_w + 8
+        if len(negative_items) > 2:
+            draw.text((tag_x, tag_y + 4), f"+{len(negative_items) - 2} negative", font=small_font, fill="#fb7185")
+
+        bar_y = row_y + (36 if negative_items else 24)
+        draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + 35), radius=7, fill="#071019", outline="#1d2a35", width=1)
+        marker_x = bar_x + int(round(bar_w * min(100.0, positive_scale) / positive_scale))
+        if positive_scale > 100.0:
+            draw.line((marker_x, bar_y - 3, marker_x, bar_y + 38), fill="#d9e3ef", width=1)
+            draw.text((marker_x + 4, bar_y - 17), "100", font=_font(12), fill="#9aa8bb")
         cursor = bar_x
-        if total > 0:
+        if positive_scale > 0:
             for index, source in enumerate(sources):
                 raw_weight = weight_map.get(source, 0.0)
-                segment_value = max(0.0, raw_weight) if use_positive_weights else abs(raw_weight)
-                segment_w = int(round(bar_w * segment_value / total))
-                if index == len(sources) - 1:
-                    segment_w = max(0, bar_x + bar_w - cursor)
+                if raw_weight <= 0:
+                    continue
+                segment_w = int(round(bar_w * raw_weight / positive_scale))
                 if segment_w <= 0:
                     continue
-                color = "#fb7185" if raw_weight < 0 else source_colors[source]
-                draw.rectangle((cursor, row_y + 15, min(bar_x + bar_w, cursor + segment_w), row_y + 50), fill=color)
+                color = source_colors[source]
+                segment_right = min(bar_x + bar_w, cursor + segment_w)
+                draw.rectangle((cursor, bar_y, segment_right, bar_y + 35), fill=color)
                 percent_text = f"{raw_weight:.1f}%"
-                if segment_w > 58:
+                visible_w = segment_right - cursor
+                if visible_w > 58:
                     text_bbox = draw.textbbox((0, 0), percent_text, font=small_font)
                     text_w = text_bbox[2] - text_bbox[0]
-                    draw.text((cursor + max(6, (segment_w - text_w) // 2), row_y + 23), percent_text, font=small_font, fill="#f8fafc")
+                    draw.text((cursor + max(6, (visible_w - text_w) // 2), bar_y + 8), percent_text, font=small_font, fill="#f8fafc")
                 cursor += segment_w
-        draw.rounded_rectangle((bar_x, row_y + 15, bar_x + bar_w, row_y + 50), radius=7, outline="#223241", width=1)
+        draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + 35), radius=7, outline="#223241", width=1)
 
         p_text = _format_number(_batch_p_value(item))
         fit_text = str(_batch_fit_status(item)).upper()
         fit_color = "#22c55e" if fit_text == "PASS" else "#f59e0b"
-        draw.text((p_x, row_y + 21), p_text, font=value_font, fill=accent)
-        draw.rounded_rectangle((fit_x, row_y + 16, fit_x + 84, row_y + 50), radius=7, fill="#10231b" if fit_text == "PASS" else "#2a210c", outline=fit_color, width=1)
-        draw.text((fit_x + 18, row_y + 23), _fit_text(draw, fit_text, small_font, 54), font=small_font, fill=fit_color)
+        draw.text((p_x, row_y + 28), p_text, font=value_font, fill=accent)
+        draw.rounded_rectangle((fit_x, row_y + 22, fit_x + 110, row_y + 56), radius=7, fill="#10231b" if fit_text == "PASS" else "#2a210c", outline=fit_color, width=1)
+        draw.text((fit_x + 13, row_y + 29), _fit_text(draw, fit_text, small_font, 84), font=small_font, fill=fit_color)
+        reason = _batch_warning_reason(item)
+        if fit_text != "PASS" and reason:
+            draw.text((fit_x + 2, row_y + 60), _fit_text(draw, reason, _font(12), 116), font=_font(12), fill="#9aa8bb")
 
     y = panel_bottom + 26
     draw.rounded_rectangle((content_left, y, content_right, y + metrics_h - 34), radius=12, fill="#0d151c", outline=outline, width=1)
@@ -549,7 +570,7 @@ def render_admixtools2_qpadm_batch_result(
     metric_w = (content_right - content_left - 44 - metric_gap * 3) // 4
     avg_p = sum(p_values) / len(p_values) if p_values else None
     metrics = [
-        ("BEST FIT (BY P-VALUE)", _batch_target_label(best_item) if best_item else "n/a", f"p = {_format_number(_batch_p_value(best_item))}" if best_item else ""),
+        ("HIGHEST P-VALUE", _batch_target_label(best_item) if best_item else "n/a", f"p = {_format_number(_batch_p_value(best_item))}" if best_item else ""),
         ("AVERAGE P-VALUE", _format_number(avg_p), f"across {len(p_values)} completed"),
         ("TOTAL TARGETS", str(len(results)), f"{len(completed_results)} completed"),
         ("WARNINGS", str(len(warning_results) + (len(results) - len(completed_results))), f"of {len(results)} targets"),
@@ -592,6 +613,18 @@ def _batch_p_value(item: dict[str, Any] | None) -> object:
 def _batch_fit_status(item: dict[str, Any] | None) -> str:
     value = _batch_feasibility(item).get("status")
     return str(value or "unknown")
+
+
+def _batch_warning_reason(item: dict[str, Any] | None) -> str:
+    reason = str(_batch_feasibility(item).get("reason") or "").strip()
+    lowered = reason.casefold()
+    if "negative" in lowered:
+        return "negative"
+    if "z < 2" in lowered or "z<2" in lowered:
+        return "weak source"
+    if "p_value" in lowered or "p-value" in lowered:
+        return "low p"
+    return reason
 
 
 def _batch_target_label(item: dict[str, Any] | None) -> str:

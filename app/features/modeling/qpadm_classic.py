@@ -2029,7 +2029,9 @@ def _format_qpadm_batch_summary(batch_payload: dict[str, Any], *, flow: dict[str
         feasibility = summary.get("feasibility") if isinstance(summary.get("feasibility"), dict) else {}
         p_value = _format_number(fit.get("p_value"))
         fit_status = html.escape(str(feasibility.get("status", "unknown")))
-        lines.append(f"• <code>{html.escape(target)}</code>: p=<code>{p_value}</code>, fit=<code>{fit_status}</code>")
+        reason = str(feasibility.get("reason") or "").strip()
+        reason_text = f", reason=<code>{html.escape(reason)}</code>" if reason and fit_status.upper() != "PASS" else ""
+        lines.append(f"• <code>{html.escape(target)}</code>: p=<code>{p_value}</code>, fit=<code>{fit_status}</code>{reason_text}")
     return "\n".join(lines)
 
 
