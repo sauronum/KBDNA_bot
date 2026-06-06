@@ -29,7 +29,7 @@ def build_modeling_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
         [
             [InlineKeyboardButton("🏛 qpAdm classic", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm")],
             [InlineKeyboardButton("🌊 qpWave classic", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpwave")],
-            [InlineKeyboardButton("🧬 Admixtools 2", callback_data=f"{MODELING_CALLBACK_PREFIX}:at2")],
+            [InlineKeyboardButton("🧬 ADMIXTOOLS 2", callback_data=f"{MODELING_CALLBACK_PREFIX}:at2")],
             [InlineKeyboardButton("📚 Source sets", callback_data=f"{MODELING_CALLBACK_PREFIX}:source_sets")],
             [InlineKeyboardButton("💾 Saved models", callback_data=f"{MODELING_CALLBACK_PREFIX}:saved")],
             footer_row("main:root", lang),
@@ -39,8 +39,8 @@ def build_modeling_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
 
 def admixtools2_text(lang: str = "ru") -> str:
     if lang == "en":
-        return "<b>🧬 Admixtools 2</b>\n\nADMIXTOOLS2 workflows."
-    return "<b>🧬 Admixtools 2</b>\n\nADMIXTOOLS2 workflows."
+        return "<b>🧬 ADMIXTOOLS 2</b>\n\nADMIXTOOLS2 workflows."
+    return "<b>🧬 ADMIXTOOLS 2</b>\n\nADMIXTOOLS2 workflows."
 
 
 def build_admixtools2_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
@@ -89,7 +89,7 @@ def _admixtools2_pending_text(action: str, lang: str = "ru") -> str:
         "at2_fstats": "📊 f-statistics",
         "at2_f2_cache": "📦 f2 cache",
     }
-    title = titles.get(action, "🧬 Admixtools 2")
+    title = titles.get(action, "🧬 ADMIXTOOLS 2")
     if action == "at2_f2_cache":
         if lang == "en":
             return "\n".join(
