@@ -42,11 +42,11 @@ QPADM_ADMIXTOOLS2_VISUAL = {
     "product": "ADMIXTOOLS2 qpAdm",
     "version": "AT2",
     "prefix": "qpadm_admixtools2_result",
-    "background": "#11130f",
-    "panel": "#24251d",
-    "accent": "#fbbf24",
-    "outline": "#5a5135",
-    "palette": ["#f59e0b", "#22c55e", "#38bdf8", "#ef4444", "#c084fc", "#14b8a6", "#facc15", "#fb7185"],
+    "background": "#0b1117",
+    "panel": "#171d22",
+    "accent": "#f5b942",
+    "outline": "#33424e",
+    "palette": ["#33d6d6", "#ff9f4a", "#f9e879", "#4ade80", "#a78bfa", "#79e5bd", "#75a7ff", "#fbbf24"],
 }
 
 
@@ -277,11 +277,12 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
 
     width = 1080
     ref_rows = max(1, (len(references) + 1) // 2)
-    height = 610 + max(1, len(rows)) * 64 + ref_rows * 38
-    image, draw = _canvas(height, width=width, background="#0b1117", panel="#171d22")
+    height = 590 + max(1, len(rows)) * 72 + ref_rows * 38
+    image, draw = _canvas(height, width=width, background=str(QPADM_ADMIXTOOLS2_VISUAL["background"]), panel=str(QPADM_ADMIXTOOLS2_VISUAL["panel"]))
     content_left = 64
     content_right = width - 64
-    accent = "#f5b942"
+    accent = str(QPADM_ADMIXTOOLS2_VISUAL["accent"])
+    palette = list(QPADM_ADMIXTOOLS2_VISUAL["palette"])
     axis = "#53616e"
     title_font = _font(44, bold=True)
     subtitle_font = _font(21)
@@ -332,41 +333,49 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
             value_color = "#fb7185"
         draw.text((x + 14, y + 38), _fit_text(draw, value, metric_value_font, tile_w - 28), font=metric_value_font, fill=value_color)
 
-    y += 122
+    y += 118
     draw.text((content_left, y), "Source Weight Bars", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 264, y + 8), "left of zero = negative", font=small_font, fill="#8fa0b5")
-    y += 48
-    bar_left = content_left + 430
+    draw.text((content_right - 256, y + 8), "bar length = |weight|", font=small_font, fill="#8fa0b5")
+    y += 46
+    bar_left = content_left + 416
     bar_right = content_right
     bar_w = bar_right - bar_left
-    zero_x = bar_left + bar_w // 2
-    max_abs = max([abs(weight) for _, weight, _ in rows] + [1.0])
-    row_h = 64
+    max_abs = max([abs(weight) + abs(stderr) for _, weight, stderr in rows] + [1.0]) * 1.08
+    row_h = 72
     if not rows:
         draw.rounded_rectangle((content_left, y, content_right, y + 46), radius=9, fill="#10171d", outline="#2b3742", width=1)
         draw.text((content_left + 18, y + 13), "No source weights returned.", font=row_font, fill="#a8b3c5")
         y += row_h
     for index, (source, weight, stderr) in enumerate(rows):
         row_y = y + index * row_h
-        color = "#22c55e" if weight >= 0 else "#fb7185"
-        draw.text((content_left, row_y), _fit_text(draw, source, row_font, 270), font=row_font, fill="#e5edf5")
-        draw.text((content_left + 282, row_y), f"{weight:+.2f}%", font=mono_font, fill=color)
-        draw.text((content_left + 282, row_y + 26), f"+/- {_format_number(stderr, percent=True)}", font=small_font, fill="#8fa0b5")
-        baseline_y = row_y + 35
+        color = "#fb7185" if weight < 0 else palette[index % len(palette)]
+        label = _fit_text(draw, source, row_font, 252)
+        value_text = f"{weight:+.2f}%"
+        value_bbox = draw.textbbox((0, 0), value_text, font=mono_font)
+        value_w = value_bbox[2] - value_bbox[0]
+        draw.text((content_left, row_y + 3), label, font=row_font, fill="#e5edf5")
+        draw.text((content_left + 362 - value_w, row_y + 1), value_text, font=mono_font, fill=color)
+        draw.text((content_left + 286, row_y + 31), f"± {_format_number(stderr, percent=True)}", font=small_font, fill="#98a7b7")
+        baseline_y = row_y + 43
         draw.line((bar_left, baseline_y, bar_right, baseline_y), fill="#2b3742", width=2)
-        draw.line((zero_x, baseline_y - 18, zero_x, baseline_y + 18), fill=axis, width=2)
-        half = bar_w // 2 - 10
-        end_x = zero_x + int(round((weight / max_abs) * half))
-        left = min(zero_x, end_x)
-        right = max(zero_x, end_x)
-        if right - left < 4:
-            right = left + 4
-        draw.rounded_rectangle((left, baseline_y - 12, right, baseline_y + 12), radius=6, fill=color)
+        draw.line((bar_left, baseline_y - 11, bar_left, baseline_y + 11), fill=axis, width=2)
+        available_w = bar_w - 10
+        magnitude = abs(weight)
+        end_x = bar_left + int(round((magnitude / max_abs) * available_w))
+        left = bar_left
+        right = end_x
+        if right - left < 5:
+            right = min(bar_right, bar_left + 5)
         if stderr:
-            err = min(half, int(round(abs(stderr) / max_abs * half)))
-            whisker_x = end_x
-            draw.line((max(bar_left, whisker_x - err), baseline_y, min(bar_right, whisker_x + err), baseline_y), fill="#f8fafc", width=1)
-            draw.line((whisker_x, baseline_y - 16, whisker_x, baseline_y + 16), fill="#f8fafc", width=1)
+            err_left = bar_left + int(round((max(0.0, magnitude - abs(stderr)) / max_abs) * available_w))
+            err_right = bar_left + int(round(((magnitude + abs(stderr)) / max_abs) * available_w))
+            err_left = max(bar_left, min(bar_right, err_left))
+            err_right = max(bar_left, min(bar_right, err_right))
+            draw.line((err_left, baseline_y, err_right, baseline_y), fill="#eef6ff", width=1)
+            draw.line((err_left, baseline_y - 5, err_left, baseline_y + 5), fill="#eef6ff", width=1)
+            draw.line((err_right, baseline_y - 5, err_right, baseline_y + 5), fill="#eef6ff", width=1)
+        draw.rounded_rectangle((left, baseline_y - 8, right, baseline_y + 8), radius=8, fill=color)
+        draw.ellipse((end_x - 5, baseline_y - 5, end_x + 5, baseline_y + 5), fill="#171d22", outline="#eef6ff", width=2)
     y += max(1, len(rows)) * row_h + 28
 
     draw.text((content_left, y), "Reference Panel", font=h_font, fill="#f8fafc")
