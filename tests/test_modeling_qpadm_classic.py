@@ -112,6 +112,7 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertIn("modeling:qpadm_import", classic_callbacks)
         self.assertNotIn("modeling:qpadm_target_kind:sample", at2_callbacks)
         self.assertIn("modeling:qpadm_target_kind:population", at2_callbacks)
+        self.assertIn("modeling:qpadm_target_kind:multi_population", at2_callbacks)
         self.assertIn("modeling:qpadm_import", at2_callbacks)
 
 
