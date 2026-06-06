@@ -167,6 +167,13 @@ from app.features.settings.storage import (
     SEARCH_BASE_ADYGHE,
     SEARCH_BASE_KBDNA,
 )
+from app.features.snp_report.menu import (
+    SNP_REPORT_CALLBACK_PREFIX as DNA_LAB_SNP_REPORT_CALLBACK_PREFIX,
+    register_snp_report_services as register_dna_lab_snp_report_services,
+    show_snp_report_menu as show_dna_lab_snp_report_menu,
+    snp_report_callback_handler as dna_lab_snp_report_callback_handler,
+    snp_report_text_input_handler as dna_lab_snp_report_text_input_handler,
+)
 from app.features.traits.menu import (
     TRAITS_CALLBACK_PREFIX as DNA_LAB_TRAITS_CALLBACK_PREFIX,
     register_traits_services as register_dna_lab_traits_services,
@@ -253,6 +260,7 @@ DNA_LAB_STATS_FEATURES = {
     DNA_LAB_REPORTS_CALLBACK_PREFIX: "reports",
     DNA_LAB_SETTINGS_CALLBACK_PREFIX: "settings",
     DNA_LAB_VAHADUO_CALLBACK_PREFIX: "vahaduo",
+    DNA_LAB_SNP_REPORT_CALLBACK_PREFIX: "snp_report",
 }
 DNA_LAB_MANUAL_USAGE_CALLBACKS = {
     ("my_data", "qg25_create_sample"),
@@ -446,6 +454,7 @@ def _register_dna_lab_services(app: Application) -> None:
     register_dna_lab_matching_services(app, settings)
     register_dna_lab_haplogroup_services(app, settings)
     register_dna_lab_vahaduo_services(app, settings)
+    register_dna_lab_snp_report_services(app, settings)
 
 
 def _language_for_effective_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -579,6 +588,8 @@ async def _show_dna_lab_feature_root(
     elif feature == "haplogroups":
         await show_dna_lab_haplogroups_menu(message, context, user_id, lang=lang, edit_existing=edit_existing)
         _activate_dna_lab_message(context, message, user_id)
+    elif feature == "snp_report":
+        await show_dna_lab_snp_report_menu(message, context, user_id, edit_existing=edit_existing)
 
 
 async def _open_dna_lab_feature_from_message(update: Update, context: ContextTypes.DEFAULT_TYPE, feature: str) -> None:
@@ -1518,6 +1529,7 @@ async def laboratory_callback_handler(update: Update, context: ContextTypes.DEFA
         "haplogroups": "haplogroups",
         "traits": "traits",
         "vahaduo": "vahaduo",
+        "snp_report": "snp_report",
     }
     if action in feature_by_action:
         await _open_dna_lab_feature_from_callback(update, context, feature_by_action[action])
@@ -2064,6 +2076,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_reports_callback_handler), pattern=fr"^{DNA_LAB_REPORTS_CALLBACK_PREFIX}:"))
     app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_settings_callback_handler), pattern=fr"^{DNA_LAB_SETTINGS_CALLBACK_PREFIX}:"))
     app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_vahaduo_callback_handler), pattern=fr"^{DNA_LAB_VAHADUO_CALLBACK_PREFIX}:"))
+    app.add_handler(CallbackQueryHandler(partial(_guarded_dna_lab_callback, dna_lab_snp_report_callback_handler), pattern=fr"^{DNA_LAB_SNP_REPORT_CALLBACK_PREFIX}:"))
     app.add_handler(CallbackQueryHandler(lookup_suggestion_callback_handler, pattern=r"^lookup:(?:[sr]:\d+|a:all)$"))
     app.add_handler(CommandHandler("find", find_command))
     app.add_handler(CommandHandler("f", find_command))
@@ -2085,6 +2098,7 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_haplogroups_text_input_handler), group=-3)
     app.add_handler(MessageHandler(filters.Document.ALL, ystr_document_input_handler), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_matching_text_input_handler), group=-2)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_snp_report_text_input_handler), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, pending_text_router), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_modeling_text_input_handler), group=-1)
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, text_lookup_command))
