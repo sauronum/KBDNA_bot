@@ -3,7 +3,7 @@ from __future__ import annotations
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
-from app.features.modeling.navigation import nav_pop, nav_reset, reset_callback_context, set_callback_context
+from app.features.modeling.navigation import nav_enter, nav_pop, nav_reset, reset_callback_context, set_callback_context
 from app.features.modeling.qpadm_classic import (
     qpadm_classic_callback_handler,
     qpadm_classic_text_input_handler,
@@ -13,7 +13,7 @@ from app.features.modeling.qpadm_classic import (
 from app.features.modeling.qpwave import qpwave_callback_handler, qpwave_text_input_handler, show_qpwave_dataset_menu
 from app.features.modeling.saved_models import saved_models_callback_handler
 from app.features.modeling.source_sets import source_sets_callback_handler, source_sets_text_input_handler
-from app.features.modeling.ui import MODELING_CALLBACK_PREFIX, footer_row, show_message
+from app.features.modeling.ui import MODELING_CALLBACK_PREFIX, footer_row, modeling_cb, show_message
 from app.i18n import get_user_language
 from app.main_menu import ensure_active_main_menu
 
@@ -28,11 +28,30 @@ def build_modeling_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("🏛 qpAdm classic", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm")],
-            [InlineKeyboardButton("🧬 Admixtool 2", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpadm_at2")],
-            [InlineKeyboardButton("🌊 qpWave", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpwave")],
+            [InlineKeyboardButton("🌊 qpWave classic", callback_data=f"{MODELING_CALLBACK_PREFIX}:qpwave")],
+            [InlineKeyboardButton("🧬 Admixtools 2", callback_data=f"{MODELING_CALLBACK_PREFIX}:at2")],
             [InlineKeyboardButton("📚 Source sets", callback_data=f"{MODELING_CALLBACK_PREFIX}:source_sets")],
             [InlineKeyboardButton("💾 Saved models", callback_data=f"{MODELING_CALLBACK_PREFIX}:saved")],
             footer_row("main:root", lang),
+        ]
+    )
+
+
+def admixtools2_text(lang: str = "ru") -> str:
+    if lang == "en":
+        return "<b>🧬 Admixtools 2</b>\n\nADMIXTOOLS2 workflows."
+    return "<b>🧬 Admixtools 2</b>\n\nADMIXTOOLS2 workflows."
+
+
+def build_admixtools2_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🧪 qpAdm 2", callback_data=modeling_cb("qpadm_at2"))],
+            [InlineKeyboardButton("〰️ qpWave 2", callback_data=modeling_cb("at2_qpwave"))],
+            [InlineKeyboardButton("🕸 qpGraph 2", callback_data=modeling_cb("at2_qpgraph"))],
+            [InlineKeyboardButton("📊 f-statistics", callback_data=modeling_cb("at2_fstats"))],
+            [InlineKeyboardButton("📦 f2 cache", callback_data=modeling_cb("at2_f2_cache"))],
+            footer_row(modeling_cb("root"), lang),
         ]
     )
 
@@ -48,6 +67,67 @@ async def show_modeling_menu(
     markup = build_modeling_keyboard(lang)
     await show_message(message, modeling_text(lang), markup, edit_existing=edit_existing)
     return message
+
+
+async def show_admixtools2_menu(
+    message,
+    context: ContextTypes.DEFAULT_TYPE | None = None,
+    *,
+    edit_existing: bool = False,
+    lang: str = "ru",
+):
+    nav_enter(context, modeling_cb("at2"))
+    markup = build_admixtools2_keyboard(lang)
+    await show_message(message, admixtools2_text(lang), markup, edit_existing=edit_existing)
+    return message
+
+
+def _admixtools2_pending_text(action: str, lang: str = "ru") -> str:
+    titles = {
+        "at2_qpwave": "〰️ qpWave 2",
+        "at2_qpgraph": "🕸 qpGraph 2",
+        "at2_fstats": "📊 f-statistics",
+        "at2_f2_cache": "📦 f2 cache",
+    }
+    title = titles.get(action, "🧬 Admixtools 2")
+    if action == "at2_f2_cache":
+        if lang == "en":
+            return "\n".join(
+                [
+                    f"<b>{title}</b>",
+                    "",
+                    "The ADMIXTOOLS2 qpAdm backend uses server-side f2 cache.",
+                    "Status page and cache controls are the next backend block.",
+                ]
+            )
+        return "\n".join(
+            [
+                f"<b>{title}</b>",
+                "",
+                "ADMIXTOOLS2 qpAdm уже использует серверный f2 cache.",
+                "Статус и управление кэшем — следующий backend-блок.",
+            ]
+        )
+    if lang == "en":
+        return "\n".join([f"<b>{title}</b>", "", "Backend wiring is pending."])
+    return "\n".join([f"<b>{title}</b>", "", "Backend wiring еще не подключен."])
+
+
+async def show_admixtools2_pending(
+    message,
+    context: ContextTypes.DEFAULT_TYPE | None,
+    action: str,
+    *,
+    edit_existing: bool = True,
+    lang: str = "ru",
+) -> None:
+    nav_enter(context, modeling_cb(action))
+    await show_message(
+        message,
+        _admixtools2_pending_text(action, lang),
+        InlineKeyboardMarkup([footer_row(modeling_cb("at2"), lang)]),
+        edit_existing=edit_existing,
+    )
 
 
 async def modeling_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -78,8 +158,14 @@ async def _dispatch_modeling_action(
     if action == "qpadm":
         await show_qpadm_classic_dataset_menu(query.message, context, edit_existing=True, lang=lang)
         return
+    if action == "at2":
+        await show_admixtools2_menu(query.message, context, edit_existing=True, lang=lang)
+        return
     if action == "qpadm_at2":
         await show_qpadm_admixtools2_dataset_menu(query.message, context, edit_existing=True, lang=lang)
+        return
+    if action in {"at2_qpwave", "at2_qpgraph", "at2_fstats", "at2_f2_cache"}:
+        await show_admixtools2_pending(query.message, context, action, edit_existing=True, lang=lang)
         return
     if action == "qpwave":
         await show_qpwave_dataset_menu(query.message, context, edit_existing=True, lang=lang)

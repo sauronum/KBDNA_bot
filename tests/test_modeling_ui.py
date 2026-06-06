@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from app.features.modeling.menu import build_modeling_keyboard, modeling_text
+from app.features.modeling.menu import build_admixtools2_keyboard, build_modeling_keyboard, modeling_text
 from app.features.modeling.source_sets import _parse_source_set_import
 
 
@@ -15,15 +15,32 @@ class ModelingUiTests(unittest.TestCase):
 
         self.assertIn("AdmixLab", modeling_text("ru"))
         self.assertTrue(any("qpAdm classic" in label for label in labels))
-        self.assertTrue(any("Admixtool 2" in label for label in labels))
-        self.assertTrue(any("qpWave" in label for label in labels))
+        self.assertTrue(any("Admixtools 2" in label for label in labels))
+        self.assertTrue(any("qpWave classic" in label for label in labels))
         self.assertTrue(any("Source sets" in label for label in labels))
         self.assertTrue(any("Saved models" in label for label in labels))
         self.assertIn("modeling:qpadm", callbacks)
-        self.assertIn("modeling:qpadm_at2", callbacks)
+        self.assertIn("modeling:at2", callbacks)
         self.assertIn("modeling:qpwave", callbacks)
         self.assertIn("modeling:source_sets", callbacks)
         self.assertIn("modeling:saved", callbacks)
+
+    def test_admixtools2_menu_groups_backend_tools(self) -> None:
+        keyboard = build_admixtools2_keyboard("ru")
+        buttons = [button for row in keyboard.inline_keyboard for button in row]
+        labels = [button.text for button in buttons]
+        callbacks = [button.callback_data for button in buttons]
+
+        self.assertIn("🧪 qpAdm 2", labels)
+        self.assertIn("〰️ qpWave 2", labels)
+        self.assertIn("🕸 qpGraph 2", labels)
+        self.assertIn("📊 f-statistics", labels)
+        self.assertIn("📦 f2 cache", labels)
+        self.assertIn("modeling:qpadm_at2", callbacks)
+        self.assertIn("modeling:at2_qpwave", callbacks)
+        self.assertIn("modeling:at2_qpgraph", callbacks)
+        self.assertIn("modeling:at2_fstats", callbacks)
+        self.assertIn("modeling:at2_f2_cache", callbacks)
 
     def test_modeling_menu_has_standard_footer(self) -> None:
         keyboard = build_modeling_keyboard("ru")
