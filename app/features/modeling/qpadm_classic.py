@@ -148,8 +148,7 @@ def _target_menu_markup(flow: dict[str, Any], lang: str) -> InlineKeyboardMarkup
     rows: list[list[InlineKeyboardButton]]
     if _is_admixtools2_engine(flow.get("engine")):
         rows = [
-            [InlineKeyboardButton("🌐 Одна population", callback_data=_cb("qpadm_target_kind", "population"))],
-            [InlineKeyboardButton("➕ Выбрать несколько populations", callback_data=_cb("qpadm_target_kind", "multi_population"))],
+            [InlineKeyboardButton("🌐 Выбрать population(s)", callback_data=_cb("qpadm_target_kind", "population"))],
             [InlineKeyboardButton("\U0001f4cb Import population model", callback_data=_cb("qpadm_import"))],
         ]
     else:
@@ -2135,7 +2134,7 @@ async def qpadm_classic_callback_handler(
         if kind == "sample":
             await _show_sample_menu(message, update, context, lang=lang, page=0)
             return
-        if kind in {"population", "multi_population"}:
+        if kind == "population":
             await _start_population_search(message, context, "target", lang=lang)
             return
 
