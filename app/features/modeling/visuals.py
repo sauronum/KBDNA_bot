@@ -323,6 +323,7 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     metric_value_font = _font(24, bold=True)
     h_font = _font(27, bold=True)
     row_font = _font(20)
+    info_font = _font(22)
     small_font = _font(17)
     detail_font = _font(16)
     detail_bold_font = _font(16, bold=True)
@@ -340,10 +341,11 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
 
     y += 114
     draw.rounded_rectangle((content_left, y, content_right, y + 58), radius=10, fill="#10171d", outline="#2b3742", width=1)
-    draw.text((content_left + 18, y + 16), "Dataset", font=metric_label_font, fill="#8fa0b5")
-    draw.text((content_left + 116, y + 13), _fit_text(draw, _dataset_label(flow.get("dataset")), row_font, 250), font=row_font, fill="#e5edf5")
-    draw.text((content_left + 396, y + 16), "Target", font=metric_label_font, fill="#8fa0b5")
-    draw.text((content_left + 480, y + 13), _fit_text(draw, _target_display(flow), row_font, content_right - content_left - 500), font=row_font, fill=accent)
+    info_y = y + 17
+    draw.text((content_left + 18, info_y + 2), "Dataset", font=metric_label_font, fill="#8fa0b5")
+    draw.text((content_left + 116, info_y - 1), _fit_text(draw, _dataset_label(flow.get("dataset")), info_font, 250), font=info_font, fill="#e5edf5")
+    draw.text((content_left + 396, info_y + 2), "Target", font=metric_label_font, fill="#8fa0b5")
+    draw.text((content_left + 480, info_y - 1), _fit_text(draw, _target_display(flow), info_font, content_right - content_left - 500), font=info_font, fill=accent)
 
     y += 86
     metrics = [
@@ -369,7 +371,7 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
         draw.text((x + 14, y + 38), _fit_text(draw, value, value_font, tile_w - 28), font=value_font, fill=value_color)
 
     y += 118
-    draw.text((content_left, y), "Source Weight Bars", font=h_font, fill="#f8fafc")
+    draw.text((content_left, y), "Sources", font=h_font, fill="#f8fafc")
     draw.text((content_right - 116, y + 8), "0-100% scale", font=small_font, fill="#8fa0b5")
     y += 44
     if not rows:
@@ -378,13 +380,17 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
         y += 70
     else:
         bar_left = content_left
-        bar_right = content_right - 196
+        bar_right = content_right - 232
         bar_w = bar_right - bar_left
         row_h = 78
         bar_h = 16
-        meta_x = content_right - 176
+        weight_x = content_right - 214
+        se_x = content_right - 130
+        z_x = content_right - 42
         draw.text((bar_left, y), "Source", font=metric_label_font, fill="#8fa0b5")
-        draw.text((meta_x, y), "Weight / SE / z", font=metric_label_font, fill="#8fa0b5")
+        draw.text((weight_x, y), "Weight", font=metric_label_font, fill="#8fa0b5")
+        draw.text((se_x, y), "SE", font=metric_label_font, fill="#8fa0b5")
+        draw.text((z_x, y), "z", font=metric_label_font, fill="#8fa0b5")
         y += 30
         for index, row in enumerate(rows):
             row_y = y + index * row_h
@@ -394,9 +400,6 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
             color = "#fb7185" if weight < 0 else palette[index % len(palette)]
             label = _fit_text(draw, row["source"], detail_bold_font, bar_right - bar_left)
             draw.text((bar_left, row_y), label, font=detail_bold_font, fill="#e5edf5")
-            weight_text = _format_signed_percent(weight)
-            weight_bbox = draw.textbbox((0, 0), weight_text, font=detail_bold_font)
-            draw.text((content_right - (weight_bbox[2] - weight_bbox[0]), row_y), weight_text, font=detail_bold_font, fill=color)
             baseline_y = row_y + 38
             draw.line((bar_left, baseline_y, bar_right, baseline_y), fill="#2b3742", width=2)
             draw.line((bar_left, baseline_y - 7, bar_left, baseline_y + 7), fill="#475569", width=1)
@@ -414,16 +417,17 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
             draw.line((err_left, baseline_y - 5, err_left, baseline_y + 5), fill="#dbe5ef", width=1)
             draw.line((err_right, baseline_y - 5, err_right, baseline_y + 5), fill="#dbe5ef", width=1)
             draw.ellipse((point_x - 5, baseline_y - 5, point_x + 5, baseline_y + 5), fill="#10171d", outline="#f8fafc", width=2)
-            draw.text((meta_x, baseline_y - 16), f"SE +/- {_format_number(stderr, percent=True)}", font=detail_font, fill="#cbd5e1")
-            draw.text((meta_x, baseline_y + 5), f"z {_format_number(z_value)}", font=detail_font, fill="#cbd5e1")
+            draw.text((weight_x, baseline_y - 12), _format_signed_percent(weight), font=detail_bold_font, fill=color)
+            draw.text((se_x, baseline_y - 12), _format_number(stderr, percent=True), font=detail_font, fill="#cbd5e1")
+            draw.text((z_x, baseline_y - 12), _format_number(z_value), font=detail_font, fill="#cbd5e1")
         y += len(rows) * row_h + 10
 
-    draw.text((content_left, y), "Reference Panel", font=h_font, fill="#f8fafc")
+    draw.text((content_left, y), "References", font=h_font, fill="#f8fafc")
     y += 42
     pill_w = (content_right - content_left - 16) // 2
     for index, ref in enumerate(references or ["none"]):
-        col = index % 2
-        row = index // 2
+        col = 0 if index < ref_rows else 1
+        row = index if col == 0 else index - ref_rows
         x = content_left + col * (pill_w + 16)
         yy = y + row * 38
         draw.rounded_rectangle((x, yy, x + pill_w, yy + 28), radius=8, fill="#10171d", outline="#2b3742", width=1)
