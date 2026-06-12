@@ -386,9 +386,9 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
         bar_w = bar_right - bar_left
         row_h = 78
         bar_h = 16
-        weight_x = bar_right + 42
-        se_x = bar_right + 116
-        z_x = bar_right + 190
+        weight_x = bar_right + 38
+        se_x = bar_right + 120
+        z_x = bar_right + 192
         draw.text((bar_left, y), "Source", font=metric_label_font, fill="#8fa0b5")
         draw_centered(weight_x, y, "Weight", metric_label_font, "#8fa0b5")
         draw_centered(se_x, y, "SE", metric_label_font, "#8fa0b5")
