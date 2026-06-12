@@ -462,33 +462,13 @@ def running_text(sample: SampleAsset, *, lang: str = "ru") -> str:
     return f"🧾 SNP отчёт\n\nСчитаю отчёт для: <b>{html.escape(sample.display_name)}</b>"
 
 
-def _category_load_line(item: SnpCategorySummary) -> str:
-    label = _fit_visual_label(item.category, 15)
-    bar = _risk_bar(item.risk_percent)
-    return f"<code>{html.escape(label):<15} {item.risk_percent:>3}% {bar} {item.bad}/{item.warn}/{item.missing}</code>"
-
-
-def _fit_visual_label(value: str, limit: int) -> str:
-    text = " ".join(value.split())
-    if len(text) <= limit:
-        return text
-    return text[: max(0, limit - 1)].rstrip() + "…"
-
-
-def _risk_bar(percent: int, *, width: int = 10) -> str:
-    bounded = max(0, min(100, percent))
-    filled = int(round((bounded / 100) * width))
-    return "█" * filled + "░" * (width - filled)
-
-
-def result_text(record: SnpReportRecord, *, lang: str = "ru") -> str:
+def result_text(record: SnpReportRecord, *, lang: str = "ru", visual: bool = False) -> str:
     summary = record.summary
     categories = [
         SnpCategorySummary(**item)
         for item in record.payload.get("categories", [])
         if isinstance(item, dict)
     ]
-    top = categories[:7]
     total = max(1, summary.total_rules)
     found = total - summary.missing
     lines = [
@@ -503,11 +483,23 @@ def result_text(record: SnpReportRecord, *, lang: str = "ru") -> str:
         f"🔴 Гомо/вариант: <b>{summary.bad}</b>",
         f"⚪ Нет данных: <b>{summary.missing}</b>",
     ]
-    if top:
-        lines.extend(["", "<b>Нагрузка по категориям:</b>"])
-        for item in top:
-            lines.append(_category_load_line(item))
-        lines.append("<i>Справа: гомо / гетеро / нет данных.</i>")
+    if categories:
+        if visual:
+            lines.extend(
+                [
+                    "",
+                    "📊 <b>PNG-график:</b> топ категорий по нагрузке.",
+                    "<i>Нагрузка = гомо + половина гетеро среди найденных SNP.</i>",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "",
+                    "📊 Топ категорий вынесен в PNG-график.",
+                    "<i>Если картинка не отобразилась, подробная таблица есть в HTML.</i>",
+                ]
+            )
     lines.extend(["", "HTML-файл готов. Его можно скачать кнопкой ниже."])
     return "\n".join(lines)
 

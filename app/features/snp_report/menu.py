@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
@@ -43,12 +44,14 @@ from .ui import (
     search_picker_text,
     search_result_text,
 )
+from .visuals import render_category_load_png
 
 
 SNP_REPORT_CALLBACK_PREFIX = "snp_report"
 SNP_LOOKUP_PENDING_KEY = "snp_lab_lookup_pending"
 SNP_DB_LOOKUP_PENDING_KEY = "snp_lab_db_lookup_pending"
 RSID_RE = re.compile(r"^rs\d+$", re.IGNORECASE)
+LOGGER = logging.getLogger(__name__)
 
 
 def register_snp_report_services(application: Application, settings) -> None:
@@ -614,11 +617,42 @@ async def _run_snp_report(message, update: Update, context: ContextTypes.DEFAULT
 
     record = _report_store(context).save_report(user_id, result, html_report)
     _record_snp_report_usage(update, context, "run")
-    await message.edit_text(
-        result_text(record, lang=lang),
-        parse_mode="HTML",
-        reply_markup=build_result_keyboard(record.summary.report_id, lang=lang),
-    )
+    await _send_report_result(message, context, user_id, record, lang=lang)
+
+
+async def _send_report_result(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    record,
+    *,
+    lang: str,
+) -> None:
+    markup = build_result_keyboard(record.summary.report_id, lang=lang)
+    caption = result_text(record, lang=lang, visual=True)
+    fallback_text = result_text(record, lang=lang, visual=False)
+    image_path = _report_store(context).resolve_html_path(record.summary).with_suffix(".png")
+    try:
+        render_category_load_png(record, image_path, lang=lang)
+        with image_path.open("rb") as handle:
+            await message.reply_photo(
+                photo=handle,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=markup,
+                do_quote=False,
+            )
+        try:
+            await message.delete()
+        except Exception:
+            LOGGER.debug("Could not delete SNP Lab status message", exc_info=True)
+    except Exception:
+        LOGGER.exception("Could not send SNP Lab visual report")
+        await message.edit_text(
+            fallback_text,
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
 
 
 async def _send_html_report(message, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, report_id: str) -> None:
