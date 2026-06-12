@@ -461,13 +461,12 @@ def render_admixtools2_qpadm_batch_result(
     best_item = max(completed_results, key=lambda item: _number(_batch_p_value(item)) if _number(_batch_p_value(item)) is not None else -1.0, default=None)
     width = 1440
     legend_items = sources[:15]
-    legend_cols = 1 if len(legend_items) <= 1 else 2 if len(legend_items) <= 6 else 3 if len(legend_items) <= 12 else 4
+    legend_cols = min(3, max(1, len(legend_items)))
     legend_rows = max(1, math.ceil(max(1, len(legend_items)) / legend_cols))
     row_h = 88
     table_h = 166 + max(1, len(results)) * row_h + legend_rows * 34
     metrics_h = 166
-    reference_rows = 0 if not references else min(2, max(1, math.ceil(len(references) / 7)))
-    references_h = 0 if not references else 18 + reference_rows * 22
+    references_h = 0 if not references else 54
     height = 410 + table_h + metrics_h + references_h
     image, draw = _canvas(height, width=width, background="#071019", panel="#111820")
 
@@ -483,7 +482,8 @@ def render_admixtools2_qpadm_batch_result(
     row_font = _font(19, bold=True)
     small_font = _font(16)
     header_font = _font(17, bold=True)
-    ref_font = _font(13)
+    ref_font = _font(14)
+    batch_stat_font = _font(18)
     value_font = _font(21, bold=True)
     percent_font = _font(17, bold=True)
 
@@ -534,16 +534,16 @@ def render_admixtools2_qpadm_batch_result(
     row_start_y = header_y + 60
     bar_x = content_left + 170
     p_x = content_right - 336
-    z_x = content_right - 244
-    se_x = content_right - 158
+    se_x = content_right - 244
+    z_x = content_right - 158
     fit_x = content_right - 60
     bar_w = p_x - bar_x - 70
     fit_badge_w = 96
     draw.text((content_left + 22, header_y + 22), "Target", font=header_font, fill="#cbd5e1")
     draw.text((bar_x, header_y + 22), "Source weights (%)", font=header_font, fill="#cbd5e1")
     draw_centered(p_x, header_y + 22, "P-VALUE", header_font, "#cbd5e1")
-    draw_centered(z_x, header_y + 22, "MIN |Z|", header_font, "#cbd5e1")
     draw_centered(se_x, header_y + 22, "SE", header_font, "#cbd5e1")
+    draw_centered(z_x, header_y + 22, "z", header_font, "#cbd5e1")
     draw_centered(fit_x, header_y + 22, "FIT", header_font, "#cbd5e1")
 
     if not results:
@@ -617,8 +617,8 @@ def render_admixtools2_qpadm_batch_result(
         fit_text = str(_batch_fit_status(item)).upper()
         fit_color = "#22c55e" if fit_text == "PASS" else "#f59e0b"
         draw_centered(p_x, row_y + 28, p_text, value_font, accent)
-        draw_centered(z_x, row_y + 28, _format_number(min_abs_z), value_font, "#dbe5ef")
         draw_centered(se_x, row_y + 30, _format_number(max_se, percent=True) if max_se is not None else "n/a", small_font, "#cbd5e1")
+        draw_centered(z_x, row_y + 29, _format_number(min_abs_z), batch_stat_font, "#dbe5ef")
         badge_left = fit_x - fit_badge_w // 2
         draw.rounded_rectangle((badge_left, row_y + 22, badge_left + fit_badge_w, row_y + 56), radius=7, fill="#10231b" if fit_text == "PASS" else "#2a210c", outline=fit_color, width=1)
         draw_centered(fit_x, row_y + 30, _fit_text(draw, fit_text, small_font, fit_badge_w - 20), small_font, fit_color)
@@ -651,31 +651,27 @@ def render_admixtools2_qpadm_batch_result(
     if references:
         draw.line((content_left, y, content_right, y), fill=outline, width=1)
         draw.text((content_left + 18, y + 14), "References", font=meta_label_font, fill="#cbd5e1")
-        chip_x = content_left + 132
-        chip_y = y + 12
-        line_h = 22
-        max_chip_right = content_right - 18
-        drawn_count = 0
+        ref_x = content_left + 132
+        ref_w = content_right - ref_x - 18
+        current_line = ""
+        ref_lines: list[str] = []
         for ref in references:
-            chip_text = _fit_text(draw, ref, ref_font, 210)
-            chip_bbox = draw.textbbox((0, 0), chip_text, font=ref_font)
-            chip_w = min(230, chip_bbox[2] - chip_bbox[0] + 18)
-            if chip_x + chip_w > max_chip_right:
-                chip_x = content_left + 132
-                chip_y += line_h
-            if chip_y + 20 > y + references_h - 8:
-                remaining = len(references) - drawn_count
-                if remaining > 0:
-                    more_text = f"+{remaining} more"
-                    more_bbox = draw.textbbox((0, 0), more_text, font=ref_font)
-                    more_w = more_bbox[2] - more_bbox[0] + 18
-                    draw.rounded_rectangle((chip_x, chip_y, chip_x + more_w, chip_y + 18), radius=5, fill="#111b24", outline="#33424e", width=1)
-                    draw.text((chip_x + 9, chip_y + 3), more_text, font=ref_font, fill="#9aa8bb")
+            candidate = ref if not current_line else f"{current_line}, {ref}"
+            bbox = draw.textbbox((0, 0), candidate, font=ref_font)
+            if bbox[2] - bbox[0] <= ref_w or not current_line:
+                current_line = candidate
+                continue
+            ref_lines.append(current_line)
+            current_line = ref
+            if len(ref_lines) == 2:
                 break
-            draw.rounded_rectangle((chip_x, chip_y, chip_x + chip_w, chip_y + 18), radius=5, fill="#111b24", outline="#33424e", width=1)
-            draw.text((chip_x + 9, chip_y + 3), chip_text, font=ref_font, fill="#cbd5e1")
-            chip_x += chip_w + 8
-            drawn_count += 1
+        if current_line and len(ref_lines) < 2:
+            ref_lines.append(current_line)
+        consumed = sum(line.count(",") + 1 for line in ref_lines if line)
+        if consumed < len(references) and ref_lines:
+            ref_lines[-1] = _fit_text(draw, f"{ref_lines[-1]}, +{len(references) - consumed} more", ref_font, ref_w)
+        for line_index, line in enumerate(ref_lines[:2]):
+            draw.text((ref_x, y + 13 + line_index * 19), line, font=ref_font, fill="#cbd5e1")
 
     _draw_footer(image, draw, product="ADMIXTOOLS2 qpAdm", version="AT2", accent="#d4af37", outline=outline)
     return _save(image, output_dir, "qpadm_admixtools2_batch")
