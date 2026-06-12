@@ -448,6 +448,7 @@ def render_admixtools2_qpadm_batch_result(
         sources = [str(item) for item in batch_payload.get("sources", []) if str(item)]
     palette = list(QPADM_ADMIXTOOLS2_VISUAL["palette"])
     source_colors = {source: palette[index % len(palette)] for index, source in enumerate(sources)}
+    references = [str(item) for item in flow.get("references", []) if str(item)]
 
     completed_results = [item for item in results if item.get("status") == "completed"]
     warning_results = [
@@ -459,11 +460,15 @@ def render_admixtools2_qpadm_batch_result(
     p_values = [value for value in p_values if value is not None]
     best_item = max(completed_results, key=lambda item: _number(_batch_p_value(item)) if _number(_batch_p_value(item)) is not None else -1.0, default=None)
     width = 1440
-    legend_rows = max(1, math.ceil(max(1, len(sources)) / 5))
+    legend_items = sources[:15]
+    legend_cols = 1 if len(legend_items) <= 1 else 2 if len(legend_items) <= 6 else 3 if len(legend_items) <= 12 else 4
+    legend_rows = max(1, math.ceil(max(1, len(legend_items)) / legend_cols))
     row_h = 88
     table_h = 166 + max(1, len(results)) * row_h + legend_rows * 34
-    metrics_h = 190
-    height = 320 + table_h + metrics_h + 120
+    metrics_h = 166
+    reference_rows = 0 if not references else min(2, max(1, math.ceil(len(references) / 7)))
+    references_h = 0 if not references else 18 + reference_rows * 22
+    height = 410 + table_h + metrics_h + references_h
     image, draw = _canvas(height, width=width, background="#071019", panel="#111820")
 
     content_left = 56
@@ -477,8 +482,14 @@ def render_admixtools2_qpadm_batch_result(
     h_font = _font(25, bold=True)
     row_font = _font(19, bold=True)
     small_font = _font(16)
+    header_font = _font(17, bold=True)
+    ref_font = _font(13)
     value_font = _font(21, bold=True)
     percent_font = _font(17, bold=True)
+
+    def draw_centered(cx: int, yy: int, text: str, font: ImageFont.ImageFont, fill: str) -> None:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        draw.text((cx - (bbox[2] - bbox[0]) // 2, yy), text, font=font, fill=fill)
 
     y = 54
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
@@ -503,33 +514,37 @@ def render_admixtools2_qpadm_batch_result(
     panel_bottom = y + table_h
     draw.rounded_rectangle((content_left, panel_top, content_right, panel_bottom), radius=12, fill="#0d151c", outline=outline, width=1)
     draw.text((content_left + 22, y + 24), "Source weight comparison across targets", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 258, y + 31), "p, min |z|, max SE", font=small_font, fill="#9aa8bb")
 
     legend_y = y + 76
     legend_x = content_left + 180
-    legend_col_w = 220
-    for index, source in enumerate(sources[:15]):
-        row = index // 5
-        col = index % 5
+    legend_col_w = (content_right - legend_x - 16) // legend_cols
+    for index, source in enumerate(legend_items):
+        row = index // legend_cols
+        col = index % legend_cols
         x = legend_x + col * legend_col_w
         yy = legend_y + row * 34
         color = source_colors[source]
         draw.rounded_rectangle((x, yy + 4, x + 18, yy + 22), radius=4, fill=color)
-        draw.text((x + 30, yy + 2), _fit_text(draw, source, small_font, 168), font=small_font, fill="#dbe5ef")
+        draw.text((x + 30, yy + 2), _fit_text(draw, source, small_font, legend_col_w - 42), font=small_font, fill="#dbe5ef")
+    if len(sources) > len(legend_items):
+        draw.text((legend_x, legend_y + legend_rows * 34 - 2), f"+{len(sources) - len(legend_items)} more sources", font=small_font, fill="#9aa8bb")
 
     header_y = legend_y + legend_rows * 34 + 22
     draw.line((content_left, header_y, content_right, header_y), fill=outline, width=1)
-    draw.text((content_left + 22, header_y + 24), "Target", font=small_font, fill="#9aa8bb")
-    draw.text((content_left + 390, header_y + 24), "Source weights (%)", font=small_font, fill="#9aa8bb")
-    draw.text((content_right - 348, header_y + 24), "P-VALUE", font=small_font, fill="#9aa8bb")
-    draw.text((content_right - 232, header_y + 24), "MIN |Z|", font=small_font, fill="#9aa8bb")
-    draw.text((content_right - 112, header_y + 24), "FIT", font=small_font, fill="#9aa8bb")
     row_start_y = header_y + 60
-    bar_x = content_left + 210
-    bar_w = content_right - bar_x - 430
-    p_x = content_right - 348
-    z_x = content_right - 232
-    fit_x = content_right - 112
+    bar_x = content_left + 170
+    p_x = content_right - 336
+    z_x = content_right - 244
+    se_x = content_right - 158
+    fit_x = content_right - 60
+    bar_w = p_x - bar_x - 70
+    fit_badge_w = 96
+    draw.text((content_left + 22, header_y + 22), "Target", font=header_font, fill="#cbd5e1")
+    draw.text((bar_x, header_y + 22), "Source weights (%)", font=header_font, fill="#cbd5e1")
+    draw_centered(p_x, header_y + 22, "P-VALUE", header_font, "#cbd5e1")
+    draw_centered(z_x, header_y + 22, "MIN |Z|", header_font, "#cbd5e1")
+    draw_centered(se_x, header_y + 22, "SE", header_font, "#cbd5e1")
+    draw_centered(fit_x, header_y + 22, "FIT", header_font, "#cbd5e1")
 
     if not results:
         draw.text((content_left + 22, row_start_y + 18), "No batch results returned.", font=row_font, fill="#a8b3c5")
@@ -537,7 +552,7 @@ def render_admixtools2_qpadm_batch_result(
         row_y = row_start_y + row_index * row_h
         draw.line((content_left, row_y, content_right, row_y), fill="#1d2a35", width=1)
         target_label = _batch_target_label(item)
-        draw.text((content_left + 22, row_y + 28), _fit_text(draw, target_label, row_font, 172), font=row_font, fill=accent)
+        draw.text((content_left + 22, row_y + 28), _fit_text(draw, target_label, row_font, bar_x - content_left - 48), font=row_font, fill=accent)
 
         if item.get("status") != "completed":
             error = _fit_text(draw, str(item.get("error") or "failed"), small_font, bar_w + 150)
@@ -565,6 +580,10 @@ def render_admixtools2_qpadm_batch_result(
         positive_scale = positive_total if positive_total > 0 else 100.0
         positive_sources = [source for source in sources if weight_map.get(source, 0.0) > 0]
         if positive_sources:
+            bar_h = 35
+            bar_layer = Image.new("RGB", (bar_w, bar_h), "#071019")
+            bar_draw = ImageDraw.Draw(bar_layer)
+            segment_labels: list[tuple[int, int, str]] = []
             for index, source in enumerate(sources):
                 raw_weight = weight_map.get(source, 0.0)
                 if raw_weight <= 0:
@@ -577,34 +596,40 @@ def render_admixtools2_qpadm_batch_result(
                         continue
                     segment_right = min(bar_x + bar_w, cursor + segment_w)
                 color = source_colors[source]
-                draw.rectangle((cursor, bar_y, segment_right, bar_y + 35), fill=color)
+                bar_draw.rectangle((cursor - bar_x, 0, segment_right - bar_x, bar_h), fill=color)
                 percent_text = f"{raw_weight:.1f}%"
                 visible_w = segment_right - cursor
                 if visible_w > 58:
-                    text_bbox = draw.textbbox((0, 0), percent_text, font=percent_font)
-                    text_w = text_bbox[2] - text_bbox[0]
-                    draw.text((cursor + max(6, (visible_w - text_w) // 2), bar_y + 8), percent_text, font=percent_font, fill="#071019")
+                    segment_labels.append((cursor, visible_w, percent_text))
                 cursor = segment_right
+            mask = Image.new("L", (bar_w, bar_h), 0)
+            mask_draw = ImageDraw.Draw(mask)
+            mask_draw.rounded_rectangle((0, 0, bar_w, bar_h), radius=7, fill=255)
+            image.paste(bar_layer, (bar_x, bar_y), mask)
+            for label_x, visible_w, percent_text in segment_labels:
+                text_bbox = draw.textbbox((0, 0), percent_text, font=percent_font)
+                text_w = text_bbox[2] - text_bbox[0]
+                draw.text((label_x + max(6, (visible_w - text_w) // 2), bar_y + 8), percent_text, font=percent_font, fill="#071019")
         draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + 35), radius=7, outline="#223241", width=1)
 
         p_text = _format_number(_batch_p_value(item))
         min_abs_z, max_se = _batch_weight_diagnostics(item)
         fit_text = str(_batch_fit_status(item)).upper()
         fit_color = "#22c55e" if fit_text == "PASS" else "#f59e0b"
-        draw.text((p_x, row_y + 28), p_text, font=value_font, fill=accent)
-        draw.text((z_x, row_y + 23), _format_number(min_abs_z), font=value_font, fill="#dbe5ef")
-        if max_se is not None:
-            draw.text((z_x, row_y + 51), f"SE {_format_number(max_se, percent=True)}", font=_font(12), fill="#9aa8bb")
-        draw.rounded_rectangle((fit_x, row_y + 22, fit_x + 110, row_y + 56), radius=7, fill="#10231b" if fit_text == "PASS" else "#2a210c", outline=fit_color, width=1)
-        draw.text((fit_x + 13, row_y + 29), _fit_text(draw, fit_text, small_font, 84), font=small_font, fill=fit_color)
+        draw_centered(p_x, row_y + 28, p_text, value_font, accent)
+        draw_centered(z_x, row_y + 28, _format_number(min_abs_z), value_font, "#dbe5ef")
+        draw_centered(se_x, row_y + 30, _format_number(max_se, percent=True) if max_se is not None else "n/a", small_font, "#cbd5e1")
+        badge_left = fit_x - fit_badge_w // 2
+        draw.rounded_rectangle((badge_left, row_y + 22, badge_left + fit_badge_w, row_y + 56), radius=7, fill="#10231b" if fit_text == "PASS" else "#2a210c", outline=fit_color, width=1)
+        draw_centered(fit_x, row_y + 30, _fit_text(draw, fit_text, small_font, fit_badge_w - 20), small_font, fit_color)
         reason = _batch_warning_reason(item)
         if fit_text != "PASS" and reason:
-            draw.text((fit_x + 2, row_y + 60), _fit_text(draw, reason, _font(12), 116), font=_font(12), fill="#9aa8bb")
+            draw_centered(fit_x, row_y + 60, _fit_text(draw, reason, _font(12), fit_badge_w), _font(12), "#9aa8bb")
 
     y = panel_bottom + 26
-    draw.rounded_rectangle((content_left, y, content_right, y + metrics_h - 34), radius=12, fill="#0d151c", outline=outline, width=1)
+    draw.rounded_rectangle((content_left, y, content_right, y + metrics_h), radius=12, fill="#0d151c", outline=outline, width=1)
     draw.text((content_left + 22, y + 22), "Top-line metrics", font=h_font, fill="#f8fafc")
-    metric_y = y + 70
+    metric_y = y + 64
     metric_gap = 20
     metric_w = (content_right - content_left - 44 - metric_gap * 3) // 4
     avg_p = sum(p_values) / len(p_values) if p_values else None
@@ -616,11 +641,41 @@ def render_admixtools2_qpadm_batch_result(
     ]
     for index, (label, value, subvalue) in enumerate(metrics):
         x = content_left + 22 + index * (metric_w + metric_gap)
-        draw.rounded_rectangle((x, metric_y, x + metric_w, metric_y + 94), radius=9, fill="#111b24", outline=outline, width=1)
-        draw.text((x + 18, metric_y + 16), label, font=small_font, fill="#b8c4d6")
-        draw.text((x + 18, metric_y + 44), _fit_text(draw, value, value_font, metric_w - 36), font=value_font, fill="#f8fafc")
+        draw.rounded_rectangle((x, metric_y, x + metric_w, metric_y + 84), radius=9, fill="#111b24", outline=outline, width=1)
+        draw.text((x + 18, metric_y + 12), label, font=small_font, fill="#b8c4d6")
+        draw.text((x + 18, metric_y + 38), _fit_text(draw, value, value_font, metric_w - 36), font=value_font, fill="#f8fafc")
         if subvalue:
-            draw.text((x + 18, metric_y + 70), _fit_text(draw, subvalue, small_font, metric_w - 36), font=small_font, fill=accent if index == 0 else "#9aa8bb")
+            draw.text((x + 18, metric_y + 62), _fit_text(draw, subvalue, small_font, metric_w - 36), font=small_font, fill=accent if index == 0 else "#9aa8bb")
+
+    y += metrics_h + 22
+    if references:
+        draw.line((content_left, y, content_right, y), fill=outline, width=1)
+        draw.text((content_left + 18, y + 14), "References", font=meta_label_font, fill="#cbd5e1")
+        chip_x = content_left + 132
+        chip_y = y + 12
+        line_h = 22
+        max_chip_right = content_right - 18
+        drawn_count = 0
+        for ref in references:
+            chip_text = _fit_text(draw, ref, ref_font, 210)
+            chip_bbox = draw.textbbox((0, 0), chip_text, font=ref_font)
+            chip_w = min(230, chip_bbox[2] - chip_bbox[0] + 18)
+            if chip_x + chip_w > max_chip_right:
+                chip_x = content_left + 132
+                chip_y += line_h
+            if chip_y + 20 > y + references_h - 8:
+                remaining = len(references) - drawn_count
+                if remaining > 0:
+                    more_text = f"+{remaining} more"
+                    more_bbox = draw.textbbox((0, 0), more_text, font=ref_font)
+                    more_w = more_bbox[2] - more_bbox[0] + 18
+                    draw.rounded_rectangle((chip_x, chip_y, chip_x + more_w, chip_y + 18), radius=5, fill="#111b24", outline="#33424e", width=1)
+                    draw.text((chip_x + 9, chip_y + 3), more_text, font=ref_font, fill="#9aa8bb")
+                break
+            draw.rounded_rectangle((chip_x, chip_y, chip_x + chip_w, chip_y + 18), radius=5, fill="#111b24", outline="#33424e", width=1)
+            draw.text((chip_x + 9, chip_y + 3), chip_text, font=ref_font, fill="#cbd5e1")
+            chip_x += chip_w + 8
+            drawn_count += 1
 
     _draw_footer(image, draw, product="ADMIXTOOLS2 qpAdm", version="AT2", accent="#d4af37", outline=outline)
     return _save(image, output_dir, "qpadm_admixtools2_batch")
