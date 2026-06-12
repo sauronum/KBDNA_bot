@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from app.features.modeling.navigation import NAV_CURRENT_KEY, NAV_STACK_KEY, nav_enter, nav_pop
 from app.features.modeling.qpadm_classic import show_qpadm_admixtools2_dataset_menu
+from app.features.modeling.qpwave import show_qpwave_admixtools2_dataset_menu
 
 
 class ModelingNavigationTests(unittest.TestCase):
@@ -42,6 +43,22 @@ class ModelingNavigationTests(unittest.TestCase):
         asyncio.run(show_qpadm_admixtools2_dataset_menu(Message(), context, edit_existing=True, lang="ru"))
 
         self.assertEqual(context.user_data[NAV_CURRENT_KEY], "modeling:qpadm_engine:admixtools2_qpadm")
+        self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:root", "modeling:at2"])
+        self.assertEqual(nav_pop(context), "modeling:at2")
+
+    def test_admixtools2_qpwave_dataset_back_returns_to_admixtools2_menu(self) -> None:
+        class Message:
+            async def edit_text(self, *args, **kwargs) -> None:
+                self.args = args
+                self.kwargs = kwargs
+
+        context = SimpleNamespace(user_data={})
+        nav_enter(context, "modeling:root")
+        nav_enter(context, "modeling:at2")
+
+        asyncio.run(show_qpwave_admixtools2_dataset_menu(Message(), context, edit_existing=True, lang="ru"))
+
+        self.assertEqual(context.user_data[NAV_CURRENT_KEY], "modeling:qpwave_engine:admixtools2_qpwave")
         self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:root", "modeling:at2"])
         self.assertEqual(nav_pop(context), "modeling:at2")
 

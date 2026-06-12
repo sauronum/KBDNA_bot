@@ -3,6 +3,7 @@ from __future__ import annotations
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
+from app.features.modeling.admixtools2 import admixtools2_callback_handler, admixtools2_text_input_handler
 from app.features.modeling.navigation import nav_enter, nav_pop, nav_reset, reset_callback_context, set_callback_context
 from app.features.modeling.qpadm_classic import (
     qpadm_classic_callback_handler,
@@ -10,7 +11,12 @@ from app.features.modeling.qpadm_classic import (
     show_qpadm_admixtools2_dataset_menu,
     show_qpadm_classic_dataset_menu,
 )
-from app.features.modeling.qpwave import qpwave_callback_handler, qpwave_text_input_handler, show_qpwave_dataset_menu
+from app.features.modeling.qpwave import (
+    qpwave_callback_handler,
+    qpwave_text_input_handler,
+    show_qpwave_admixtools2_dataset_menu,
+    show_qpwave_dataset_menu,
+)
 from app.features.modeling.saved_models import saved_models_callback_handler
 from app.features.modeling.source_sets import source_sets_callback_handler, source_sets_text_input_handler
 from app.features.modeling.ui import MODELING_CALLBACK_PREFIX, footer_row, modeling_cb, show_message
@@ -133,6 +139,7 @@ async def show_admixtools2_pending(
 async def modeling_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     for handler in (
         source_sets_text_input_handler,
+        admixtools2_text_input_handler,
         qpadm_classic_text_input_handler,
         qpwave_text_input_handler,
     ):
@@ -164,9 +171,16 @@ async def _dispatch_modeling_action(
     if action == "qpadm_at2":
         await show_qpadm_admixtools2_dataset_menu(query.message, context, edit_existing=True, lang=lang)
         return
-    if action in {"at2_qpwave", "at2_qpgraph", "at2_fstats", "at2_f2_cache"}:
+    if action == "at2_qpwave":
+        await show_qpwave_admixtools2_dataset_menu(query.message, context, edit_existing=True, lang=lang)
+        return
+    if action == "at2_qpgraph":
         await show_admixtools2_pending(query.message, context, action, edit_existing=True, lang=lang)
         return
+    if action == "at2_fstats" or action == "at2_f2_cache" or action.startswith("at2_fstats_"):
+        handled = await admixtools2_callback_handler(update, context, action, parts, lang=lang)
+        if handled:
+            return
     if action == "qpwave":
         await show_qpwave_dataset_menu(query.message, context, edit_existing=True, lang=lang)
         return

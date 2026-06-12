@@ -18,6 +18,8 @@ from app.features.modeling.navigation import (
     nav_enter,
     nav_reset,
 )
+from app.features.modeling.admixtools2 import _dataset_files as _at2_dataset_files
+from app.features.modeling.admixtools2 import run_admixtools2_runner
 from app.features.modeling.saved_models import register_pending_save
 from app.features.modeling.source_sets import _get_record as _get_source_set
 from app.features.modeling.source_sets import _user_records as _user_source_sets
@@ -33,6 +35,8 @@ from app.main_menu import set_active_main_menu_message
 
 QPWAVE_FLOW_KEY = "qpwave_flow"
 QPWAVE_QUEUE_KEY = "qpwave_queue"
+QPWAVE_ENGINE_CLASSIC = "classic_qpwave"
+QPWAVE_ENGINE_ADMIXTOOLS2 = "admixtools2_qpwave"
 
 DNA_PLATFORM_ROOT = Path(os.getenv("DNA_PLATFORM_ROOT", "/srv/dna_platform"))
 DNA_PLATFORM_PYTHON = os.getenv("DNA_PLATFORM_PYTHON", "python3")
@@ -84,9 +88,24 @@ def _get_flow(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any] | None:
     return flow if isinstance(flow, dict) else None
 
 
-def _start_flow(context: ContextTypes.DEFAULT_TYPE, dataset: str) -> dict[str, Any]:
+def _qpwave_engine(value: object) -> str:
+    return QPWAVE_ENGINE_ADMIXTOOLS2 if str(value) in {"admixtools2", QPWAVE_ENGINE_ADMIXTOOLS2} else QPWAVE_ENGINE_CLASSIC
+
+
+def _is_admixtools2_engine(value: object) -> bool:
+    return _qpwave_engine(value) == QPWAVE_ENGINE_ADMIXTOOLS2
+
+
+def _qpwave_title(flow_or_engine: object = None, *, suffix: str | None = None) -> str:
+    engine = flow_or_engine.get("engine") if isinstance(flow_or_engine, dict) else flow_or_engine
+    title = "〰️ ADMIXTOOLS2 qpWave" if _is_admixtools2_engine(engine) else "🌊 qpWave classic"
+    return f"{title} · {suffix}" if suffix else title
+
+
+def _start_flow(context: ContextTypes.DEFAULT_TYPE, dataset: str, *, engine: object = QPWAVE_ENGINE_CLASSIC) -> dict[str, Any]:
     flow: dict[str, Any] = {
         "dataset": dataset,
+        "engine": _qpwave_engine(engine),
         "left": [],
         "right": [],
         "search_results": [],
@@ -101,6 +120,7 @@ def _start_flow(context: ContextTypes.DEFAULT_TYPE, dataset: str) -> dict[str, A
 def _snapshot_flow(flow: dict[str, Any]) -> dict[str, Any]:
     return {
         "dataset": flow.get("dataset"),
+        "engine": _qpwave_engine(flow.get("engine")),
         "left": _as_list(flow, "left"),
         "right": _as_list(flow, "right"),
     }
@@ -277,27 +297,45 @@ async def show_qpwave_dataset_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE | None = None,
     *,
+    engine: object = QPWAVE_ENGINE_CLASSIC,
     edit_existing: bool = True,
     lang: str = "ru",
 ) -> None:
+    selected_engine = _qpwave_engine(engine)
     if context is not None:
         context.user_data.pop(QPWAVE_FLOW_KEY, None)
-        nav_enter(context, _cb("qpwave"))
+        nav_enter(context, _cb("qpwave_engine", selected_engine))
     text = "\n".join(
         [
-            "<b>🌊 qpWave</b>",
+            f"<b>{html.escape(_qpwave_title(selected_engine))}</b>",
             "",
             "Выберите базу. Затем соберем Left и Right и проверим число потоков происхождения.",
         ]
     )
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("v62 / 1240k public", callback_data=_cb("qpwave_ds", "v62_1240k_public"))],
-            [InlineKeyboardButton("Human Origins", callback_data=_cb("qpwave_ds", "human_origins"))],
+            [InlineKeyboardButton("v62 / 1240k public", callback_data=_cb("qpwave_ds", selected_engine, "v62_1240k_public"))],
+            [InlineKeyboardButton("Human Origins", callback_data=_cb("qpwave_ds", selected_engine, "human_origins"))],
             _footer_row(nav_back_callback(), lang),
         ]
     )
     await _show_message(message, text, markup, edit_existing=edit_existing)
+
+
+async def show_qpwave_admixtools2_dataset_menu(
+    message,
+    context: ContextTypes.DEFAULT_TYPE | None = None,
+    *,
+    edit_existing: bool = True,
+    lang: str = "ru",
+) -> None:
+    await show_qpwave_dataset_menu(
+        message,
+        context,
+        engine=QPWAVE_ENGINE_ADMIXTOOLS2,
+        edit_existing=edit_existing,
+        lang=lang,
+    )
 
 
 async def _show_builder(message, context: ContextTypes.DEFAULT_TYPE, *, edit_existing: bool = True, lang: str) -> None:
@@ -308,11 +346,12 @@ async def _show_builder(message, context: ContextTypes.DEFAULT_TYPE, *, edit_exi
     nav_enter(context, _cb("qpwave_builder"))
     left = _as_list(flow, "left")
     right = _as_list(flow, "right")
+    run_label = "〰️ Запустить qpWave 2" if _is_admixtools2_engine(flow.get("engine")) else "🌊 Запустить qpWave"
     rows: list[list[InlineKeyboardButton]] = []
     if left and right:
         rows.extend(
             [
-                [InlineKeyboardButton("🌊 Запустить qpWave", callback_data=_cb("qpwave_run"))],
+                [InlineKeyboardButton(run_label, callback_data=_cb("qpwave_run"))],
                 [
                     InlineKeyboardButton("Left", callback_data=_cb("qpwave_left")),
                     InlineKeyboardButton("Right", callback_data=_cb("qpwave_right")),
@@ -358,7 +397,7 @@ async def _show_builder(message, context: ContextTypes.DEFAULT_TYPE, *, edit_exi
     rows.append(_footer_row(nav_back_callback(), lang))
     text = "\n".join(
         [
-            "<b>🌊 qpWave · модель</b>",
+            f"<b>{html.escape(_qpwave_title(flow, suffix='модель'))}</b>",
             "",
             *_state_lines(flow),
             "",
@@ -411,7 +450,7 @@ async def _show_role_menu(
     rows.append(_footer_row(nav_back_callback(), lang))
     text = "\n".join(
         [
-            f"<b>🌊 qpWave · {ROLE_LABELS_RU[role]}</b>",
+            f"<b>{html.escape(_qpwave_title(flow, suffix=ROLE_LABELS_RU[role]))}</b>",
             "",
             *_state_lines(flow),
             "",
@@ -436,7 +475,7 @@ async def _start_import(message, context: ContextTypes.DEFAULT_TYPE, *, lang: st
     flow["prompt_message_id"] = int(message.message_id)
     text = "\n".join(
         [
-            "<b>📋 🌊 qpWave импорт Left/Right</b>",
+            f"<b>📋 {html.escape(_qpwave_title(flow, suffix='импорт Left/Right'))}</b>",
             "",
             f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
             "",
@@ -459,7 +498,7 @@ async def _start_search(message, context: ContextTypes.DEFAULT_TYPE, role: str, 
     flow["prompt_message_id"] = int(message.message_id)
     text = "\n".join(
         [
-            f"<b>🔎 Поиск {ROLE_LABELS_RU[role]}</b>",
+            f"<b>🔎 {html.escape(_qpwave_title(flow, suffix='поиск ' + ROLE_LABELS_RU[role]))}</b>",
             "",
             f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
             "",
@@ -496,7 +535,7 @@ async def qpwave_text_input_handler(update: Update, context: ContextTypes.DEFAUL
         if result is None:
             _clear_search(flow)
             await progress.edit_text(
-                "<b>🌊 qpWave</b>\n\nНе вижу <code>Left=</code> или <code>Right=</code>.",
+                f"<b>{html.escape(_qpwave_title(flow))}</b>\n\nНе вижу <code>Left=</code> или <code>Right=</code>.",
                 reply_markup=InlineKeyboardMarkup([_footer_row(_cb("qpwave_builder"), lang)]),
                 parse_mode="HTML",
             )
@@ -570,7 +609,7 @@ async def _list_populations(dataset: str, query_text: str) -> list[dict[str, Any
 
 def _search_results_text(flow: dict[str, Any], query_text: str, results: list[dict[str, Any]], role: str) -> str:
     lines = [
-        f"<b>🔎 Поиск {ROLE_LABELS_RU[role]}</b>",
+        f"<b>🔎 {html.escape(_qpwave_title(flow, suffix='поиск ' + ROLE_LABELS_RU[role]))}</b>",
         "",
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Запрос: <code>{html.escape(query_text)}</code>",
@@ -643,7 +682,7 @@ async def _show_source_sets(message, update: Update, context: ContextTypes.DEFAU
     user_id = int(update.effective_user.id) if update.effective_user is not None else 0
     rows = _user_source_sets(user_id, dataset=str(flow.get("dataset") or ""))
     lines = [
-        "<b>📚 Source sets · 🌊 qpWave</b>",
+        f"<b>📚 Source sets · {html.escape(_qpwave_title(flow))}</b>",
         "",
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
     ]
@@ -726,7 +765,7 @@ def _result_markup(lang: str, pending_save_id: str | None = None) -> InlineKeybo
 
 def _format_queue_text(flow: dict[str, Any], *, job_id: int, position: int, active_count: int) -> str:
     lines = [
-        "<b>🌊 qpWave · очередь</b>",
+        f"<b>{html.escape(_qpwave_title(flow, suffix='очередь'))}</b>",
         "",
         *_state_lines(flow),
         "",
@@ -740,7 +779,7 @@ def _format_queue_text(flow: dict[str, Any], *, job_id: int, position: int, acti
 
 
 def _format_started_text(flow: dict[str, Any]) -> str:
-    return "\n".join(["<b>🌊 qpWave · расчет запущен</b>", "", *_state_lines(flow), "", "Обычно это занимает от минуты до нескольких минут."])
+    return "\n".join([f"<b>{html.escape(_qpwave_title(flow, suffix='расчет запущен'))}</b>", "", *_state_lines(flow), "", "Обычно это занимает от минуты до нескольких минут."])
 
 
 async def _register_job(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any]) -> tuple[int, int, int]:
@@ -867,7 +906,7 @@ async def _worker(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any]) -> 
             caption = str(save_payload.get("caption_text") or "")
             visual_path = str(save_payload.get("visual_path") or "")
         except Exception as exc:
-            text = f"<b>🌊 qpWave не прошел</b>\n\n<code>{html.escape(str(exc))}</code>"
+            text = f"<b>{html.escape(_qpwave_title(entry['flow'], suffix='не прошел'))}</b>\n\n<code>{html.escape(str(exc))}</code>"
         await _send_job_result(
             context,
             entry,
@@ -881,6 +920,9 @@ async def _worker(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any]) -> 
 
 
 async def _run_qpwave_job(flow: dict[str, Any], user_id: int, *, job_id: int, lang: str) -> tuple[str, dict[str, Any]]:
+    if _is_admixtools2_engine(flow.get("engine")):
+        return await _run_qpwave_admixtools2_job(flow, user_id, job_id=job_id, lang=lang)
+
     dataset = str(flow.get("dataset") or "")
     files = DATASET_FILES.get(dataset)
     if files is None:
@@ -942,6 +984,60 @@ async def _run_qpwave_job(flow: dict[str, Any], user_id: int, *, job_id: int, la
     return text, save_payload
 
 
+async def _run_qpwave_admixtools2_job(flow: dict[str, Any], user_id: int, *, job_id: int, lang: str) -> tuple[str, dict[str, Any]]:
+    dataset = str(flow.get("dataset") or "")
+    files = _at2_dataset_files(dataset)
+    if not files:
+        raise RuntimeError(f"ADMIXTOOLS2 dataset files not found: {dataset}")
+
+    BOT_QPWAVE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    work_dir = BOT_QPWAVE_OUTPUT_DIR / f"at2_job_{user_id}_{int(time.time())}_{job_id}"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    out_path = work_dir / "qpwave_admixtools2.json"
+
+    started = time.monotonic()
+    payload = await run_admixtools2_runner(
+        {
+            "command": "qpwave",
+            "dataset": dataset,
+            "dataset_files": files,
+            "left": _as_list(flow, "left"),
+            "right": _as_list(flow, "right"),
+            "options": {"boot": False},
+        },
+        timeout_seconds=QPWAVE_TIMEOUT_SECONDS,
+    )
+    elapsed = time.monotonic() - started
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    ranks = _extract_admixtools2_ranks(payload)
+    text = _format_qpwave_result("", flow=flow, elapsed_seconds=elapsed, ranks_override=ranks)
+    caption = _format_qpwave_caption(ranks, flow=flow, elapsed_seconds=elapsed)
+    visual_path: Path | None = None
+    visual_error: str | None = None
+    try:
+        visual_path = render_qpwave_result(ranks=ranks, flow=flow, elapsed_seconds=elapsed, output_dir=BOT_QPWAVE_OUTPUT_DIR)
+    except Exception as exc:
+        visual_error = str(exc)
+    raw_output = json.dumps(payload, ensure_ascii=False, indent=2)
+    save_payload = {
+        "kind": "qpwave_admixtools2",
+        "title": f"〰️ ADMIXTOOLS2 qpWave · {_dataset_label(flow.get('dataset'))} · {len(_as_list(flow, 'left'))}L/{len(_as_list(flow, 'right'))}R",
+        "dataset": flow.get("dataset"),
+        "engine": QPWAVE_ENGINE_ADMIXTOOLS2,
+        "left": _as_list(flow, "left"),
+        "right": _as_list(flow, "right"),
+        "result_text": text,
+        "caption_text": caption,
+        "visual_path": str(visual_path or ""),
+        "visual_error": visual_error,
+        "raw_output_path": str(out_path),
+        "raw_output": raw_output,
+        "admixtools2_payload": payload,
+    }
+    return text, save_payload
+
+
 def _parse_ranks(stdout: str) -> list[dict[str, Any]]:
     ranks: list[dict[str, Any]] = []
     for match in RANK_PATTERN.finditer(stdout):
@@ -956,10 +1052,58 @@ def _parse_ranks(stdout: str) -> list[dict[str, Any]]:
     return ranks
 
 
-def _format_qpwave_result(stdout: str, *, flow: dict[str, Any], elapsed_seconds: float) -> str:
-    ranks = _parse_ranks(stdout)
+def _scalar_value(value: object) -> object:
+    if isinstance(value, list) and value:
+        return value[0]
+    return value
+
+
+def _float_value(value: object) -> float | None:
+    value = _scalar_value(value)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _int_value(value: object, default: int = 0) -> int:
+    value = _scalar_value(value)
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _extract_admixtools2_ranks(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    rows = result.get("ranks") if isinstance(result.get("ranks"), list) else []
+    ranks: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        ranks.append(
+            {
+                "rank": _int_value(row.get("rank"), index),
+                "dof": _float_value(row.get("dof")),
+                "chisq": _float_value(row.get("chisq")),
+                "tail": _float_value(row.get("tail")),
+            }
+        )
+    return ranks
+
+
+def _format_qpwave_result(
+    stdout: str,
+    *,
+    flow: dict[str, Any],
+    elapsed_seconds: float,
+    ranks_override: list[dict[str, Any]] | None = None,
+) -> str:
+    ranks = ranks_override if ranks_override is not None else _parse_ranks(stdout)
     lines = [
-        "<b>🌊 qpWave</b>",
+        f"<b>{html.escape(_qpwave_title(flow))}</b>",
         "",
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Status: <code>completed</code>",
@@ -981,7 +1125,7 @@ def _format_qpwave_result(stdout: str, *, flow: dict[str, Any], elapsed_seconds:
 
 def _format_qpwave_caption(ranks: list[dict[str, Any]], *, flow: dict[str, Any], elapsed_seconds: float) -> str:
     lines = [
-        "<b>🌊 qpWave</b>",
+        f"<b>{html.escape(_qpwave_title(flow))}</b>",
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Left: <code>{len(_as_list(flow, 'left'))}</code>",
         f"Right: <code>{len(_as_list(flow, 'right'))}</code>",
@@ -1008,20 +1152,30 @@ async def qpwave_callback_handler(
         return
     message = query.message
 
+    if action == "qpwave_engine" and len(parts) >= 3:
+        await show_qpwave_dataset_menu(message, context, engine=parts[2], edit_existing=True, lang=lang)
+        return
     if action == "qpwave_ds" and len(parts) >= 3:
-        dataset = parts[2]
+        if len(parts) >= 4:
+            engine = _qpwave_engine(parts[2])
+            dataset = parts[3]
+        else:
+            engine = QPWAVE_ENGINE_CLASSIC
+            dataset = parts[2]
         if dataset not in DATASET_LABELS:
-            await show_qpwave_dataset_menu(message, context, edit_existing=True, lang=lang)
+            await show_qpwave_dataset_menu(message, context, engine=engine, edit_existing=True, lang=lang)
             return
-        _start_flow(context, dataset)
+        _start_flow(context, dataset, engine=engine)
         await _show_builder(message, context, edit_existing=True, lang=lang)
         return
     if action == "qpwave_builder":
         await _show_builder(message, context, edit_existing=True, lang=lang)
         return
     if action == "qpwave_reset":
-        nav_reset(context, _cb("qpwave"))
-        await show_qpwave_dataset_menu(message, context, edit_existing=True, lang=lang)
+        flow = _get_flow(context)
+        engine = _qpwave_engine(flow.get("engine") if flow is not None else QPWAVE_ENGINE_CLASSIC)
+        nav_reset(context, _cb("qpwave_engine", engine))
+        await show_qpwave_dataset_menu(message, context, engine=engine, edit_existing=True, lang=lang)
         return
     if action == "qpwave_import":
         await _start_import(message, context, lang=lang)

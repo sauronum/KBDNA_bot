@@ -26,6 +26,7 @@ PALETTE = [
     "#e879f9",
 ]
 QPADM_ENGINE_ADMIXTOOLS2 = "admixtools2_qpadm"
+QPWAVE_ENGINE_ADMIXTOOLS2 = "admixtools2_qpwave"
 QPADM_CLASSIC_VISUAL = {
     "title": "qpAdm classic",
     "product": "qpAdm classic",
@@ -66,6 +67,10 @@ def _qpadm_visual_profile(flow: dict[str, Any], summary: dict[str, Any] | None =
     summary = summary or {}
     engine = _qpadm_engine(flow.get("engine") or summary.get("engine"))
     return QPADM_ADMIXTOOLS2_VISUAL if engine == QPADM_ENGINE_ADMIXTOOLS2 else QPADM_CLASSIC_VISUAL
+
+
+def _is_admixtools2_qpwave(flow: dict[str, Any]) -> bool:
+    return str(flow.get("engine") or "").strip().casefold() in {"admixtools2", QPWAVE_ENGINE_ADMIXTOOLS2}
 
 
 def _font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
@@ -879,6 +884,11 @@ def render_qpwave_result(
 ) -> Path:
     left = [str(item) for item in flow.get("left", []) if str(item)]
     right = [str(item) for item in flow.get("right", []) if str(item)]
+    is_at2 = _is_admixtools2_qpwave(flow)
+    title = "ADMIXTOOLS2 qpWave" if is_at2 else "qpWave"
+    product = "ADMIXTOOLS2 qpWave" if is_at2 else "qpWave"
+    version = "AT2" if is_at2 else "v2.1"
+    prefix = "qpwave_admixtools2_result" if is_at2 else "qpwave_result"
     height = 670 + len(ranks) * 48 + max(len(left), len(right), 1) * 34
     image, draw = _canvas(height)
     title_font = _font(42, bold=True)
@@ -888,7 +898,7 @@ def render_qpwave_result(
     small_font = _font(20)
 
     y = 62
-    draw.text((64, y), "qpWave", font=title_font, fill="#f8fafc")
+    draw.text((64, y), title, font=title_font, fill="#f8fafc")
     y += 62
     meta = [
         ("Dataset", _dataset_label(flow.get("dataset"))),
@@ -932,5 +942,5 @@ def render_qpwave_result(
         if index < len(right):
             draw.text((610, row_y), _fit_text(draw, f"• {right[index]}", small_font, 526), font=small_font, fill="#5eead4")
 
-    _draw_footer(image, draw, product="qpWave", version="v2.1")
-    return _save(image, output_dir, "qpwave_result")
+    _draw_footer(image, draw, product=product, version=version)
+    return _save(image, output_dir, prefix)
