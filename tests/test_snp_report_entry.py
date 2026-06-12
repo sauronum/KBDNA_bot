@@ -253,6 +253,7 @@ class SnpReportEntryTests(unittest.TestCase):
                 self.assertEqual(image.format, "PNG")
                 self.assertGreaterEqual(image.width, 1200)
                 self.assertGreaterEqual(image.height, 500)
+                self.assertLessEqual(image.height, 700)
 
 
 if __name__ == "__main__":
