@@ -147,6 +147,20 @@ def _stderr_percent(item: dict[str, Any]) -> float:
     return stderr * 100.0 if stderr is not None else 0.0
 
 
+def _format_signed_percent(value: float) -> str:
+    prefix = "+" if value > 0 else ""
+    return f"{prefix}{_format_number(value, percent=True)}"
+
+
+def _source_z_value(item: dict[str, Any], weight_percent: float, stderr_percent: float) -> float | None:
+    z_value = _number(item.get("z"))
+    if z_value is not None:
+        return z_value
+    if stderr_percent:
+        return weight_percent / stderr_percent
+    return None
+
+
 def _target_display(flow: dict[str, Any]) -> str:
     return str(flow.get("target_label") or flow.get("target") or "unknown")
 
@@ -278,30 +292,41 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     fit = summary.get("fit") if isinstance(summary.get("fit"), dict) else {}
     feasibility = summary.get("feasibility") if isinstance(summary.get("feasibility"), dict) else {}
     references = [str(item) for item in flow.get("references", []) if str(item)]
-    rows: list[tuple[str, float, float]] = []
+    rows: list[dict[str, Any]] = []
     for item in weights:
         if not isinstance(item, dict):
             continue
-        rows.append((str(item.get("source") or "unknown"), _weight_percent(item), _stderr_percent(item)))
+        weight_percent = _weight_percent(item)
+        stderr_percent = _stderr_percent(item)
+        rows.append(
+            {
+                "source": str(item.get("source") or "unknown"),
+                "weight": weight_percent,
+                "stderr": stderr_percent,
+                "z": _source_z_value(item, weight_percent, stderr_percent),
+            }
+        )
 
     width = 1080
     ref_rows = max(1, (len(references) + 1) // 2)
-    height = 580 + max(1, len(rows)) * 74 + ref_rows * 38
+    detail_rows = max(1, len(rows))
+    height = 725 + detail_rows * 48 + ref_rows * 38
     image, draw = _canvas(height, width=width, background=str(QPADM_ADMIXTOOLS2_VISUAL["background"]), panel=str(QPADM_ADMIXTOOLS2_VISUAL["panel"]))
     content_left = 64
     content_right = width - 64
     accent = str(QPADM_ADMIXTOOLS2_VISUAL["accent"])
     palette = list(QPADM_ADMIXTOOLS2_VISUAL["palette"])
-    axis = "#53616e"
+    outline = "#33424e"
     title_font = _font(44, bold=True)
     subtitle_font = _font(21)
     metric_label_font = _font(16, bold=True)
     metric_value_font = _font(24, bold=True)
     h_font = _font(27, bold=True)
     row_font = _font(20)
-    mono_font = _font(21)
     small_font = _font(17)
-    source_label_font = _font(14, bold=True)
+    detail_font = _font(16)
+    detail_bold_font = _font(16, bold=True)
+    segment_font = _font(16, bold=True)
 
     y = 58
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
@@ -345,54 +370,73 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
         draw.text((x + 14, y + 38), _fit_text(draw, value, value_font, tile_w - 28), font=value_font, fill=value_color)
 
     y += 118
-    draw.text((content_left, y), "Source Weight Bars", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 252, y + 8), "SE left · weight right", font=small_font, fill="#8fa0b5")
+    draw.text((content_left, y), "Source Composition", font=h_font, fill="#f8fafc")
+    draw.text((content_right - 112, y + 8), "100% total", font=small_font, fill="#8fa0b5")
     y += 46
-    se_x = content_left + 48
-    bar_left = content_left + 116
-    bar_right = content_right - 104
+    bar_left = content_left
+    bar_right = content_right
     bar_w = bar_right - bar_left
-    max_abs = max([abs(weight) + abs(stderr) for _, weight, stderr in rows] + [1.0]) * 1.08
-    row_h = 74
+    bar_h = 44
+    positive_total = sum(max(0.0, float(row["weight"])) for row in rows)
     if not rows:
         draw.rounded_rectangle((content_left, y, content_right, y + 46), radius=9, fill="#10171d", outline="#2b3742", width=1)
         draw.text((content_left + 18, y + 13), "No source weights returned.", font=row_font, fill="#a8b3c5")
-        y += row_h
-    for index, (source, weight, stderr) in enumerate(rows):
-        row_y = y + index * row_h
-        color = "#fb7185" if weight < 0 else palette[index % len(palette)]
-        label = _fit_text(draw, source, source_label_font, bar_w - 20)
-        value_text = f"{weight:+.2f}%"
-        se_text = f"± {_format_number(stderr, percent=True)}"
-        label_bbox = draw.textbbox((0, 0), label, font=source_label_font)
-        label_w = label_bbox[2] - label_bbox[0]
-        value_bbox = draw.textbbox((0, 0), value_text, font=source_label_font)
-        value_w = value_bbox[2] - value_bbox[0]
-        label_x = bar_left + max(0, (bar_w - label_w) // 2)
-        draw.text((label_x, row_y + 2), label, font=source_label_font, fill="#eef6ff")
-        baseline_y = row_y + 38
-        draw.text((se_x, baseline_y - 10), se_text, font=source_label_font, fill="#aab6c4")
-        draw.text((content_right - value_w, baseline_y - 10), value_text, font=source_label_font, fill=color)
-        draw.line((bar_left, baseline_y, bar_right, baseline_y), fill="#2b3742", width=2)
-        draw.line((bar_left, baseline_y - 11, bar_left, baseline_y + 11), fill=axis, width=2)
-        available_w = bar_w - 10
-        magnitude = abs(weight)
-        end_x = bar_left + int(round((magnitude / max_abs) * available_w))
-        left = bar_left
-        right = end_x
-        if right - left < 5:
-            right = min(bar_right, bar_left + 5)
-        if stderr:
-            err_left = bar_left + int(round((max(0.0, magnitude - abs(stderr)) / max_abs) * available_w))
-            err_right = bar_left + int(round(((magnitude + abs(stderr)) / max_abs) * available_w))
-            err_left = max(bar_left, min(bar_right, err_left))
-            err_right = max(bar_left, min(bar_right, err_right))
-            draw.line((err_left, baseline_y, err_right, baseline_y), fill="#eef6ff", width=1)
-            draw.line((err_left, baseline_y - 5, err_left, baseline_y + 5), fill="#eef6ff", width=1)
-            draw.line((err_right, baseline_y - 5, err_right, baseline_y + 5), fill="#eef6ff", width=1)
-        draw.rounded_rectangle((left, baseline_y - 8, right, baseline_y + 8), radius=8, fill=color)
-        draw.ellipse((end_x - 5, baseline_y - 5, end_x + 5, baseline_y + 5), fill="#171d22", outline="#eef6ff", width=2)
-    y += max(1, len(rows)) * row_h + 28
+        y += 70
+    else:
+        draw.rounded_rectangle((bar_left, y, bar_right, y + bar_h), radius=10, fill="#10171d", outline=outline, width=1)
+        cursor = bar_left
+        positive_scale = positive_total if positive_total > 0 else 100.0
+        positive_rows = [(index, row) for index, row in enumerate(rows) if float(row["weight"]) > 0]
+        for positive_index, (row_index, row) in enumerate(positive_rows):
+            weight = float(row["weight"])
+            color = palette[row_index % len(palette)]
+            if positive_index == len(positive_rows) - 1:
+                segment_right = bar_right
+            else:
+                segment_right = min(bar_right, cursor + int(round(bar_w * weight / positive_scale)))
+            if segment_right <= cursor:
+                continue
+            draw.rectangle((cursor, y, segment_right, y + bar_h), fill=color)
+            visible_w = segment_right - cursor
+            percent_text = _format_number(weight, percent=True)
+            if visible_w > 58:
+                text_bbox = draw.textbbox((0, 0), percent_text, font=segment_font)
+                text_w = text_bbox[2] - text_bbox[0]
+                draw.text((cursor + max(8, (visible_w - text_w) // 2), y + 12), percent_text, font=segment_font, fill="#071019")
+            cursor = segment_right
+        draw.rounded_rectangle((bar_left, y, bar_right, y + bar_h), radius=10, outline=outline, width=1)
+        y += 72
+
+        draw.text((content_left, y), "Source Details", font=h_font, fill="#f8fafc")
+        y += 36
+        table_top = y
+        row_h = 44
+        table_h = 38 + len(rows) * row_h
+        draw.rounded_rectangle((content_left, table_top, content_right, table_top + table_h), radius=10, fill="#10171d", outline=outline, width=1)
+        name_x = content_left + 20
+        weight_x = content_right - 272
+        se_x = content_right - 168
+        z_x = content_right - 66
+        header_y = table_top + 12
+        draw.text((name_x + 24, header_y), "Source", font=metric_label_font, fill="#8fa0b5")
+        draw.text((weight_x, header_y), "Weight", font=metric_label_font, fill="#8fa0b5")
+        draw.text((se_x, header_y), "SE", font=metric_label_font, fill="#8fa0b5")
+        draw.text((z_x, header_y), "z", font=metric_label_font, fill="#8fa0b5")
+        draw.line((content_left, table_top + 38, content_right, table_top + 38), fill="#223241", width=1)
+        for index, row in enumerate(rows):
+            row_y = table_top + 38 + index * row_h
+            if index:
+                draw.line((content_left, row_y, content_right, row_y), fill="#1d2a35", width=1)
+            weight = float(row["weight"])
+            stderr = float(row["stderr"])
+            z_value = row.get("z")
+            color = "#fb7185" if weight < 0 else palette[index % len(palette)]
+            draw.rounded_rectangle((name_x, row_y + 13, name_x + 14, row_y + 27), radius=3, fill=color)
+            draw.text((name_x + 24, row_y + 10), _fit_text(draw, row["source"], detail_font, weight_x - name_x - 38), font=detail_font, fill="#dbe5ef")
+            draw.text((weight_x, row_y + 10), _format_signed_percent(weight), font=detail_bold_font, fill=color)
+            draw.text((se_x, row_y + 10), f"+/- {_format_number(stderr, percent=True)}", font=detail_font, fill="#cbd5e1")
+            draw.text((z_x, row_y + 10), _format_number(z_value), font=detail_font, fill="#cbd5e1")
+        y = table_top + table_h + 28
 
     draw.text((content_left, y), "Reference Panel", font=h_font, fill="#f8fafc")
     y += 42
@@ -432,15 +476,9 @@ def render_admixtools2_qpadm_batch_result(
     p_values = [_number(_batch_p_value(item)) for item in completed_results]
     p_values = [value for value in p_values if value is not None]
     best_item = max(completed_results, key=lambda item: _number(_batch_p_value(item)) if _number(_batch_p_value(item)) is not None else -1.0, default=None)
-    positive_sums = []
-    for item in completed_results:
-        weight_map = _batch_weight_map(item)
-        positive_sums.append(sum(max(0.0, weight_map.get(source, 0.0)) for source in sources))
-    positive_scale = max([100.0, *positive_sums]) if positive_sums else 100.0
-
     width = 1440
     legend_rows = max(1, math.ceil(max(1, len(sources)) / 5))
-    row_h = 84
+    row_h = 88
     table_h = 166 + max(1, len(results)) * row_h + legend_rows * 34
     metrics_h = 190
     height = 320 + table_h + metrics_h + 120
@@ -458,6 +496,7 @@ def render_admixtools2_qpadm_batch_result(
     row_font = _font(19, bold=True)
     small_font = _font(16)
     value_font = _font(21, bold=True)
+    percent_font = _font(17, bold=True)
 
     y = 54
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
@@ -482,7 +521,7 @@ def render_admixtools2_qpadm_batch_result(
     panel_bottom = y + table_h
     draw.rounded_rectangle((content_left, panel_top, content_right, panel_bottom), radius=12, fill="#0d151c", outline=outline, width=1)
     draw.text((content_left + 22, y + 24), "Source weight comparison across targets", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 288, y + 31), "red tags = negative weights", font=small_font, fill="#9aa8bb")
+    draw.text((content_right - 258, y + 31), "p, min |z|, max SE", font=small_font, fill="#9aa8bb")
 
     legend_y = y + 76
     legend_x = content_left + 180
@@ -499,14 +538,16 @@ def render_admixtools2_qpadm_batch_result(
     header_y = legend_y + legend_rows * 34 + 22
     draw.line((content_left, header_y, content_right, header_y), fill=outline, width=1)
     draw.text((content_left + 22, header_y + 24), "Target", font=small_font, fill="#9aa8bb")
-    draw.text((content_left + 424, header_y + 24), "Signed source weights (%)", font=small_font, fill="#9aa8bb")
-    draw.text((content_right - 280, header_y + 24), "P-VALUE", font=small_font, fill="#9aa8bb")
-    draw.text((content_right - 126, header_y + 24), "FIT", font=small_font, fill="#9aa8bb")
+    draw.text((content_left + 390, header_y + 24), "Source weights (%)", font=small_font, fill="#9aa8bb")
+    draw.text((content_right - 348, header_y + 24), "P-VALUE", font=small_font, fill="#9aa8bb")
+    draw.text((content_right - 232, header_y + 24), "MIN |Z|", font=small_font, fill="#9aa8bb")
+    draw.text((content_right - 112, header_y + 24), "FIT", font=small_font, fill="#9aa8bb")
     row_start_y = header_y + 60
     bar_x = content_left + 210
-    bar_w = content_right - bar_x - 300
-    p_x = content_right - 280
-    fit_x = content_right - 126
+    bar_w = content_right - bar_x - 430
+    p_x = content_right - 348
+    z_x = content_right - 232
+    fit_x = content_right - 112
 
     if not results:
         draw.text((content_left + 22, row_start_y + 18), "No batch results returned.", font=row_font, fill="#a8b3c5")
@@ -535,37 +576,43 @@ def render_admixtools2_qpadm_batch_result(
         if len(negative_items) > 2:
             draw.text((tag_x, tag_y + 4), f"+{len(negative_items) - 2} negative", font=small_font, fill="#fb7185")
 
-        bar_y = row_y + (36 if negative_items else 24)
+        bar_y = row_y + (38 if negative_items else 26)
         draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + 35), radius=7, fill="#071019", outline="#1d2a35", width=1)
-        marker_x = bar_x + int(round(bar_w * min(100.0, positive_scale) / positive_scale))
-        if positive_scale > 100.0:
-            draw.line((marker_x, bar_y - 3, marker_x, bar_y + 38), fill="#d9e3ef", width=1)
-            draw.text((marker_x + 4, bar_y - 17), "100", font=_font(12), fill="#9aa8bb")
         cursor = bar_x
-        if positive_scale > 0:
+        positive_total = sum(max(0.0, weight_map.get(source, 0.0)) for source in sources)
+        positive_scale = positive_total if positive_total > 0 else 100.0
+        positive_sources = [source for source in sources if weight_map.get(source, 0.0) > 0]
+        if positive_sources:
             for index, source in enumerate(sources):
                 raw_weight = weight_map.get(source, 0.0)
                 if raw_weight <= 0:
                     continue
-                segment_w = int(round(bar_w * raw_weight / positive_scale))
-                if segment_w <= 0:
-                    continue
+                if source == positive_sources[-1]:
+                    segment_right = bar_x + bar_w
+                else:
+                    segment_w = int(round(bar_w * raw_weight / positive_scale))
+                    if segment_w <= 0:
+                        continue
+                    segment_right = min(bar_x + bar_w, cursor + segment_w)
                 color = source_colors[source]
-                segment_right = min(bar_x + bar_w, cursor + segment_w)
                 draw.rectangle((cursor, bar_y, segment_right, bar_y + 35), fill=color)
                 percent_text = f"{raw_weight:.1f}%"
                 visible_w = segment_right - cursor
                 if visible_w > 58:
-                    text_bbox = draw.textbbox((0, 0), percent_text, font=small_font)
+                    text_bbox = draw.textbbox((0, 0), percent_text, font=percent_font)
                     text_w = text_bbox[2] - text_bbox[0]
-                    draw.text((cursor + max(6, (visible_w - text_w) // 2), bar_y + 8), percent_text, font=small_font, fill="#f8fafc")
-                cursor += segment_w
+                    draw.text((cursor + max(6, (visible_w - text_w) // 2), bar_y + 8), percent_text, font=percent_font, fill="#071019")
+                cursor = segment_right
         draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + 35), radius=7, outline="#223241", width=1)
 
         p_text = _format_number(_batch_p_value(item))
+        min_abs_z, max_se = _batch_weight_diagnostics(item)
         fit_text = str(_batch_fit_status(item)).upper()
         fit_color = "#22c55e" if fit_text == "PASS" else "#f59e0b"
         draw.text((p_x, row_y + 28), p_text, font=value_font, fill=accent)
+        draw.text((z_x, row_y + 23), _format_number(min_abs_z), font=value_font, fill="#dbe5ef")
+        if max_se is not None:
+            draw.text((z_x, row_y + 51), f"SE {_format_number(max_se, percent=True)}", font=_font(12), fill="#9aa8bb")
         draw.rounded_rectangle((fit_x, row_y + 22, fit_x + 110, row_y + 56), radius=7, fill="#10231b" if fit_text == "PASS" else "#2a210c", outline=fit_color, width=1)
         draw.text((fit_x + 13, row_y + 29), _fit_text(draw, fit_text, small_font, 84), font=small_font, fill=fit_color)
         reason = _batch_warning_reason(item)
@@ -643,18 +690,36 @@ def _batch_target_label(item: dict[str, Any] | None) -> str:
     return str(item.get("target_label") or item.get("target") or "unknown")
 
 
-def _batch_weight_map(item: dict[str, Any]) -> dict[str, float]:
+def _batch_weight_rows(item: dict[str, Any] | None) -> list[dict[str, Any]]:
     summary = _batch_summary(item)
     weights = summary.get("weights") if isinstance(summary.get("weights"), list) else []
+    return [row for row in weights if isinstance(row, dict)]
+
+
+def _batch_weight_map(item: dict[str, Any]) -> dict[str, float]:
     result: dict[str, float] = {}
-    for row in weights:
-        if not isinstance(row, dict):
-            continue
+    for row in _batch_weight_rows(item):
         source = str(row.get("source") or row.get("backend_id") or "")
         if not source:
             continue
         result[source] = _weight_percent(row)
     return result
+
+
+def _batch_weight_diagnostics(item: dict[str, Any] | None) -> tuple[float | None, float | None]:
+    z_values: list[float] = []
+    se_values: list[float] = []
+    for row in _batch_weight_rows(item):
+        weight_percent = _weight_percent(row)
+        stderr_percent = _stderr_percent(row)
+        z_value = _source_z_value(row, weight_percent, stderr_percent)
+        if z_value is not None:
+            z_values.append(abs(z_value))
+        if stderr_percent:
+            se_values.append(abs(stderr_percent))
+    min_abs_z = min(z_values) if z_values else None
+    max_se = max(se_values) if se_values else None
+    return min_abs_z, max_se
 
 
 def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float, output_dir: Path) -> Path:
