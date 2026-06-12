@@ -415,8 +415,6 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
                     draw.rounded_rectangle((bar_right - fill_w, baseline_y - bar_h // 2, bar_right, baseline_y + bar_h // 2), radius=8, fill=color)
                 else:
                     draw.rounded_rectangle((bar_left, baseline_y - bar_h // 2, bar_left + fill_w, baseline_y + bar_h // 2), radius=8, fill=color)
-            if is_outlier:
-                draw.rounded_rectangle((bar_left, baseline_y - 12, bar_right, baseline_y + 12), radius=12, outline="#fb7185", width=1)
             draw_centered(weight_x, baseline_y - 12, _format_weight_percent(weight), detail_bold_font, color)
             draw_centered(se_x, baseline_y - 12, _format_number(float(row["stderr"]), percent=True), detail_font, "#cbd5e1")
             draw_centered(z_x, baseline_y - 12, _format_number(z_value), detail_font, "#cbd5e1")
