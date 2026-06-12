@@ -55,18 +55,18 @@ def my_data_text(*, lang: str = "ru") -> str:
         )
     return (
         "🧬 My DNA\n\n"
-        "Ваши samples и G25-профили."
+        "Ваши образцы и G25-профили."
     )
 
 
 def build_my_data_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     g25_label = "G25 profiles" if lang == "en" else "G25-профили"
-    reports_label = "Reports"
-    raw_upload_label = "Upload raw" if lang == "en" else "Загрузить raw"
-    g25_from_raw_label = "Get G25" if lang == "en" else "Получить G25"
+    reports_label = "Reports" if lang == "en" else "Отчёты"
+    raw_upload_label = "Upload raw" if lang == "en" else "Загрузить файл"
+    g25_from_raw_label = "Get G25" if lang == "en" else "📏 Получить G25"
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Samples", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:samples_view")],
+            [InlineKeyboardButton("Samples" if lang == "en" else "Образцы", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:samples_view")],
             [InlineKeyboardButton(raw_upload_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:raw_files_upload:root")],
             [InlineKeyboardButton(g25_from_raw_label, callback_data="mydna:get_g25_raw")],
             [InlineKeyboardButton(g25_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view")],
@@ -84,16 +84,16 @@ def samples_text(samples: list[SampleAsset] | None = None, *, lang: str = "ru") 
         else:
             lines.extend(["", "Each sample is a person/specimen built around one source raw file."])
         return "\n".join(lines)
-    lines = ["Samples", "", f"Сохранено samples: {len(items)}"]
+    lines = ["Образцы", "", f"Сохранено образцов: {len(items)}"]
     if not items:
-        lines.extend(["", "Пока нет сохраненных samples. Загрузите raw-файл и создайте sample."])
+        lines.extend(["", "Пока нет сохраненных образцов. Загрузите файл и создайте образец."])
     else:
-        lines.extend(["", "Каждый sample — это человек/образец, построенный вокруг одного исходного raw file."])
+        lines.extend(["", "Каждый образец — это человек или отдельная запись, построенная вокруг одного исходного raw file."])
     return "\n".join(lines)
 
 
 def build_samples_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
-    create_label = "Upload raw" if lang == "en" else "Загрузить raw"
+    create_label = "Upload raw" if lang == "en" else "Загрузить файл"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("View samples", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:samples_view")],
@@ -139,9 +139,9 @@ def view_samples_text(samples: list[SampleAsset], page: int = 0, *, lang: str = 
             lines.extend(["", f"Showing {start + 1}-{end} of {len(samples)}. Page {safe_page + 1}/{_sample_page_count(samples)}."])
         return "\n".join(lines)
 
-    lines = ["Сохраненные samples", "", f"Сохранено samples: {len(samples)}"]
+    lines = ["Сохранённые образцы", "", f"Сохранено образцов: {len(samples)}"]
     if not samples:
-        lines.extend(["", "Пока нет сохраненных samples. Загрузите raw file и создайте из него sample."])
+        lines.extend(["", "Пока нет сохраненных образцов. Загрузите файл и создайте из него образец."])
         return "\n".join(lines)
     safe_page, start, end = _sample_page_bounds(samples, page)
     lines.extend(["", "Выберите запись ниже."])
@@ -151,7 +151,7 @@ def view_samples_text(samples: list[SampleAsset], page: int = 0, *, lang: str = 
 
 
 def build_view_samples_keyboard(*, lang: str = "ru", back_callback: str = MY_DNA_ENTRY_CALLBACK) -> InlineKeyboardMarkup:
-    create_label = "➕ New sample" if lang == "en" else "➕ Новый sample"
+    create_label = "➕ New sample" if lang == "en" else "➕ Новый образец"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(create_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:raw_files_upload")],
@@ -197,10 +197,10 @@ def create_sample_text(raw_file: RawFileAsset, *, lang: str = "ru") -> str:
             "Send the sample name in one message."
         )
     return (
-        "Создание sample из raw\n\n"
+        "Создание образца из raw\n\n"
         f"Исходный raw: {raw_file.display_name}\n"
         f"Имя файла: {raw_file.original_file_name}\n\n"
-        "Пришлите имя sample одним сообщением."
+        "Пришлите имя образца одним сообщением."
     )
 
 
@@ -289,7 +289,7 @@ def sample_detail_text(
             f"<b>Total reports:</b> {total_reports_text}"
         )
     return (
-        f"<b>🧬 Sample · {sample_name}</b>\n\n"
+        f"<b>🧬 Образец · {sample_name}</b>\n\n"
         f"<b>Создан:</b> {format_sample_created_at(asset.created_at)}\n"
         "\n"
         "━━━━━━━━━━━━━━\n"
@@ -322,7 +322,8 @@ def build_sample_detail_keyboard(
     coordinates = "📍 Coordinates" if lang == "en" else "📍 Coordinates"
     rename = "✏️ Rename" if lang == "en" else "✏️ Rename"
     delete = "🗑 Delete" if lang == "en" else "🗑 Delete"
-    rows = [[InlineKeyboardButton("📊 Reports", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sample_reports:{asset.asset_id}")]]
+    reports = "📊 Reports" if lang == "en" else "📊 Отчёты"
+    rows = [[InlineKeyboardButton(reports, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sample_reports:{asset.asset_id}")]]
     if asset.raw_file_id:
         rows.append([InlineKeyboardButton(source_raw, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sfr:{asset.asset_id}")])
     rows.extend(
@@ -460,9 +461,9 @@ def sample_reports_text(asset: SampleAsset, *, lang: str = "ru") -> str:
             "Saved reports for this sample."
         )
     return (
-        "📊 Reports\n\n"
+        "📊 Отчёты\n\n"
         f"Sample: {asset.display_name}\n\n"
-        "Сохранённые отчёты по этому sample."
+        "Сохранённые отчёты по этому образцу."
     )
 
 
@@ -979,7 +980,7 @@ def raw_files_text(raw_files: list[RawFileAsset] | None = None, *, lang: str = "
 
 def build_raw_files_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     view_label = "Saved raw files" if lang == "en" else "Сохраненные raw-файлы"
-    upload_label = "Upload raw file" if lang == "en" else "Загрузить raw-файл"
+    upload_label = "Upload raw file" if lang == "en" else "Загрузить файл"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(view_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:raw_files_view")],
@@ -1010,7 +1011,7 @@ def view_raw_files_text(raw_files: list[RawFileAsset], *, lang: str = "ru") -> s
 
 
 def build_view_raw_files_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
-    upload_label = "Upload raw file" if lang == "en" else "Загрузить raw-файл"
+    upload_label = "Upload raw file" if lang == "en" else "Загрузить файл"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(upload_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:raw_files_upload")],
@@ -1038,7 +1039,7 @@ def upload_raw_text(*, lang: str = "ru") -> str:
             "If it is larger than 20 MB, send a ZIP or GZ containing the raw file."
         )
     return (
-        "🧬 Загрузить raw\n\n"
+        "📤 Загрузить файл\n\n"
         "Пришлите raw-файл документом.\n"
         "Я сохраню его в вашей библиотеке My DNA.\n\n"
         "Если файл больше 20 MB, пришлите ZIP или GZ с raw-файлом внутри."
@@ -1115,7 +1116,7 @@ def new_g25_profile_text(*, lang: str = "ru") -> str:
 
 def build_new_g25_profile_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     manual_label = "✍️ Paste G25 manually" if lang == "en" else "✍️ Вставить G25 вручную"
-    extract_label = "🧬 Get G25" if lang == "en" else "🧬 Получить G25"
+    extract_label = "📏 Get G25" if lang == "en" else "📏 Получить G25"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(manual_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_add_type:g25:g25_profiles")],

@@ -341,11 +341,11 @@ class MenuKeyboardTests(unittest.TestCase):
         self.assertEqual(
             rows,
             [
-                ["📁 Samples"],
-                ["📤 Загрузить raw"],
-                ["🧬 Получить G25"],
+                ["📁 Образцы"],
+                ["📤 Загрузить файл"],
+                ["📏 Получить G25"],
                 ["📍 G25-профили"],
-                ["📊 Reports"],
+                ["📊 Отчёты"],
             ],
         )
         self.assertEqual(
@@ -692,16 +692,16 @@ class MenuKeyboardTests(unittest.TestCase):
         callbacks = _inline_callback_rows(keyboard)
 
         self.assertIn("<b>🗑 Данные и приватность</b>", text)
-        self.assertIn("Samples: 3", text)
+        self.assertIn("Образцы: 3", text)
         self.assertIn("Raw-файлы: 2", text)
         self.assertIn("G25-профили: 4", text)
         self.assertIn("Сохранённые отчёты: 1", text)
         self.assertEqual(
             rows,
             [
-                ["📁 Samples"],
+                ["📁 Образцы"],
                 ["📍 G25-профили"],
-                ["📊 Reports"],
+                ["📊 Отчёты"],
                 ["📦 Экспорт моих данных"],
                 ["🗑 Удалить все мои данные"],
                 ["ℹ️ Как хранятся данные"],

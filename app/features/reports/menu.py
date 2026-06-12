@@ -80,9 +80,9 @@ def reports_text(items: list[tuple[object, int]], *, total_samples: int, page: i
     total_reports = sum(report_count for _sample, report_count in items)
     safe_page, start, end, page_count = _page_bounds(items, page)
     lines = [
-        "📊 Reports",
+        _copy(lang, "📊 Отчёты", "📊 Reports"),
         "",
-        f"{_copy(lang, 'Samples с отчетами', 'Samples with reports')}: {len(items)} / {total_samples}",
+        f"{_copy(lang, 'Образцы с отчетами', 'Samples with reports')}: {len(items)} / {total_samples}",
         f"{_copy(lang, 'Сохраненных отчетов', 'Saved reports')}: {total_reports}",
     ]
     if not items:
@@ -94,7 +94,7 @@ def reports_text(items: list[tuple[object, int]], *, total_samples: int, page: i
             ]
         )
         return "\n".join(lines)
-    lines.extend(["", _copy(lang, "Выберите sample, чтобы открыть его отчеты.", "Choose a sample to open its reports.")])
+    lines.extend(["", _copy(lang, "Выберите образец, чтобы открыть его отчеты.", "Choose a sample to open its reports.")])
     if len(items) > REPORTS_PAGE_SIZE:
         lines.append(_copy(lang, f"Показаны {start + 1}-{end} из {len(items)}. Страница {safe_page + 1}/{page_count}.", f"Showing {start + 1}-{end} of {len(items)}. Page {safe_page + 1}/{page_count}."))
     return "\n".join(lines)

@@ -218,9 +218,9 @@ class MyDataUiTests(unittest.TestCase):
         keyboard = build_sample_reports_keyboard(sample.asset_id)
         labels = [row[0].text for row in keyboard.inline_keyboard[:6]]
 
-        self.assertIn("📊 Reports", text)
+        self.assertIn("📊 Отчёты", text)
         self.assertIn("Sample: Азнаур", text)
-        self.assertIn("Сохранённые отчёты по этому sample.", text)
+        self.assertIn("Сохранённые отчёты по этому образцу.", text)
         self.assertEqual(labels, [
             "🧭 Coordinate spaces",
             "🧬 Admixture",
@@ -737,7 +737,7 @@ class MyDataUiTests(unittest.TestCase):
         keyboard = build_sample_items_keyboard(samples)
         rows = keyboard.inline_keyboard
 
-        self.assertEqual(rows[0][0].text, "➕ Новый sample")
+        self.assertEqual(rows[0][0].text, "➕ Новый образец")
         self.assertEqual(rows[0][0].callback_data, f"{MY_DATA_CALLBACK_PREFIX}:raw_files_upload")
         self.assertEqual(rows[1][0].text, "1. A")
         self.assertEqual(rows[2][0].text, "2. B")
@@ -829,7 +829,7 @@ class MyDataUiTests(unittest.TestCase):
         self.assertIn("➕ Новый G25-профиль", new_g25_profile_text())
         self.assertEqual(rows[0][0].text, "✍️ Вставить G25 вручную")
         self.assertEqual(rows[0][0].callback_data, f"{MY_DATA_CALLBACK_PREFIX}:coordinates_add_type:g25:g25_profiles")
-        self.assertEqual(rows[1][0].text, "🧬 Получить G25")
+        self.assertEqual(rows[1][0].text, "📏 Получить G25")
         self.assertEqual(rows[1][0].callback_data, f"{MY_DATA_CALLBACK_PREFIX}:coordinates_extract_quick:g25_profiles")
         self.assertEqual([button.text for button in rows[-1]], ["⬅️ Назад", "Отмена"])
         self.assertEqual([button.callback_data for button in rows[-1]], [f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view", f"{MY_DATA_CALLBACK_PREFIX}:cancel"])
@@ -859,8 +859,8 @@ class MyDataUiTests(unittest.TestCase):
         callbacks = [row[0].callback_data for row in rows]
 
         self.assertIn("G25-профили", my_data_text())
-        self.assertEqual(my_data_text(), "🧬 My DNA\n\nВаши samples и G25-профили.")
-        self.assertEqual(labels, ["Samples", "Загрузить raw", "Получить G25", "G25-профили", "Reports"])
+        self.assertEqual(my_data_text(), "🧬 My DNA\n\nВаши образцы и G25-профили.")
+        self.assertEqual(labels, ["Образцы", "Загрузить файл", "📏 Получить G25", "G25-профили", "Отчёты"])
         self.assertEqual(
             callbacks,
             [
@@ -886,7 +886,7 @@ class MyDataUiTests(unittest.TestCase):
         manual_keyboard = build_add_coordinates_keyboard(back_callback="my_data:coordinates_new_profile", add_data_flow=True)
         extract_keyboard = build_extract_coordinates_keyboard(back_callback="my_data:coordinates_new_profile", add_data_flow=True)
 
-        self.assertIn("🧬 Загрузить raw", upload_raw_text())
+        self.assertIn("📤 Загрузить файл", upload_raw_text())
         self.assertIn("Я сохраню его в вашей библиотеке My DNA.", upload_raw_text())
         self.assertIn("✍️ Вставить G25 вручную", add_coordinates_text("g25"))
         self.assertIn("Я сохраню их как отдельный G25-профиль.", add_coordinates_text("g25"))
@@ -903,7 +903,7 @@ class MyDataUiTests(unittest.TestCase):
             report_counts={"coordinate_spaces": 0, "admixture": 0, "matching": 0, "traits": 0, "haplogroups": 0},
         )
 
-        self.assertIn("<b>🧬 Sample · A</b>", text)
+        self.assertIn("<b>🧬 Образец · A</b>", text)
         self.assertIn("<b>Создан:</b> 10.05.2026", text)
         self.assertIn("━━━━━━━━━━━━━━", text)
         self.assertIn("Raw-файл: нет", text)

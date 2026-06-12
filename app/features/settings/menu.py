@@ -613,7 +613,7 @@ def privacy_text(lang: str, summary: PrivacyDataSummary | None = None) -> str:
             "",
             "Здесь видно, что сохранено в My DNA, и можно открыть нужный раздел.",
             "",
-            f"Samples: {data.samples}",
+            f"Образцы: {data.samples}",
             f"Raw-файлы: {data.raw_files}",
             f"G25-профили: {data.g25_profiles}",
             f"Сохранённые отчёты: {data.saved_reports}",
@@ -639,9 +639,9 @@ def build_privacy_keyboard(
         ]
     else:
         rows = [
-            [InlineKeyboardButton("📁 Samples", callback_data=f"{callback_prefix}:privacy_samples")],
+            [InlineKeyboardButton("📁 Образцы", callback_data=f"{callback_prefix}:privacy_samples")],
             [InlineKeyboardButton("📍 G25-профили", callback_data=f"{callback_prefix}:privacy_g25")],
-            [InlineKeyboardButton("📊 Reports", callback_data=f"{callback_prefix}:privacy_reports")],
+            [InlineKeyboardButton("📊 Отчёты", callback_data=f"{callback_prefix}:privacy_reports")],
             [InlineKeyboardButton("📦 Экспорт моих данных", callback_data=f"{callback_prefix}:export_data")],
             [InlineKeyboardButton("🗑 Удалить все мои данные", callback_data=f"{callback_prefix}:delete_data")],
             [InlineKeyboardButton("ℹ️ Как хранятся данные", callback_data=f"{callback_prefix}:privacy_info")],
