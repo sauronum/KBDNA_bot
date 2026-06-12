@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001088_beer_cider_consumption",
+  "pgs_id": "PGS001088",
+  "display_name": "Beer/cider consumption tendency",
+  "short_name": "Beer/cider",
+  "group": "lifestyle",
+  "category": "Lifestyle Research",
+  "status": "usable",
+  "consumer_ready": false,
+  "short_description": "Panel-relative research-style PGS signal for beer/cider consumption.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative genetic signal for beer/cider consumption.",
+  "what_it_measures": "A polygenic score associated with Average weekly alcohol consumption (beer and cider) in PGS Catalog. It does not report this user's real-world habits or choices.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Beer/cider consumption tendency is presented as a cautious genetic signal, not a statement about current or past behavior and not lifestyle advice. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. This is not a statement about the user?s actual habits, choices, dependence, health, or behavior, and it is not medical or lifestyle advice.",
+  "limitations": [
+    "The score does not determine or prove current or past real-world behavior.",
+    "Lifestyle traits are strongly shaped by environment, culture, personal choice, and measurement context.",
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants; it is not clinical or behavioral certainty.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files, excluding bot staging folders.",
+  "audience": "exploratory_lifestyle",
+  "tags": [
+    "lifestyle",
+    "alcohol",
+    "pgs",
+    "pgs001088"
+  ],
+  "product_status": "limited",
+  "pgs_name": "GBE_INI1588",
+  "reported_trait": "Average weekly alcohol consumption (beer and cider)",
+  "mapped_traits": "alcohol consumption quality",
+  "genome_build": "GRCh37",
+  "variants_number": "2842",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001088/ScoringFiles/PGS001088.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001088_beer_cider_consumption_notes.md"
+}

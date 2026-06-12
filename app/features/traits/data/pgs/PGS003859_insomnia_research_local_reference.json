@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Insomnia",
+  "trait_id": "pgs003859_insomnia_research",
+  "display_name": "Insomnia research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 44,
+  "sample_count_excluded": 1,
+  "mean": 0.2753046136363646,
+  "sd": 0.10044600878874965,
+  "min": 0.150451100000001,
+  "max": 0.5109528000000005,
+  "p5": 0.1629899850000005,
+  "p10": 0.17359500000000092,
+  "p25": 0.21383875000000102,
+  "p50": 0.252762300000001,
+  "p75": 0.30130112500000134,
+  "p90": 0.46560246000000116,
+  "p95": 0.5073448250000008,
+  "scoring_file_name": "PGS003859_insomnia_research.txt.gz",
+  "scoring_file_path": "data/pgs/PGS003859_insomnia_research.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS003859",
+    "pgs_name": "GRS129_insomnia",
+    "trait_reported": "Insomnia",
+    "genome_build": "NR",
+    "variants_number": "129",
+    "weight_type": "log(OR)",
+    "citation": "PGS Catalog PGS003859; PMID 37013595; doi 10.1186/s12916-023-02832-8"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs003859_insomnia_research",
+    "display_name": "Insomnia research signal",
+    "reported_name": "Insomnia",
+    "pgs_id": "PGS003859",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.2753046136363646,
+    "sd": 0.10044600878874965,
+    "min": 0.150451100000001,
+    "max": 0.5109528000000005,
+    "p5": 0.1629899850000005,
+    "p10": 0.17359500000000092,
+    "p25": 0.21383875000000102,
+    "p50": 0.252762300000001,
+    "p75": 0.30130112500000134,
+    "p90": 0.46560246000000116,
+    "p95": 0.5073448250000008
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 129,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 44,
+    "median_matched_variants": 16,
+    "median_overlap_percent": 12.4031007751938
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs003859_insomnia_research",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 44,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-12T00:20:39Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "c22ffe5c06eb8a6957d7551718cfed445ab1a3c3c14b2acd477e0332e5814e30"
+  }
+}

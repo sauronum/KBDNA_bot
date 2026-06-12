@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001129_smoking_ever_never",
+  "pgs_id": "PGS001129",
+  "display_name": "Smoking ever/never tendency",
+  "short_name": "Smoking status",
+  "group": "lifestyle",
+  "category": "Lifestyle Research",
+  "status": "usable",
+  "consumer_ready": false,
+  "short_description": "Panel-relative research-style PGS signal for smoking ever/never status.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative genetic signal for smoking ever/never status.",
+  "what_it_measures": "A polygenic score associated with Smoking status (ever vs never smokers) in PGS Catalog. It does not report this user's real-world habits or choices.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Smoking ever/never tendency is presented as a cautious genetic signal, not a statement about current or past behavior and not lifestyle advice. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. This is not a statement about the user?s actual habits, choices, dependence, health, or behavior, and it is not medical or lifestyle advice.",
+  "limitations": [
+    "The score does not determine or prove current or past real-world behavior.",
+    "Lifestyle traits are strongly shaped by environment, culture, personal choice, and measurement context.",
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants; it is not clinical or behavioral certainty.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files, excluding bot staging folders.",
+  "audience": "exploratory_lifestyle",
+  "tags": [
+    "lifestyle",
+    "smoking",
+    "pgs",
+    "pgs001129"
+  ],
+  "product_status": "limited",
+  "pgs_name": "GBE_BIN_FC30022506",
+  "reported_trait": "Smoking status (ever vs never smokers)",
+  "mapped_traits": "smoking status measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "974",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001129/ScoringFiles/PGS001129.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001129_smoking_ever_never_notes.md"
+}

@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Freq. of drinking alcohol",
+  "trait_id": "pgs001394_alcohol_drinking_frequency",
+  "display_name": "Alcohol drinking-frequency tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 45,
+  "sample_count_excluded": 0,
+  "mean": 0.18758364316364445,
+  "sd": 0.06722903021625944,
+  "min": 0.029023097815999994,
+  "max": 0.27852287211,
+  "p5": 0.0767343531238,
+  "p10": 0.08859032878619999,
+  "p25": 0.14172021927999998,
+  "p50": 0.20364667986000004,
+  "p75": 0.23383927523999995,
+  "p90": 0.26535102485200013,
+  "p95": 0.26733724264600006,
+  "scoring_file_name": "PGS001394_alcohol_drinking_frequency.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001394_alcohol_drinking_frequency.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001394",
+    "pgs_name": "GBE_INI20414",
+    "trait_reported": "Freq. of drinking alcohol",
+    "genome_build": "GRCh37",
+    "variants_number": "860",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001394; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001394_alcohol_drinking_frequency",
+    "display_name": "Alcohol drinking-frequency tendency",
+    "reported_name": "Freq. of drinking alcohol",
+    "pgs_id": "PGS001394",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.18758364316364445,
+    "sd": 0.06722903021625944,
+    "min": 0.029023097815999994,
+    "max": 0.27852287211,
+    "p5": 0.0767343531238,
+    "p10": 0.08859032878619999,
+    "p25": 0.14172021927999998,
+    "p50": 0.20364667986000004,
+    "p75": 0.23383927523999995,
+    "p90": 0.26535102485200013,
+    "p95": 0.26733724264600006
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 860,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 45,
+    "median_matched_variants": 172,
+    "median_overlap_percent": 20.0
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs001394_alcohol_drinking_frequency",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 45,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-12T00:20:39Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "cec55da5dfa683b242b25444b21396b51ce3c869c70e77e0b2e4bceb9550670a"
+  }
+}
