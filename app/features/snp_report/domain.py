@@ -9,6 +9,14 @@ from g25_core.g25_engine import parse_raw_dna
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_RULES_PATH = DATA_DIR / "snp_norms.csv"
+DEFAULT_ANNOTATIONS_PATH = DATA_DIR / "snp_annotations.csv"
+
+
+@dataclass(frozen=True)
+class SnpAnnotation:
+    gene: str
+    title: str
+    description: str
 
 
 @dataclass(frozen=True)
@@ -16,6 +24,9 @@ class SnpRule:
     rsid: str
     normal_genotype: str
     category: str
+    gene: str = ""
+    title: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)
@@ -25,6 +36,9 @@ class SnpReportRow:
     normal_genotype: str
     user_genotype: str
     status: str
+    gene: str = ""
+    title: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)
@@ -52,7 +66,11 @@ class SnpReportResult:
     rows: tuple[SnpReportRow, ...]
 
 
-def load_snp_rules(path: Path = DEFAULT_RULES_PATH) -> tuple[SnpRule, ...]:
+def load_snp_rules(
+    path: Path = DEFAULT_RULES_PATH,
+    annotations_path: Path = DEFAULT_ANNOTATIONS_PATH,
+) -> tuple[SnpRule, ...]:
+    annotations = _load_snp_annotations(annotations_path)
     rules: list[SnpRule] = []
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.reader(handle)
@@ -62,8 +80,19 @@ def load_snp_rules(path: Path = DEFAULT_RULES_PATH) -> tuple[SnpRule, ...]:
             rsid = parts[0].strip().lower()
             normal = _canonical_genotype(parts[1])
             category = parts[2].strip()
+            annotation = annotations.get(rsid)
+            description = parts[3].strip() if len(parts) >= 4 else ""
             if rsid.startswith("rs") and normal and category:
-                rules.append(SnpRule(rsid=rsid, normal_genotype=normal, category=category))
+                rules.append(
+                    SnpRule(
+                        rsid=rsid,
+                        normal_genotype=normal,
+                        category=category,
+                        gene=annotation.gene if annotation is not None else "",
+                        title=annotation.title if annotation is not None else "",
+                        description=description or (annotation.description if annotation is not None else ""),
+                    )
+                )
     return tuple(rules)
 
 
@@ -93,6 +122,9 @@ def build_snp_report(
                 normal_genotype=rule.normal_genotype,
                 user_genotype=user_genotype or "--",
                 status=status,
+                gene=rule.gene,
+                title=rule.title,
+                description=rule.description,
             )
         )
 
@@ -164,3 +196,21 @@ def _canonical_genotype(value: object) -> str:
     if len(genotype) == 2 and all(base in "ACGT" for base in genotype):
         return "".join(sorted(genotype))
     return genotype
+
+
+def _load_snp_annotations(path: Path) -> dict[str, SnpAnnotation]:
+    if not path.exists():
+        return {}
+    annotations: dict[str, SnpAnnotation] = {}
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            rsid = str(row.get("rsid") or "").strip().lower()
+            if not rsid.startswith("rs"):
+                continue
+            annotations[rsid] = SnpAnnotation(
+                gene=str(row.get("gene") or "").strip(),
+                title=str(row.get("title") or "").strip(),
+                description=str(row.get("description") or "").strip(),
+            )
+    return annotations

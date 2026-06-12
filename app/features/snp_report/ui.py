@@ -1,14 +1,8 @@
 from __future__ import annotations
 
 import html
-from typing import Any
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-try:
-    from telegram import CopyTextButton
-except ImportError:  # pragma: no cover - depends on python-telegram-bot version
-    CopyTextButton = None  # type: ignore[assignment]
 
 from app.features.my_data.storage import SampleAsset
 
@@ -310,16 +304,24 @@ def build_db_category_keyboard(
 
 
 def db_rule_text(rule: SnpRule, *, lang: str = "ru") -> str:
+    title = _rule_title(rule)
+    description = _rule_description(rule, lang=lang)
+    sources = _rule_sources_line(rule, lang=lang)
     if lang == "en":
         return "\n".join(
             [
-                "📚 <b>SNP база</b>",
+                "📚 <b>SNP base</b>",
                 "",
                 f"rsID: <code>{html.escape(rule.rsid)}</code>",
+                f"Name: <b>{html.escape(title)}</b>",
+                *([f"Gene: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
                 f"Category: <b>{html.escape(rule.category)}</b>",
                 f"Panel norm: <code>{html.escape(rule.normal_genotype)}</code>",
                 "",
-                "This is a reference card from the current panel. It does not interpret medical risk.",
+                f"Description: {html.escape(description)}",
+                sources,
+                "",
+                "Reference card only. This is not a medical interpretation.",
             ]
         )
     return "\n".join(
@@ -327,21 +329,131 @@ def db_rule_text(rule: SnpRule, *, lang: str = "ru") -> str:
             "📚 <b>SNP база</b>",
             "",
             f"rsID: <code>{html.escape(rule.rsid)}</code>",
+            f"Название: <b>{html.escape(title)}</b>",
+            *([f"Ген: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
             f"Раздел: <b>{html.escape(rule.category)}</b>",
             f"Норма панели: <code>{html.escape(rule.normal_genotype)}</code>",
             "",
-            "Это справочная карточка из текущей панели. Она не является медицинской интерпретацией.",
+            f"Описание: {html.escape(description)}",
+            sources,
+            "",
+            "Справочная карточка. Это не медицинская интерпретация.",
         ]
     )
 
 
-def build_db_rule_keyboard(rule: SnpRule, category_index: int, page: int, *, lang: str = "ru") -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    copy_button = _copy_rsid_button(rule.rsid)
-    if copy_button is not None:
-        rows.append([copy_button])
-    rows.append(_back_cancel_row(f"snp_report:dbcat:{category_index}:{page}"))
+def build_db_rule_keyboard(rule: SnpRule, rule_index: int, category_index: int, page: int, *, lang: str = "ru") -> InlineKeyboardMarkup:
+    del rule
+    check_label = "🧬 Check in sample" if lang == "en" else "🧬 Проверить в sample"
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(check_label, callback_data=f"snp_report:dbcheck:{rule_index}:{category_index}:{page}:0")],
+            _back_cancel_row(f"snp_report:dbcat:{category_index}:{page}"),
+        ]
+    )
+
+
+def db_rule_sample_picker_text(
+    rule: SnpRule,
+    samples: list[SampleAsset],
+    *,
+    lang: str = "ru",
+    page: int = 0,
+) -> str:
+    total_pages = _total_pages(samples, PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    if lang == "en":
+        lines = [
+            "🧬 <b>Check SNP in sample</b>",
+            "",
+            f"SNP: <code>{html.escape(rule.rsid)}</code>",
+            f"Name: <b>{html.escape(_rule_title(rule))}</b>",
+            "",
+            "Choose a sample with a raw file.",
+        ]
+        if samples:
+            lines.append(f"Page {page + 1}/{total_pages}.")
+        else:
+            lines.extend(["", "No samples with raw files yet."])
+        return "\n".join(lines)
+
+    lines = [
+        "🧬 <b>Проверка SNP в sample</b>",
+        "",
+        f"SNP: <code>{html.escape(rule.rsid)}</code>",
+        f"Название: <b>{html.escape(_rule_title(rule))}</b>",
+        "",
+        "Выберите sample с raw-файлом.",
+    ]
+    if samples:
+        lines.append(f"Страница {page + 1}/{total_pages}.")
+    else:
+        lines.extend(["", "Пока нет sample с raw-файлом."])
+    return "\n".join(lines)
+
+
+def build_db_rule_sample_picker_keyboard(
+    samples: list[SampleAsset],
+    *,
+    rule_index: int,
+    category_index: int,
+    rule_page: int,
+    sample_page: int = 0,
+) -> InlineKeyboardMarkup:
+    total_pages = _total_pages(samples, PAGE_SIZE)
+    sample_page = _clamp_page(sample_page, total_pages)
+    start = sample_page * PAGE_SIZE
+    visible_samples = samples[start:start + PAGE_SIZE]
+    rows = [
+        [InlineKeyboardButton(sample.display_name, callback_data=f"snp_report:dbsample:{sample.asset_id}")]
+        for sample in visible_samples
+    ]
+    _append_page_nav(rows, page=sample_page, total_pages=total_pages, callback_prefix="snp_report:dbcheck_page")
+    rows.append(_back_cancel_row(f"snp_report:dbsnp:{rule_index}:{category_index}:{rule_page}"))
     return InlineKeyboardMarkup(rows)
+
+
+def db_rule_lookup_result_text(rule: SnpRule, sample: SampleAsset, result: object, *, lang: str = "ru") -> str:
+    base = search_result_text(sample, result, lang=lang)
+    if lang == "en":
+        return "\n".join(
+            [
+                base,
+                "",
+                f"Name: <b>{html.escape(_rule_title(rule))}</b>",
+                *([f"Gene: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
+                f"Panel norm: <code>{html.escape(rule.normal_genotype)}</code>",
+                f"Description: {html.escape(_rule_description(rule, lang=lang))}",
+                _rule_sources_line(rule, lang=lang),
+            ]
+        )
+    return "\n".join(
+        [
+            base,
+            "",
+            f"Название: <b>{html.escape(_rule_title(rule))}</b>",
+            *([f"Ген: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
+            f"Норма панели: <code>{html.escape(rule.normal_genotype)}</code>",
+            f"Описание: {html.escape(_rule_description(rule, lang=lang))}",
+            _rule_sources_line(rule, lang=lang),
+        ]
+    )
+
+
+def build_db_rule_lookup_result_keyboard(
+    rule_index: int,
+    category_index: int,
+    rule_page: int,
+    *,
+    lang: str = "ru",
+) -> InlineKeyboardMarkup:
+    another_label = "👤 Another sample" if lang == "en" else "👤 Другой sample"
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(another_label, callback_data=f"snp_report:dbcheck:{rule_index}:{category_index}:{rule_page}:0")],
+            _back_cancel_row(f"snp_report:dbsnp:{rule_index}:{category_index}:{rule_page}"),
+        ]
+    )
 
 
 def running_text(sample: SampleAsset, *, lang: str = "ru") -> str:
@@ -421,6 +533,7 @@ def render_html_report(result: SnpReportResult) -> str:
         table_rows = "\n".join(
             "<tr>"
             f"<td>{html.escape(row.rsid)}</td>"
+            f"<td>{html.escape(_row_summary(row))}</td>"
             f"<td><span class='pill {row.status}'>{html.escape(row.user_genotype)}</span></td>"
             f"<td>{html.escape(row.normal_genotype)}</td>"
             f"<td>{_status_label(row.status)}</td>"
@@ -436,7 +549,7 @@ def render_html_report(result: SnpReportResult) -> str:
               </div>
               <div class="bar"><i style="width:{category.risk_percent}%"></i></div>
               <table>
-                <thead><tr><th>SNP</th><th>Ваши аллели</th><th>Норма</th><th>Статус</th></tr></thead>
+                <thead><tr><th>SNP</th><th>Описание</th><th>Ваши аллели</th><th>Норма</th><th>Статус</th></tr></thead>
                 <tbody>{table_rows}</tbody>
               </table>
             </section>
@@ -526,11 +639,48 @@ def _category_names(rules: tuple[SnpRule, ...]) -> list[str]:
     return sorted(seen, key=str.casefold)
 
 
-def _copy_rsid_button(rsid: str) -> InlineKeyboardButton | None:
-    if CopyTextButton is None:
-        return None
-    kwargs: dict[str, Any] = {"text": "📋 Скопировать rsID", "copy_text": CopyTextButton(text=rsid)}
-    return InlineKeyboardButton(**kwargs)
+def _rule_title(rule: SnpRule) -> str:
+    if rule.title:
+        return rule.title
+    if rule.gene:
+        return f"{rule.gene} {rule.rsid}"
+    return f"SNP {rule.rsid}"
+
+
+def _rule_description(rule: SnpRule, *, lang: str = "ru") -> str:
+    if rule.description:
+        return rule.description
+    if lang == "en":
+        return (
+            f"Marker from the {rule.category} section. The panel compares the sample genotype "
+            f"with the reference value {rule.normal_genotype}; use the rsID links for source-level interpretation."
+        )
+    return (
+        f"Маркер из раздела «{rule.category}». Панель сравнивает генотип sample "
+        f"с референсным значением {rule.normal_genotype}; для биологической трактовки откройте источники по rsID."
+    )
+
+
+def _rule_sources_line(rule: SnpRule, *, lang: str = "ru") -> str:
+    rsid = html.escape(rule.rsid)
+    title = "Sources" if lang == "en" else "Источники"
+    return (
+        f'{title}: <a href="https://www.ncbi.nlm.nih.gov/snp/{rsid}">dbSNP</a> · '
+        f'<a href="https://www.snpedia.com/index.php/{rsid.capitalize()}">SNPedia</a>'
+    )
+
+
+def _row_summary(row: object) -> str:
+    title = str(getattr(row, "title", "") or "").strip()
+    gene = str(getattr(row, "gene", "") or "").strip()
+    description = str(getattr(row, "description", "") or "").strip()
+    if title and gene:
+        head = f"{gene}: {title}"
+    else:
+        head = title or gene
+    if head and description:
+        return f"{head}. {description}"
+    return head or description or "Справочный SNP панели."
 
 
 def _dna_lab_footer_row() -> list[InlineKeyboardButton]:

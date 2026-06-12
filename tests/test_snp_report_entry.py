@@ -6,7 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import bot
-from app.features.snp_report.domain import load_snp_rules
+from app.features.snp_report.domain import SnpCategorySummary, SnpReportResult, SnpReportRow, load_snp_rules
+from app.features.snp_report.ui import build_db_rule_keyboard, db_rule_text, render_html_report
 
 
 class _FakeMyDataStore:
@@ -67,6 +68,71 @@ class SnpReportEntryTests(unittest.TestCase):
                 ["main:root", "main:cancel"],
             ],
         )
+
+    def test_snp_base_card_has_description_and_sample_check_button(self) -> None:
+        rules = load_snp_rules()
+        rule_index = next(index for index, rule in enumerate(rules) if rule.rsid == "rs4680")
+        rule = rules[rule_index]
+
+        text = db_rule_text(rule)
+        self.assertIn("COMT", text)
+        self.assertIn("Описание:", text)
+        self.assertIn("dbSNP", text)
+        self.assertIn("SNPedia", text)
+
+        callbacks = [
+            button.callback_data
+            for row in build_db_rule_keyboard(rule, rule_index, 2, 3).inline_keyboard
+            for button in row
+        ]
+        labels = [
+            button.text
+            for row in build_db_rule_keyboard(rule, rule_index, 2, 3).inline_keyboard
+            for button in row
+        ]
+        self.assertIn(f"snp_report:dbcheck:{rule_index}:2:3:0", callbacks)
+        self.assertNotIn("📋 Скопировать rsID", labels)
+
+    def test_html_report_includes_snp_annotation(self) -> None:
+        rule = next(rule for rule in load_snp_rules() if rule.rsid == "rs4680")
+        result = SnpReportResult(
+            sample_id="sample",
+            sample_name="Sample",
+            raw_file_id="raw",
+            total_rules=1,
+            ok=1,
+            warn=0,
+            bad=0,
+            missing=0,
+            categories=(
+                SnpCategorySummary(
+                    category=rule.category,
+                    total=1,
+                    ok=1,
+                    warn=0,
+                    bad=0,
+                    missing=0,
+                    risk_percent=0,
+                ),
+            ),
+            rows=(
+                SnpReportRow(
+                    rsid=rule.rsid,
+                    category=rule.category,
+                    normal_genotype=rule.normal_genotype,
+                    user_genotype="GG",
+                    status="ok",
+                    gene=rule.gene,
+                    title=rule.title,
+                    description=rule.description,
+                ),
+            ),
+        )
+
+        html = render_html_report(result)
+
+        self.assertIn("COMT", html)
+        self.assertIn("Val158Met", html)
 
 
 if __name__ == "__main__":

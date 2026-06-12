@@ -17,6 +17,8 @@ from .ui import (
     build_db_categories_keyboard,
     build_db_category_keyboard,
     build_db_rule_keyboard,
+    build_db_rule_lookup_result_keyboard,
+    build_db_rule_sample_picker_keyboard,
     build_error_keyboard,
     build_lab_root_keyboard,
     build_report_picker_keyboard,
@@ -26,6 +28,8 @@ from .ui import (
     build_search_result_keyboard,
     db_categories_text,
     db_category_text,
+    db_rule_lookup_result_text,
+    db_rule_sample_picker_text,
     db_rule_text,
     error_text,
     lab_root_text,
@@ -43,6 +47,7 @@ from .ui import (
 
 SNP_REPORT_CALLBACK_PREFIX = "snp_report"
 SNP_LOOKUP_PENDING_KEY = "snp_lab_lookup_pending"
+SNP_DB_LOOKUP_PENDING_KEY = "snp_lab_db_lookup_pending"
 RSID_RE = re.compile(r"^rs\d+$", re.IGNORECASE)
 
 
@@ -122,6 +127,7 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
     if action == "root":
         await query.answer()
         _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
         await show_snp_report_menu(query.message, context, user_id, edit_existing=True)
         return
 
@@ -132,6 +138,7 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
     if action == "search":
         await query.answer()
         _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
         await _show_search_picker(query.message, context, user_id, edit_existing=True)
         return
 
@@ -150,6 +157,7 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
     if action == "db":
         await query.answer()
         _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
         await _show_db_categories(query.message, context, user_id, edit_existing=True)
         return
 
@@ -174,9 +182,54 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await _show_db_rule(query.message, context, user_id, rule_index, category_index=category_index, page=page, edit_existing=True)
         return
 
+    if action == "dbcheck":
+        await query.answer()
+        _clear_lookup_pending(context)
+        rule_index = _parse_int(parts[2] if len(parts) > 2 else "-1")
+        category_index = _parse_int(parts[3] if len(parts) > 3 else "0")
+        rule_page = _parse_int(parts[4] if len(parts) > 4 else "0")
+        sample_page = _parse_int(parts[5] if len(parts) > 5 else "0")
+        await _show_db_rule_sample_picker(
+            query.message,
+            context,
+            user_id,
+            rule_index,
+            category_index=category_index,
+            rule_page=rule_page,
+            sample_page=sample_page,
+            edit_existing=True,
+        )
+        return
+
+    if action == "dbcheck_page":
+        await query.answer()
+        pending = _db_lookup_pending(context, user_id)
+        if pending is None:
+            await show_snp_report_menu(query.message, context, user_id, edit_existing=True)
+            return
+        sample_page = _parse_int(parts[2] if len(parts) > 2 else "0")
+        await _show_db_rule_sample_picker(
+            query.message,
+            context,
+            user_id,
+            int(pending["rule_index"]),
+            category_index=int(pending["category_index"]),
+            rule_page=int(pending["rule_page"]),
+            sample_page=sample_page,
+            edit_existing=True,
+        )
+        return
+
+    if action == "dbsample":
+        await query.answer()
+        sample_id = parts[2] if len(parts) > 2 else ""
+        await _run_db_rule_lookup(query.message, update, context, user_id, sample_id)
+        return
+
     if action == "report":
         await query.answer()
         _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
         await _show_report_picker(query.message, context, user_id, edit_existing=True)
         return
 
@@ -189,6 +242,7 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
     if action == "run":
         await query.answer()
         _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
         sample_id = parts[2] if len(parts) > 2 else ""
         await _run_snp_report(query.message, update, context, user_id, sample_id)
         return
@@ -409,11 +463,99 @@ async def _show_db_rule(
         return
     rule = rules[rule_index]
     text = db_rule_text(rule, lang=lang)
-    markup = build_db_rule_keyboard(rule, category_index, page, lang=lang)
+    markup = build_db_rule_keyboard(rule, rule_index, category_index, page, lang=lang)
     if edit_existing:
         await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
     else:
         await message.reply_text(text, parse_mode="HTML", reply_markup=markup, do_quote=False)
+
+
+async def _show_db_rule_sample_picker(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    rule_index: int,
+    *,
+    category_index: int,
+    rule_page: int,
+    sample_page: int,
+    edit_existing: bool,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    rules = _rules(context)
+    if rule_index < 0 or rule_index >= len(rules):
+        await message.edit_text(error_text("SNP база", "SNP не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+    rule = rules[rule_index]
+    samples = _samples_with_raw(context, user_id)
+    context.user_data[SNP_DB_LOOKUP_PENDING_KEY] = {
+        "user_id": int(user_id),
+        "rule_index": int(rule_index),
+        "category_index": int(category_index),
+        "rule_page": int(rule_page),
+    }
+    text = db_rule_sample_picker_text(rule, samples, lang=lang, page=sample_page)
+    markup = build_db_rule_sample_picker_keyboard(
+        samples,
+        rule_index=rule_index,
+        category_index=category_index,
+        rule_page=rule_page,
+        sample_page=sample_page,
+    )
+    if edit_existing:
+        await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+    else:
+        await message.reply_text(text, parse_mode="HTML", reply_markup=markup, do_quote=False)
+
+
+async def _run_db_rule_lookup(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    sample_id: str,
+) -> None:
+    pending = _db_lookup_pending(context, user_id)
+    if pending is None:
+        _record_snp_report_usage(update, context, "lookup", success=False)
+        await show_snp_report_menu(message, context, user_id, edit_existing=True)
+        return
+
+    rules = _rules(context)
+    rule_index = int(pending["rule_index"])
+    category_index = int(pending["category_index"])
+    rule_page = int(pending["rule_page"])
+    if rule_index < 0 or rule_index >= len(rules):
+        _record_snp_report_usage(update, context, "lookup", success=False)
+        await message.edit_text(error_text("SNP база", "SNP не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+    rule = rules[rule_index]
+
+    store = _my_data_store(context)
+    sample = store.get_sample(user_id, sample_id)
+    if sample is None:
+        _record_snp_report_usage(update, context, "lookup", success=False)
+        await message.edit_text(error_text("SNP Lab", "Sample не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+    raw_file = store.get_sample_raw_file(user_id, sample.asset_id)
+    if raw_file is None:
+        _record_snp_report_usage(update, context, "lookup", success=False)
+        await message.edit_text(
+            search_no_raw_text(sample, lang=_ui_lang(context, user_id)),
+            parse_mode="HTML",
+            reply_markup=build_db_rule_lookup_result_keyboard(rule_index, category_index, rule_page, lang=_ui_lang(context, user_id)),
+        )
+        return
+
+    raw_path = store.resolve_raw_file_path(raw_file)
+    result = await run_in_heavy_pool(context, _lookup_snp_in_raw_path, str(raw_path), rule.rsid)
+    lang = _ui_lang(context, user_id)
+    _record_snp_report_usage(update, context, "lookup", success=(getattr(result, "error", None) is None), input_mode="callback")
+    await message.edit_text(
+        db_rule_lookup_result_text(rule, sample, result, lang=lang),
+        parse_mode="HTML",
+        reply_markup=build_db_rule_lookup_result_keyboard(rule_index, category_index, rule_page, lang=lang),
+    )
 
 
 async def _run_snp_report(message, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str) -> None:
@@ -526,6 +668,26 @@ async def _edit_pending_lookup_message(context: ContextTypes.DEFAULT_TYPE, chat_
 
 def _clear_lookup_pending(context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.pop(SNP_LOOKUP_PENDING_KEY, None)
+
+
+def _clear_db_lookup_pending(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(SNP_DB_LOOKUP_PENDING_KEY, None)
+
+
+def _db_lookup_pending(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> dict[str, int] | None:
+    pending = context.user_data.get(SNP_DB_LOOKUP_PENDING_KEY)
+    if not isinstance(pending, dict):
+        return None
+    if int(pending.get("user_id", 0) or 0) != int(user_id):
+        return None
+    try:
+        return {
+            "rule_index": int(pending["rule_index"]),
+            "category_index": int(pending["category_index"]),
+            "rule_page": int(pending["rule_page"]),
+        }
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _normalize_rsid(value: str) -> str | None:
