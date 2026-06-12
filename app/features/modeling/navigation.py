@@ -47,6 +47,13 @@ def current_callback_user_id() -> int | None:
     return _CURRENT_CALLBACK_USER_ID.get()
 
 
+def _nav_family(callback_data: str) -> str:
+    parts = callback_data.split(":")
+    if len(parts) >= 3 and parts[-1].isdigit() and parts[1].endswith("_page"):
+        return ":".join(parts[:-1])
+    return callback_data
+
+
 def nav_enter(context: ContextTypes.DEFAULT_TYPE | None, callback_data: str) -> None:
     if context is None:
         return
@@ -57,12 +64,13 @@ def nav_enter(context: ContextTypes.DEFAULT_TYPE | None, callback_data: str) -> 
 
     current = context.user_data.get(NAV_CURRENT_KEY)
     if isinstance(current, str) and current and current != callback_data:
-        stack = context.user_data.get(NAV_STACK_KEY)
-        if not isinstance(stack, list):
-            stack = []
-        if not stack or stack[-1] != current:
-            stack.append(current)
-        context.user_data[NAV_STACK_KEY] = stack[-NAV_MAX_DEPTH:]
+        if _nav_family(current) != _nav_family(callback_data):
+            stack = context.user_data.get(NAV_STACK_KEY)
+            if not isinstance(stack, list):
+                stack = []
+            if not stack or stack[-1] != current:
+                stack.append(current)
+            context.user_data[NAV_STACK_KEY] = stack[-NAV_MAX_DEPTH:]
     context.user_data[NAV_CURRENT_KEY] = callback_data
 
 
