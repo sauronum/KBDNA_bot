@@ -63,7 +63,7 @@ def build_my_data_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     g25_label = "G25 profiles" if lang == "en" else "G25-профили"
     reports_label = "Reports"
     raw_upload_label = "Upload raw" if lang == "en" else "Загрузить raw"
-    g25_from_raw_label = "Get G25 coordinates" if lang == "en" else "Получить G25 координаты"
+    g25_from_raw_label = "Get G25" if lang == "en" else "Получить G25"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Samples", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:samples_view")],
@@ -1070,7 +1070,7 @@ def coordinates_text(coordinates: list[CoordinateAsset] | None = None, *, lang: 
 def build_coordinates_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     view_label = "G25 profiles" if lang == "en" else "G25-профили"
     add_label = "Paste G25 manually" if lang == "en" else "Вставить G25 вручную"
-    extract_label = "Get G25 coordinates" if lang == "en" else "Получить G25 координаты"
+    extract_label = "Get G25" if lang == "en" else "Получить G25"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(view_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view")],
@@ -1115,7 +1115,7 @@ def new_g25_profile_text(*, lang: str = "ru") -> str:
 
 def build_new_g25_profile_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     manual_label = "✍️ Paste G25 manually" if lang == "en" else "✍️ Вставить G25 вручную"
-    extract_label = "🧬 Get G25 coordinates" if lang == "en" else "🧬 Получить G25 координаты"
+    extract_label = "🧬 Get G25" if lang == "en" else "🧬 Получить G25"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(manual_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_add_type:g25:g25_profiles")],

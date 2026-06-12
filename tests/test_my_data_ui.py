@@ -784,10 +784,10 @@ class MyDataUiTests(unittest.TestCase):
         self.assertIn("Standalone coordinates: 0", coordinates_text(lang="en"))
         self.assertIn("These G25 profiles are not attached to a sample.", view_coordinates_text([coordinate], lang="en"))
         self.assertNotIn("Choose a profile below", view_coordinates_text([coordinate], lang="en"))
-        self.assertEqual(root_labels, ["G25 profiles", "Paste G25 manually", "Get G25 coordinates"])
+        self.assertEqual(root_labels, ["G25 profiles", "Paste G25 manually", "Get G25"])
         self.assertEqual(item_labels, ["➕ New G25 profile", "1. A G25"])
         self.assertNotIn("Paste G25 manually", item_labels)
-        self.assertNotIn("Get G25 coordinates", item_labels)
+        self.assertNotIn("Get G25", item_labels)
         self.assertEqual(footer_labels, ["Back", "Cancel"])
 
     def test_coordinate_items_can_use_custom_back_callback(self) -> None:
@@ -829,7 +829,7 @@ class MyDataUiTests(unittest.TestCase):
         self.assertIn("➕ Новый G25-профиль", new_g25_profile_text())
         self.assertEqual(rows[0][0].text, "✍️ Вставить G25 вручную")
         self.assertEqual(rows[0][0].callback_data, f"{MY_DATA_CALLBACK_PREFIX}:coordinates_add_type:g25:g25_profiles")
-        self.assertEqual(rows[1][0].text, "🧬 Получить G25 координаты")
+        self.assertEqual(rows[1][0].text, "🧬 Получить G25")
         self.assertEqual(rows[1][0].callback_data, f"{MY_DATA_CALLBACK_PREFIX}:coordinates_extract_quick:g25_profiles")
         self.assertEqual([button.text for button in rows[-1]], ["⬅️ Назад", "Отмена"])
         self.assertEqual([button.callback_data for button in rows[-1]], [f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view", f"{MY_DATA_CALLBACK_PREFIX}:cancel"])
@@ -860,7 +860,7 @@ class MyDataUiTests(unittest.TestCase):
 
         self.assertIn("G25-профили", my_data_text())
         self.assertEqual(my_data_text(), "🧬 My DNA\n\nВаши samples и G25-профили.")
-        self.assertEqual(labels, ["Samples", "G25-профили", "Reports", "Загрузить raw", "Получить G25 координаты"])
+        self.assertEqual(labels, ["Samples", "G25-профили", "Reports", "Загрузить raw", "Получить G25"])
         self.assertEqual(
             callbacks,
             [
