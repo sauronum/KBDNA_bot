@@ -342,20 +342,20 @@ class MenuKeyboardTests(unittest.TestCase):
             rows,
             [
                 ["📁 Samples"],
-                ["📍 G25-профили"],
-                ["📊 Reports"],
                 ["📤 Загрузить raw"],
                 ["🧬 Получить G25"],
+                ["📍 G25-профили"],
+                ["📊 Reports"],
             ],
         )
         self.assertEqual(
             callbacks,
             [
                 ["my_data:samples_view"],
-                ["my_data:coordinates_view"],
-                ["reports:root"],
                 ["my_data:raw_files_upload:root"],
                 [f"{bot.MY_DNA_CALLBACK_PREFIX}:get_g25_raw"],
+                ["my_data:coordinates_view"],
+                ["reports:root"],
             ],
         )
     def test_support_menu_is_documentation_root(self) -> None:

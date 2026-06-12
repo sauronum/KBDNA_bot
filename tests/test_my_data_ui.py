@@ -860,15 +860,15 @@ class MyDataUiTests(unittest.TestCase):
 
         self.assertIn("G25-профили", my_data_text())
         self.assertEqual(my_data_text(), "🧬 My DNA\n\nВаши samples и G25-профили.")
-        self.assertEqual(labels, ["Samples", "G25-профили", "Reports", "Загрузить raw", "Получить G25"])
+        self.assertEqual(labels, ["Samples", "Загрузить raw", "Получить G25", "G25-профили", "Reports"])
         self.assertEqual(
             callbacks,
             [
                 f"{MY_DATA_CALLBACK_PREFIX}:samples_view",
-                f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view",
-                "reports:root",
                 f"{MY_DATA_CALLBACK_PREFIX}:raw_files_upload:root",
                 "mydna:get_g25_raw",
+                f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view",
+                "reports:root",
             ],
         )
 

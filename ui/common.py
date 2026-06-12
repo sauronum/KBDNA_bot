@@ -270,10 +270,10 @@ def build_laboratory_inline_keyboard(lab_callback_prefix: str) -> InlineKeyboard
 def build_my_dna_inline_keyboard(my_dna_callback_prefix: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(MY_DNA_BUTTON_SAMPLES, callback_data="my_data:samples_view")],
-        [InlineKeyboardButton(MY_DNA_BUTTON_G25_PROFILES, callback_data="my_data:coordinates_view")],
-        [InlineKeyboardButton(MY_DNA_BUTTON_REPORTS, callback_data="reports:root")],
         [InlineKeyboardButton(MY_DNA_BUTTON_ADD_RAW, callback_data="my_data:raw_files_upload:root")],
         [InlineKeyboardButton(MY_DNA_BUTTON_GET_G25_FROM_RAW, callback_data=f"{my_dna_callback_prefix}:get_g25_raw")],
+        [InlineKeyboardButton(MY_DNA_BUTTON_G25_PROFILES, callback_data="my_data:coordinates_view")],
+        [InlineKeyboardButton(MY_DNA_BUTTON_REPORTS, callback_data="reports:root")],
     ])
 
 

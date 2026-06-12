@@ -67,10 +67,10 @@ def build_my_data_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Samples", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:samples_view")],
-            [InlineKeyboardButton(g25_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view")],
-            [InlineKeyboardButton(reports_label, callback_data="reports:root")],
             [InlineKeyboardButton(raw_upload_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:raw_files_upload:root")],
             [InlineKeyboardButton(g25_from_raw_label, callback_data="mydna:get_g25_raw")],
+            [InlineKeyboardButton(g25_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view")],
+            [InlineKeyboardButton(reports_label, callback_data="reports:root")],
         ]
     )
 
