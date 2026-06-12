@@ -139,7 +139,7 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertIn("COMT", html)
         self.assertIn("Val158Met", html)
 
-    def test_report_summary_points_to_png_visual(self) -> None:
+    def test_report_summary_caption_is_compact_when_png_is_sent(self) -> None:
         record = SnpReportRecord(
             summary=SnpReportSummary(
                 report_id="report",
@@ -171,10 +171,15 @@ class SnpReportEntryTests(unittest.TestCase):
 
         text = result_text(record, visual=True)
 
-        self.assertIn("PNG-график", text)
-        self.assertIn("Нагрузка = гомо + половина гетеро", text)
+        self.assertIn("Sample: <b>Sample</b>", text)
+        self.assertIn("🔴 Гомо/вариант: <b>2</b>", text)
+        self.assertNotIn("PNG-график", text)
+        self.assertNotIn("HTML-файл готов", text)
         self.assertNotIn("█████░░░░░", text)
         self.assertNotIn("🔴 1, 🟡 2, ⚪ 0", text)
+
+        fallback_text = result_text(record, visual=False)
+        self.assertIn("PNG-график не отправился", fallback_text)
 
     def test_category_load_png_is_rendered(self) -> None:
         record = SnpReportRecord(

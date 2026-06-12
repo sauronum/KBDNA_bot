@@ -483,24 +483,8 @@ def result_text(record: SnpReportRecord, *, lang: str = "ru", visual: bool = Fal
         f"🔴 Гомо/вариант: <b>{summary.bad}</b>",
         f"⚪ Нет данных: <b>{summary.missing}</b>",
     ]
-    if categories:
-        if visual:
-            lines.extend(
-                [
-                    "",
-                    "📊 <b>PNG-график:</b> топ категорий по нагрузке.",
-                    "<i>Нагрузка = гомо + половина гетеро среди найденных SNP.</i>",
-                ]
-            )
-        else:
-            lines.extend(
-                [
-                    "",
-                    "📊 Топ категорий вынесен в PNG-график.",
-                    "<i>Если картинка не отобразилась, подробная таблица есть в HTML.</i>",
-                ]
-            )
-    lines.extend(["", "HTML-файл готов. Его можно скачать кнопкой ниже."])
+    if categories and not visual:
+        lines.extend(["", "📊 PNG-график не отправился. Подробная таблица есть в HTML."])
     return "\n".join(lines)
 
 

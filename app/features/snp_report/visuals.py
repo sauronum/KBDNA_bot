@@ -36,7 +36,7 @@ def render_category_load_png(
     ][:top_limit]
     summary = record.summary
     width = 1080
-    row_h = 112
+    row_h = 128
     height = 330 + max(1, len(categories)) * row_h + 120
 
     image = Image.new("RGB", (width, height), _BG_TOP)
@@ -85,7 +85,7 @@ def render_category_load_png(
 
     footer_y = height - 118
     draw.rounded_rectangle((x, footer_y, width - margin - 38, footer_y + 58), radius=18, fill=(12, 26, 42), outline=(41, 75, 103), width=1)
-    footer = "Нагрузка = гомо + ½ гетеро среди найденных SNP. Длиннее полоса — выше нагрузка."
+    footer = "Процент — общая нагрузка категории. Справа: гомо, гетеро, нет данных."
     draw.text((x + 22, footer_y + 17), footer, font=small_font, fill=_MUTED)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -127,29 +127,61 @@ def _draw_category_row(
     small_font: ImageFont.ImageFont,
     percent_font: ImageFont.ImageFont,
 ) -> None:
-    draw.rounded_rectangle((left, top, right, top + 92), radius=20, fill=(14, 29, 46), outline=(37, 66, 91), width=1)
+    draw.rounded_rectangle((left, top, right, top + 108), radius=20, fill=(14, 29, 46), outline=(37, 66, 91), width=1)
     badge = f"{index}"
-    draw.rounded_rectangle((left + 18, top + 22, left + 54, top + 58), radius=12, fill=(31, 73, 107))
-    _draw_centered_text(draw, badge, (left + 18, top + 22, left + 54, top + 58), small_font, _TEXT)
+    draw.rounded_rectangle((left + 18, top + 34, left + 54, top + 70), radius=12, fill=(31, 73, 107))
+    _draw_centered_text(draw, badge, (left + 18, top + 34, left + 54, top + 70), small_font, _TEXT)
 
-    label = _truncate_to_width(draw, item.category, label_font, 390)
+    label = _truncate_to_width(draw, item.category, label_font, 430)
     draw.text((left + 72, top + 18), label, font=label_font, fill=_TEXT)
-    detail = f"Гомо {item.bad}   •   Гетеро {item.warn}   •   Нет данных {item.missing}"
-    draw.text((left + 72, top + 54), detail, font=small_font, fill=_MUTED)
 
     percent = max(0, min(100, item.risk_percent))
-    percent_text = f"{percent}%"
-    percent_w = _text_size(draw, percent_text, percent_font)[0]
-    draw.text((right - 36 - percent_w, top + 18), percent_text, font=percent_font, fill=_risk_color(percent))
+    percent_text = f"Нагрузка {percent}%"
+    draw.text((left + 72, top + 57), percent_text, font=small_font, fill=_risk_color(percent))
 
-    bar_left = right - 330
-    bar_top = top + 61
-    bar_right = right - 36
-    bar_bottom = bar_top + 16
+    columns_left = right - 286
+    bar_left = left + 245
+    bar_top = top + 65
+    bar_right = columns_left - 28
+    bar_bottom = bar_top + 15
     draw.rounded_rectangle((bar_left, bar_top, bar_right, bar_bottom), radius=8, fill=(42, 55, 72))
     fill_right = bar_left + int((bar_right - bar_left) * percent / 100)
     if fill_right > bar_left:
         draw.rounded_rectangle((bar_left, bar_top, fill_right, bar_bottom), radius=8, fill=_risk_color(percent))
+
+    _draw_count_columns(draw, item, columns_left, top + 15, right - 22, top + 94, small_font)
+
+
+def _draw_count_columns(
+    draw: ImageDraw.ImageDraw,
+    item: SnpCategorySummary,
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+    font: ImageFont.ImageFont,
+) -> None:
+    values = (
+        ("Гомо", item.bad, _RED),
+        ("Гетеро", item.warn, _YELLOW),
+        ("Н/д", item.missing, _GRAY),
+    )
+    max_value = max(1, *(value for _label, value, _color in values))
+    col_w = (right - left) // 3
+    bar_bottom = bottom - 22
+    max_bar_h = 42
+    for index, (label, value, color) in enumerate(values):
+        center = left + col_w * index + col_w // 2
+        value_text = str(value)
+        value_w = _text_size(draw, value_text, font)[0]
+        draw.text((center - value_w / 2, top), value_text, font=font, fill=_TEXT)
+
+        bar_h = max(5, int(max_bar_h * value / max_value)) if value else 3
+        bar_left = center - 12
+        draw.rounded_rectangle((bar_left, bar_bottom - bar_h, bar_left + 24, bar_bottom), radius=6, fill=color)
+
+        label_w = _text_size(draw, label, font)[0]
+        draw.text((center - label_w / 2, bottom - 17), label, font=font, fill=_MUTED)
 
 
 def _risk_color(percent: int) -> tuple[int, int, int]:
