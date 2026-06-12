@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from app.features.modeling.qpadm_classic import (
     QPADM_ENGINE_CLASSIC,
     _format_messages,
     _format_preflight,
+    _format_preflight_process_result,
     _format_qpadm_summary,
     _format_queue_text,
     _flow_for_target,
@@ -59,6 +61,32 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertIn("and 1 more", text)
         self.assertNotIn("warning 4", text)
         self.assertNotIn("error 4", text)
+
+    def test_preflight_formats_json_stdout_even_when_process_exits_nonzero(self) -> None:
+        stdout = json.dumps(
+            {
+                "status": "failed",
+                "engine_status": {"available": True},
+                "can_run": False,
+                "warnings": [],
+                "errors": [{"message": "raw target could not be prepared"}],
+                "raw_preparation": None,
+            }
+        )
+
+        text, can_run = _format_preflight_process_result(
+            returncode=1,
+            stdout=stdout,
+            stderr="",
+            elapsed_seconds=0.5,
+            lang="en",
+            product_title="ADMIXTOOLS2 qpAdm",
+        )
+
+        self.assertFalse(can_run)
+        self.assertIn("ADMIXTOOLS2 qpAdm", text)
+        self.assertIn("raw target could not be prepared", text)
+        self.assertNotIn('"raw_preparation"', text)
 
     def test_admixtools2_titles_are_not_labeled_classic(self) -> None:
         flow = {

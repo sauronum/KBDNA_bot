@@ -496,6 +496,13 @@ def _qpadm_env(engine: object = QPADM_ENGINE_CLASSIC) -> dict[str, str]:
 
 
 async def _run_process(args: list[str], *, timeout_seconds: int, engine: object = QPADM_ENGINE_CLASSIC) -> str:
+    returncode, stdout, stderr = await _run_process_result(args, timeout_seconds=timeout_seconds, engine=engine)
+    if returncode != 0:
+        raise RuntimeError(_process_error_detail(returncode, stdout, stderr))
+    return stdout
+
+
+async def _run_process_result(args: list[str], *, timeout_seconds: int, engine: object = QPADM_ENGINE_CLASSIC) -> tuple[int, str, str]:
     proc = await asyncio.create_subprocess_exec(
         *heavy_command(args),
         cwd=str(DNA_PLATFORM_ROOT),
@@ -512,10 +519,12 @@ async def _run_process(args: list[str], *, timeout_seconds: int, engine: object 
 
     stdout = stdout_bytes.decode("utf-8", errors="replace")
     stderr = stderr_bytes.decode("utf-8", errors="replace")
-    if proc.returncode != 0:
-        detail = (stderr or stdout).strip().splitlines()[-10:]
-        raise RuntimeError("\n".join(detail) or f"process failed with exit code {proc.returncode}")
-    return stdout
+    return int(proc.returncode or 0), stdout, stderr
+
+
+def _process_error_detail(returncode: int, stdout: str, stderr: str) -> str:
+    detail = (stderr or stdout).strip().splitlines()[-10:]
+    return "\n".join(detail) or f"process failed with exit code {returncode}"
 
 
 async def show_qpadm_classic_dataset_menu(
@@ -1628,6 +1637,26 @@ def _format_preflight(
     return "\n".join(lines), can_run
 
 
+def _format_preflight_process_result(
+    *,
+    returncode: int,
+    stdout: str,
+    stderr: str,
+    elapsed_seconds: float,
+    lang: str,
+    product_title: str,
+) -> tuple[str, bool]:
+    try:
+        payload = json.loads(stdout)
+    except Exception:
+        detail = _process_error_detail(returncode, stdout, stderr)
+        return f"<b>🧪 {html.escape(product_title)} preflight</b>\n\n<code>{html.escape(detail)}</code>", False
+    if not isinstance(payload, dict):
+        detail = _process_error_detail(returncode, stdout, stderr)
+        return f"<b>🧪 {html.escape(product_title)} preflight</b>\n\n<code>{html.escape(detail)}</code>", False
+    return _format_preflight(payload, elapsed_seconds=elapsed_seconds, lang=lang, product_title=product_title)
+
+
 async def _run_preflight(message, context: ContextTypes.DEFAULT_TYPE, *, lang: str) -> None:
     flow = _get_flow(context)
     if flow is None:
@@ -1643,13 +1672,15 @@ async def _run_preflight(message, context: ContextTypes.DEFAULT_TYPE, *, lang: s
     )
     started = time.monotonic()
     try:
-        stdout = await _run_process(
+        returncode, stdout, stderr = await _run_process_result(
             _qpadm_args(flow, "admixlab-qpadm-preflight"),
             timeout_seconds=QPADM_PREFLIGHT_TIMEOUT_SECONDS,
             engine=flow.get("engine"),
         )
-        text, can_run = _format_preflight(
-            json.loads(stdout),
+        text, can_run = _format_preflight_process_result(
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
             elapsed_seconds=time.monotonic() - started,
             lang=lang,
             product_title=product_title,
