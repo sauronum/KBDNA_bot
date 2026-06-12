@@ -782,6 +782,27 @@ def _format_started_text(flow: dict[str, Any]) -> str:
     return "\n".join([f"<b>{html.escape(_qpwave_title(flow, suffix='расчет запущен'))}</b>", "", *_state_lines(flow), "", "Обычно это занимает от минуты до нескольких минут."])
 
 
+def _format_qpwave_error(flow: dict[str, Any], exc: Exception) -> str:
+    detail = str(exc) or exc.__class__.__name__
+    lines = [
+        f"<b>{html.escape(_qpwave_title(flow, suffix='не прошел'))}</b>",
+        "",
+        *_state_lines(flow),
+        "",
+        "<b>Ошибка</b>",
+        f"<code>{html.escape(detail)}</code>",
+    ]
+    lowered = detail.casefold()
+    if "block_lengths" in lowered or "extract_f2" in lowered or "f2" in lowered:
+        lines.extend(
+            [
+                "",
+                "Подсказка: проверьте <b>ADMIXTOOLS 2 → f2 cache</b> и повторите расчет после готового cache.",
+            ]
+        )
+    return "\n".join(lines)
+
+
 async def _register_job(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any]) -> tuple[int, int, int]:
     state = _queue_state(context)
     async with state["lock"]:
@@ -906,7 +927,7 @@ async def _worker(context: ContextTypes.DEFAULT_TYPE, entry: dict[str, Any]) -> 
             caption = str(save_payload.get("caption_text") or "")
             visual_path = str(save_payload.get("visual_path") or "")
         except Exception as exc:
-            text = f"<b>{html.escape(_qpwave_title(entry['flow'], suffix='не прошел'))}</b>\n\n<code>{html.escape(str(exc))}</code>"
+            text = _format_qpwave_error(entry["flow"], exc)
         await _send_job_result(
             context,
             entry,

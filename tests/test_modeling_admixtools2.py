@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
+from types import SimpleNamespace
 
-from app.features.modeling.admixtools2 import _format_fstats_result, _parse_populations
+from app.features.modeling.admixtools2 import (
+    AT2_FSTATS_FLOW_KEY,
+    _format_fstats_error,
+    _format_fstats_result,
+    _new_fstats_flow,
+    _parse_populations,
+    _show_fstats_builder,
+    admixtools2_callback_handler,
+)
+from app.features.modeling.navigation import NAV_CURRENT_KEY, NAV_STACK_KEY, nav_enter, nav_pop
 from app.features.modeling.qpwave import (
     QPWAVE_ENGINE_ADMIXTOOLS2,
     _extract_admixtools2_ranks,
+    _format_qpwave_error,
     _snapshot_flow,
     _start_flow,
 )
@@ -42,6 +54,62 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         self.assertIn("se=<code>0.0012</code>", text)
         self.assertIn("z=<code>10.2875</code>", text)
 
+    def test_fstats_error_formats_runner_failures_for_user(self) -> None:
+        text = _format_fstats_error(
+            RuntimeError("block_lengths file not found"),
+            flow={"dataset": "human_origins", "statistic": "f4", "populations": ["A", "B", "C", "D"]},
+            elapsed_seconds=2.3,
+        )
+
+        self.assertIn("f-statistics", text)
+        self.assertIn("не прошел", text)
+        self.assertIn("block_lengths file not found", text)
+        self.assertIn("Human Origins", text)
+
+    def test_fstats_builder_marks_selected_statistic(self) -> None:
+        class Message:
+            async def edit_text(self, text, reply_markup=None, parse_mode=None):
+                self.text = text
+                self.reply_markup = reply_markup
+
+        context = SimpleNamespace(user_data={AT2_FSTATS_FLOW_KEY: _new_fstats_flow("human_origins")})
+        context.user_data[AT2_FSTATS_FLOW_KEY]["statistic"] = "f3"
+        message = Message()
+
+        asyncio.run(_show_fstats_builder(message, context, edit_existing=True, lang="ru"))
+
+        first_row = [button.text for button in message.reply_markup.inline_keyboard[0]]
+        self.assertEqual(first_row, ["f2", "✓ f3", "f4"])
+
+    def test_fstats_dataset_back_target_is_handled(self) -> None:
+        class Message:
+            async def edit_text(self, text, reply_markup=None, parse_mode=None):
+                self.text = text
+                self.reply_markup = reply_markup
+
+        message = Message()
+        update = SimpleNamespace(callback_query=SimpleNamespace(message=message))
+        context = SimpleNamespace(user_data={})
+        nav_enter(context, "modeling:at2")
+        nav_enter(context, "modeling:at2_fstats_ds")
+        nav_enter(context, "modeling:at2_fstats_builder")
+
+        target = nav_pop(context)
+        handled = asyncio.run(
+            admixtools2_callback_handler(
+                update,
+                context,
+                target.split(":")[1],
+                target.split(":"),
+                lang="ru",
+            )
+        )
+
+        self.assertTrue(handled)
+        self.assertIn("f-statistics", message.text)
+        self.assertEqual(context.user_data[NAV_CURRENT_KEY], "modeling:at2_fstats_ds")
+        self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:at2"])
+
     def test_qpwave_admixtools2_flow_snapshot_preserves_engine(self) -> None:
         class Context:
             user_data = {}
@@ -67,6 +135,22 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         self.assertEqual(ranks[0]["rank"], 0)
         self.assertEqual(ranks[0]["dof"], 2.0)
         self.assertEqual(ranks[1]["tail"], 0.58)
+
+    def test_qpwave_admixtools2_error_mentions_f2_cache_when_relevant(self) -> None:
+        text = _format_qpwave_error(
+            {
+                "engine": QPWAVE_ENGINE_ADMIXTOOLS2,
+                "dataset": "human_origins",
+                "left": ["A", "B"],
+                "right": ["Mbuti.DG"],
+            },
+            RuntimeError("block_lengths file not found. Please run extract_f2() again."),
+        )
+
+        self.assertIn("ADMIXTOOLS2 qpWave", text)
+        self.assertIn("Human Origins", text)
+        self.assertIn("block_lengths file not found", text)
+        self.assertIn("f2 cache", text)
 
 
 if __name__ == "__main__":

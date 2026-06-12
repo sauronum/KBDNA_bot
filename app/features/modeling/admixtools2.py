@@ -270,6 +270,20 @@ def _fstats_state_lines(flow: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _format_fstats_error(exc: Exception, *, flow: dict[str, Any] | None, elapsed_seconds: float) -> str:
+    lines = [
+        "<b>📊 f-statistics · не прошел</b>",
+        "",
+        f"Time: <code>{elapsed_seconds:.1f}s</code>",
+        "",
+        "<b>Ошибка</b>",
+        f"<code>{html.escape(str(exc) or exc.__class__.__name__)}</code>",
+    ]
+    if flow is not None:
+        lines.extend(["", *_fstats_state_lines(flow)])
+    return "\n".join(lines)
+
+
 async def show_fstats_dataset_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE | None,
@@ -297,11 +311,12 @@ async def _show_fstats_builder(message, context: ContextTypes.DEFAULT_TYPE, *, e
         return
     nav_enter(context, _cb("at2_fstats_builder"))
     ready = len([item for item in flow.get("populations", []) if str(item)]) >= _fstats_arity(flow)
+    selected_stat = str(flow.get("statistic") or "f4")
     rows: list[list[InlineKeyboardButton]] = [
         [
-            InlineKeyboardButton("f2", callback_data=_cb("at2_fstats_type", "f2")),
-            InlineKeyboardButton("f3", callback_data=_cb("at2_fstats_type", "f3")),
-            InlineKeyboardButton("f4", callback_data=_cb("at2_fstats_type", "f4")),
+            InlineKeyboardButton(("✓ " if selected_stat == "f2" else "") + "f2", callback_data=_cb("at2_fstats_type", "f2")),
+            InlineKeyboardButton(("✓ " if selected_stat == "f3" else "") + "f3", callback_data=_cb("at2_fstats_type", "f3")),
+            InlineKeyboardButton(("✓ " if selected_stat == "f4" else "") + "f4", callback_data=_cb("at2_fstats_type", "f4")),
         ],
         [InlineKeyboardButton("📝 Populations", callback_data=_cb("at2_fstats_pops"))],
     ]
@@ -404,17 +419,22 @@ async def _run_fstats(message, context: ContextTypes.DEFAULT_TYPE, *, lang: str)
         return
     await _show_message(message, "<b>📊 f-statistics</b>\n\nСчитаю ADMIXTOOLS2...", InlineKeyboardMarkup([_footer_row(_cb("at2_fstats_builder"), lang)]), edit_existing=True)
     started = time.monotonic()
-    payload = await run_admixtools2_runner(
-        {
-            "command": "fstats",
-            "dataset": dataset,
-            "dataset_files": dataset_files,
-            "statistic": str(flow.get("statistic") or "f4"),
-            "populations": populations,
-            "options": {"boot": True},
-        },
-        timeout_seconds=AT2_FSTATS_TIMEOUT_SECONDS,
-    )
+    try:
+        payload = await run_admixtools2_runner(
+            {
+                "command": "fstats",
+                "dataset": dataset,
+                "dataset_files": dataset_files,
+                "statistic": str(flow.get("statistic") or "f4"),
+                "populations": populations,
+                "options": {"boot": True},
+            },
+            timeout_seconds=AT2_FSTATS_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        text = _format_fstats_error(exc, flow=flow, elapsed_seconds=time.monotonic() - started)
+        await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_fstats_builder"), lang)]), edit_existing=True)
+        return
     text = _format_fstats_result(payload, flow=flow, elapsed_seconds=time.monotonic() - started)
     await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_fstats_builder"), lang)]), edit_existing=True)
 
@@ -453,6 +473,10 @@ async def admixtools2_callback_handler(
         await show_f2_cache_status(message, context, edit_existing=True, lang=lang)
         return True
     if action == "at2_fstats":
+        nav_reset(context, _cb("at2"))
+        await show_fstats_dataset_menu(message, context, edit_existing=True, lang=lang)
+        return True
+    if action == "at2_fstats_ds":
         await show_fstats_dataset_menu(message, context, edit_existing=True, lang=lang)
         return True
     if action == "at2_fstats_ds_pick" and len(parts) >= 3:
