@@ -309,7 +309,7 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     width = 1080
     ref_rows = max(1, (len(references) + 1) // 2)
     detail_rows = max(1, len(rows))
-    height = 655 + detail_rows * 78 + ref_rows * 38
+    height = 597 + detail_rows * 78 + ref_rows * 38
     image, draw = _canvas(height, width=width, background=str(QPADM_ADMIXTOOLS2_VISUAL["background"]), panel=str(QPADM_ADMIXTOOLS2_VISUAL["panel"]))
     content_left = 64
     content_right = width - 64
@@ -326,6 +326,10 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     small_font = _font(17)
     detail_font = _font(16)
     detail_bold_font = _font(16, bold=True)
+
+    def draw_centered(cx: int, yy: int, text: str, font: ImageFont.ImageFont, fill: str) -> None:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        draw.text((cx - (bbox[2] - bbox[0]) // 2, yy), text, font=font, fill=fill)
 
     y = 58
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
@@ -371,7 +375,6 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
 
     y += 118
     draw.text((content_left, y), "Sources", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 116, y + 8), "0-100% scale", font=small_font, fill="#8fa0b5")
     y += 44
     if not rows:
         draw.rounded_rectangle((content_left, y, content_right, y + 46), radius=9, fill="#10171d", outline="#2b3742", width=1)
@@ -379,22 +382,21 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
         y += 70
     else:
         bar_left = content_left
-        bar_right = content_right - 300
+        bar_right = content_right - 232
         bar_w = bar_right - bar_left
         row_h = 78
         bar_h = 16
-        weight_x = content_right - 256
-        se_x = content_right - 152
-        z_x = content_right - 42
+        weight_x = bar_right + 42
+        se_x = bar_right + 116
+        z_x = bar_right + 190
         draw.text((bar_left, y), "Source", font=metric_label_font, fill="#8fa0b5")
-        draw.text((weight_x, y), "Weight", font=metric_label_font, fill="#8fa0b5")
-        draw.text((se_x, y), "SE", font=metric_label_font, fill="#8fa0b5")
-        draw.text((z_x, y), "z", font=metric_label_font, fill="#8fa0b5")
+        draw_centered(weight_x, y, "Weight", metric_label_font, "#8fa0b5")
+        draw_centered(se_x, y, "SE", metric_label_font, "#8fa0b5")
+        draw_centered(z_x, y, "z", metric_label_font, "#8fa0b5")
         y += 30
         for index, row in enumerate(rows):
             row_y = y + index * row_h
             weight = float(row["weight"])
-            stderr = float(row["stderr"])
             z_value = row.get("z")
             is_negative = weight < 0
             is_overflow = weight > 100
@@ -404,8 +406,6 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
             draw.text((bar_left, row_y), label, font=detail_bold_font, fill="#e5edf5")
             baseline_y = row_y + 38
             draw.line((bar_left, baseline_y, bar_right, baseline_y), fill="#2b3742", width=2)
-            draw.line((bar_left, baseline_y - 7, bar_left, baseline_y + 7), fill="#475569", width=1)
-            draw.line((bar_right, baseline_y - 7, bar_right, baseline_y + 7), fill="#475569", width=1)
             fill_percent = min(100.0, max(0.0, abs(weight)))
             fill_w = int(round(bar_w * fill_percent / 100.0))
             if fill_w == 0 and weight:
@@ -415,29 +415,11 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
                     draw.rounded_rectangle((bar_right - fill_w, baseline_y - bar_h // 2, bar_right, baseline_y + bar_h // 2), radius=8, fill=color)
                 else:
                     draw.rounded_rectangle((bar_left, baseline_y - bar_h // 2, bar_left + fill_w, baseline_y + bar_h // 2), radius=8, fill=color)
-            if is_negative:
-                point_percent = fill_percent
-                point_x = bar_right - int(round(bar_w * point_percent / 100.0))
-                err_low = max(0.0, point_percent - abs(stderr))
-                err_high = min(100.0, point_percent + abs(stderr))
-                err_left = bar_right - int(round(bar_w * err_high / 100.0))
-                err_right = bar_right - int(round(bar_w * err_low / 100.0))
-            else:
-                point_percent = min(100.0, max(0.0, weight))
-                point_x = bar_left + int(round(bar_w * point_percent / 100.0))
-                err_low = max(0.0, min(100.0, weight - abs(stderr)))
-                err_high = max(0.0, min(100.0, weight + abs(stderr)))
-                err_left = bar_left + int(round(bar_w * err_low / 100.0))
-                err_right = bar_left + int(round(bar_w * err_high / 100.0))
             if is_outlier:
                 draw.rounded_rectangle((bar_left, baseline_y - 12, bar_right, baseline_y + 12), radius=12, outline="#fb7185", width=1)
-            draw.line((err_left, baseline_y, err_right, baseline_y), fill="#dbe5ef", width=1)
-            draw.line((err_left, baseline_y - 5, err_left, baseline_y + 5), fill="#dbe5ef", width=1)
-            draw.line((err_right, baseline_y - 5, err_right, baseline_y + 5), fill="#dbe5ef", width=1)
-            draw.ellipse((point_x - 5, baseline_y - 5, point_x + 5, baseline_y + 5), fill="#10171d", outline="#f8fafc", width=2)
-            draw.text((weight_x, baseline_y - 12), _format_weight_percent(weight), font=detail_bold_font, fill=color)
-            draw.text((se_x, baseline_y - 12), _format_number(stderr, percent=True), font=detail_font, fill="#cbd5e1")
-            draw.text((z_x, baseline_y - 12), _format_number(z_value), font=detail_font, fill="#cbd5e1")
+            draw_centered(weight_x, baseline_y - 12, _format_weight_percent(weight), detail_bold_font, color)
+            draw_centered(se_x, baseline_y - 12, _format_number(float(row["stderr"]), percent=True), detail_font, "#cbd5e1")
+            draw_centered(z_x, baseline_y - 12, _format_number(z_value), detail_font, "#cbd5e1")
         y += len(rows) * row_h + 10
 
     draw.text((content_left, y), "References", font=h_font, fill="#f8fafc")
