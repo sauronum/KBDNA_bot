@@ -10,6 +10,7 @@ import bot
 from PIL import Image
 
 from app.features.snp_report.domain import SnpCategorySummary, SnpReportResult, SnpReportRow, load_snp_rules
+from app.features.snp_report.menu import show_snp_report_menu
 from app.features.snp_report.storage import SnpReportRecord, SnpReportSummary
 from app.features.snp_report.ui import build_db_rule_keyboard, db_rule_text, render_html_report, result_text
 from app.features.snp_report.visuals import render_category_load_png
@@ -24,11 +25,23 @@ class _FakeMessage:
     chat_id = 10
     message_id = 20
 
-    def __init__(self) -> None:
+    def __init__(self, *, photo: bool = False) -> None:
         self.calls: list[tuple[str, dict[str, object]]] = []
+        self.actions: list[str] = []
+        self.photo = [object()] if photo else []
 
     async def edit_text(self, text: str, **kwargs: object):
+        self.actions.append("edit_text")
         self.calls.append((text, kwargs))
+        return self
+
+    async def reply_text(self, text: str, **kwargs: object):
+        self.actions.append("reply_text")
+        self.calls.append((text, kwargs))
+        return self
+
+    async def edit_reply_markup(self, **kwargs: object):
+        self.actions.append("edit_reply_markup")
         return self
 
 
@@ -73,6 +86,25 @@ class SnpReportEntryTests(unittest.TestCase):
                 ["main:root", "main:cancel"],
             ],
         )
+
+    def test_snp_lab_menu_from_photo_sends_new_text_message(self) -> None:
+        message = _FakeMessage(photo=True)
+        context = SimpleNamespace(
+            application=SimpleNamespace(
+                bot_data={
+                    "my_data_store": _FakeMyDataStore(),
+                    "snp_report_rules": load_snp_rules(),
+                }
+            ),
+            user_data={},
+        )
+
+        asyncio.run(show_snp_report_menu(message, context, 1, edit_existing=True))
+
+        self.assertEqual(message.actions, ["reply_text", "edit_reply_markup"])
+        text, kwargs = message.calls[0]
+        self.assertIn("<b>SNP Lab</b>", text)
+        self.assertEqual(kwargs["parse_mode"], "HTML")
 
     def test_snp_base_card_has_description_and_sample_check_button(self) -> None:
         rules = load_snp_rules()

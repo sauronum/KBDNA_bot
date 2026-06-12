@@ -97,6 +97,26 @@ def _samples_with_raw(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> list[
     ]
 
 
+def _is_media_message(message) -> bool:
+    return any(
+        getattr(message, attribute, None)
+        for attribute in ("photo", "document", "video", "animation", "audio", "voice", "video_note", "sticker")
+    )
+
+
+async def _show_text_menu(message, text: str, markup, *, edit_existing: bool):
+    if edit_existing and not _is_media_message(message):
+        return await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+
+    sent = await message.reply_text(text, parse_mode="HTML", reply_markup=markup, do_quote=False)
+    if edit_existing:
+        try:
+            await message.edit_reply_markup(reply_markup=None)
+        except Exception as exc:  # pragma: no cover - best-effort cleanup for Telegram media messages
+            LOGGER.debug("Could not clear SNP Lab media keyboard: %s", exc)
+    return sent
+
+
 async def show_snp_report_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -110,10 +130,7 @@ async def show_snp_report_menu(
     samples = _samples_with_raw(context, user_id)
     text = lab_root_text(samples, _rules(context), lang=lang)
     markup = build_lab_root_keyboard(lang=lang)
-    if edit_existing:
-        await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
-    else:
-        await message.reply_text(text, parse_mode="HTML", reply_markup=markup, do_quote=False)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
 
 
 async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -347,10 +364,7 @@ async def _show_report_picker(
     samples = _samples_with_raw(context, user_id)
     text = report_picker_text(samples, lang=lang, page=page)
     markup = build_report_picker_keyboard(samples, lang=lang, page=page)
-    if edit_existing:
-        await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
-    else:
-        await message.reply_text(text, parse_mode="HTML", reply_markup=markup, do_quote=False)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
 
 
 async def _show_search_picker(
