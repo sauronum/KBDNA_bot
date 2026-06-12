@@ -35,7 +35,7 @@ def render_category_load_png(
         if isinstance(item, dict)
     ][:top_limit]
     summary = record.summary
-    width = 1080
+    width = 1280
     row_h = 128
     height = 330 + max(1, len(categories)) * row_h + 120
 
@@ -52,7 +52,7 @@ def render_category_load_png(
     card_value_font = _font(34, bold=True)
     label_font = _font(27, bold=True)
     small_font = _font(21)
-    percent_font = _font(32, bold=True)
+    percent_font = _font(28, bold=True)
 
     x = margin + 38
     y = 70
@@ -132,15 +132,14 @@ def _draw_category_row(
     draw.rounded_rectangle((left + 18, top + 34, left + 54, top + 70), radius=12, fill=(31, 73, 107))
     _draw_centered_text(draw, badge, (left + 18, top + 34, left + 54, top + 70), small_font, _TEXT)
 
-    label = _truncate_to_width(draw, item.category, label_font, 430)
-    draw.text((left + 72, top + 18), label, font=label_font, fill=_TEXT)
+    columns_left = right - 315
+    label_left = left + 72
+    bar_left = left + 360
+    label_max_width = max(220, bar_left - label_left - 28)
+    label_font_for_row = _fit_font_to_width(draw, item.category, size=27, min_size=20, max_width=label_max_width)
+    draw.text((label_left, top + 18), " ".join(item.category.split()), font=label_font_for_row, fill=_TEXT)
 
     percent = max(0, min(100, item.risk_percent))
-    percent_text = f"Нагрузка {percent}%"
-    draw.text((left + 72, top + 57), percent_text, font=small_font, fill=_risk_color(percent))
-
-    columns_left = right - 286
-    bar_left = left + 245
     bar_top = top + 65
     bar_right = columns_left - 28
     bar_bottom = bar_top + 15
@@ -149,7 +148,10 @@ def _draw_category_row(
     if fill_right > bar_left:
         draw.rounded_rectangle((bar_left, bar_top, fill_right, bar_bottom), radius=8, fill=_risk_color(percent))
 
-    _draw_count_columns(draw, item, columns_left, top + 15, right - 22, top + 94, small_font)
+    percent_text = f"{percent}%"
+    draw.text((bar_right + 16, top + 55), percent_text, font=percent_font, fill=_risk_color(percent))
+
+    _draw_count_columns(draw, item, columns_left, top + 13, right - 22, top + 96, small_font)
 
 
 def _draw_count_columns(
@@ -168,13 +170,13 @@ def _draw_count_columns(
     )
     max_value = max(1, *(value for _label, value, _color in values))
     col_w = (right - left) // 3
-    bar_bottom = bottom - 22
-    max_bar_h = 42
+    bar_bottom = bottom - 27
+    max_bar_h = 32
     for index, (label, value, color) in enumerate(values):
         center = left + col_w * index + col_w // 2
         value_text = str(value)
         value_w = _text_size(draw, value_text, font)[0]
-        draw.text((center - value_w / 2, top), value_text, font=font, fill=_TEXT)
+        draw.text((center - value_w / 2, top - 1), value_text, font=font, fill=_TEXT)
 
         bar_h = max(5, int(max_bar_h * value / max_value)) if value else 3
         bar_left = center - 12
@@ -204,14 +206,20 @@ def _draw_centered_text(
     draw.text((x1 + (x2 - x1 - text_w) / 2, y1 + (y2 - y1 - text_h) / 2 - 1), text, font=font, fill=fill)
 
 
-def _truncate_to_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> str:
+def _fit_font_to_width(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    *,
+    size: int,
+    min_size: int,
+    max_width: int,
+) -> ImageFont.ImageFont:
     clean = " ".join(str(text).split())
-    if _text_size(draw, clean, font)[0] <= max_width:
-        return clean
-    suffix = "…"
-    while clean and _text_size(draw, clean + suffix, font)[0] > max_width:
-        clean = clean[:-1].rstrip()
-    return (clean or str(text)[:1]) + suffix
+    for candidate_size in range(size, min_size - 1, -1):
+        font = _font(candidate_size, bold=True)
+        if _text_size(draw, clean, font)[0] <= max_width:
+            return font
+    return _font(min_size, bold=True)
 
 
 def _text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> tuple[int, int]:

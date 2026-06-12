@@ -172,7 +172,8 @@ class SnpReportEntryTests(unittest.TestCase):
         text = result_text(record, visual=True)
 
         self.assertIn("Sample: <b>Sample</b>", text)
-        self.assertIn("🔴 Гомо/вариант: <b>2</b>", text)
+        self.assertNotIn("SNP в панели", text)
+        self.assertNotIn("🔴 Гомо/вариант", text)
         self.assertNotIn("PNG-график", text)
         self.assertNotIn("HTML-файл готов", text)
         self.assertNotIn("█████░░░░░", text)
@@ -218,7 +219,7 @@ class SnpReportEntryTests(unittest.TestCase):
             self.assertTrue(path.exists())
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
-                self.assertGreaterEqual(image.width, 900)
+                self.assertGreaterEqual(image.width, 1200)
                 self.assertGreaterEqual(image.height, 500)
 
 

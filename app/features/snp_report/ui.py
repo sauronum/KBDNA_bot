@@ -464,6 +464,14 @@ def running_text(sample: SampleAsset, *, lang: str = "ru") -> str:
 
 def result_text(record: SnpReportRecord, *, lang: str = "ru", visual: bool = False) -> str:
     summary = record.summary
+    if visual:
+        return "\n".join(
+            [
+                "🧾 <b>SNP отчёт</b>",
+                f"Sample: <b>{html.escape(summary.sample_name)}</b>",
+            ]
+        )
+
     categories = [
         SnpCategorySummary(**item)
         for item in record.payload.get("categories", [])
