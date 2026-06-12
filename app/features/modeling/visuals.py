@@ -147,9 +147,8 @@ def _stderr_percent(item: dict[str, Any]) -> float:
     return stderr * 100.0 if stderr is not None else 0.0
 
 
-def _format_signed_percent(value: float) -> str:
-    prefix = "+" if value > 0 else ""
-    return f"{prefix}{_format_number(value, percent=True)}"
+def _format_weight_percent(value: float) -> str:
+    return _format_number(value, percent=True)
 
 
 def _source_z_value(item: dict[str, Any], weight_percent: float, stderr_percent: float) -> float | None:
@@ -380,12 +379,12 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
         y += 70
     else:
         bar_left = content_left
-        bar_right = content_right - 232
+        bar_right = content_right - 300
         bar_w = bar_right - bar_left
         row_h = 78
         bar_h = 16
-        weight_x = content_right - 214
-        se_x = content_right - 130
+        weight_x = content_right - 256
+        se_x = content_right - 152
         z_x = content_right - 42
         draw.text((bar_left, y), "Source", font=metric_label_font, fill="#8fa0b5")
         draw.text((weight_x, y), "Weight", font=metric_label_font, fill="#8fa0b5")
@@ -397,7 +396,10 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
             weight = float(row["weight"])
             stderr = float(row["stderr"])
             z_value = row.get("z")
-            color = "#fb7185" if weight < 0 else palette[index % len(palette)]
+            is_negative = weight < 0
+            is_overflow = weight > 100
+            is_outlier = is_negative or is_overflow
+            color = "#fb7185" if is_outlier else palette[index % len(palette)]
             label = _fit_text(draw, row["source"], detail_bold_font, bar_right - bar_left)
             draw.text((bar_left, row_y), label, font=detail_bold_font, fill="#e5edf5")
             baseline_y = row_y + 38
@@ -409,15 +411,31 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
             if fill_w == 0 and weight:
                 fill_w = 3
             if fill_w:
-                draw.rounded_rectangle((bar_left, baseline_y - bar_h // 2, bar_left + fill_w, baseline_y + bar_h // 2), radius=8, fill=color)
-            point_x = bar_left + fill_w
-            err_left = bar_left + int(round(bar_w * max(0.0, fill_percent - abs(stderr)) / 100.0))
-            err_right = bar_left + int(round(bar_w * min(100.0, fill_percent + abs(stderr)) / 100.0))
+                if is_negative:
+                    draw.rounded_rectangle((bar_right - fill_w, baseline_y - bar_h // 2, bar_right, baseline_y + bar_h // 2), radius=8, fill=color)
+                else:
+                    draw.rounded_rectangle((bar_left, baseline_y - bar_h // 2, bar_left + fill_w, baseline_y + bar_h // 2), radius=8, fill=color)
+            if is_negative:
+                point_percent = fill_percent
+                point_x = bar_right - int(round(bar_w * point_percent / 100.0))
+                err_low = max(0.0, point_percent - abs(stderr))
+                err_high = min(100.0, point_percent + abs(stderr))
+                err_left = bar_right - int(round(bar_w * err_high / 100.0))
+                err_right = bar_right - int(round(bar_w * err_low / 100.0))
+            else:
+                point_percent = min(100.0, max(0.0, weight))
+                point_x = bar_left + int(round(bar_w * point_percent / 100.0))
+                err_low = max(0.0, min(100.0, weight - abs(stderr)))
+                err_high = max(0.0, min(100.0, weight + abs(stderr)))
+                err_left = bar_left + int(round(bar_w * err_low / 100.0))
+                err_right = bar_left + int(round(bar_w * err_high / 100.0))
+            if is_outlier:
+                draw.rounded_rectangle((bar_left, baseline_y - 12, bar_right, baseline_y + 12), radius=12, outline="#fb7185", width=1)
             draw.line((err_left, baseline_y, err_right, baseline_y), fill="#dbe5ef", width=1)
             draw.line((err_left, baseline_y - 5, err_left, baseline_y + 5), fill="#dbe5ef", width=1)
             draw.line((err_right, baseline_y - 5, err_right, baseline_y + 5), fill="#dbe5ef", width=1)
             draw.ellipse((point_x - 5, baseline_y - 5, point_x + 5, baseline_y + 5), fill="#10171d", outline="#f8fafc", width=2)
-            draw.text((weight_x, baseline_y - 12), _format_signed_percent(weight), font=detail_bold_font, fill=color)
+            draw.text((weight_x, baseline_y - 12), _format_weight_percent(weight), font=detail_bold_font, fill=color)
             draw.text((se_x, baseline_y - 12), _format_number(stderr, percent=True), font=detail_font, fill="#cbd5e1")
             draw.text((z_x, baseline_y - 12), _format_number(z_value), font=detail_font, fill="#cbd5e1")
         y += len(rows) * row_h + 10
