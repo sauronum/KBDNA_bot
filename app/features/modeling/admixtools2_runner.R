@@ -29,6 +29,11 @@ bool <- function(value, default = FALSE) {
   default
 }
 
+field <- function(value, name, default = NULL) {
+  if (is.null(value) || is.null(names(value)) || !(name %in% names(value))) return(default)
+  value[[name]]
+}
+
 num <- function(value, default = NULL) {
   if (is.null(value) || length(value) < 1) return(default)
   out <- suppressWarnings(as.numeric(value[[1]]))
@@ -52,19 +57,31 @@ as_chars <- function(value) {
 
 cache_key <- function(geno_prefix, pops, options) {
   payload <- list(
+    schema = "admixtools2_block_lengths_v1",
+    admixtools_version = as.character(utils::packageVersion("admixtools")),
     geno_prefix = geno_prefix,
     pops = sort(unique(pops)),
-    blgsize = num(options$blgsize, 0.05),
-    auto_only = bool(options$auto_only, TRUE),
-    transitions = bool(options$transitions, TRUE),
-    transversions = bool(options$transversions, TRUE),
-    adjust_pseudohaploid = bool(options$adjust_pseudohaploid, TRUE),
-    maxmiss = num(options$maxmiss, 0),
-    minmaf = num(options$minmaf, 0),
-    maxmaf = num(options$maxmaf, 0.5)
+    blgsize = num(field(options, "blgsize"), 0.05),
+    auto_only = bool(field(options, "auto_only"), TRUE),
+    afprod = bool(field(options, "afprod"), TRUE),
+    transitions = bool(field(options, "transitions"), TRUE),
+    transversions = bool(field(options, "transversions"), TRUE),
+    adjust_pseudohaploid = bool(field(options, "adjust_pseudohaploid"), TRUE),
+    maxmiss = num(field(options, "maxmiss"), 0),
+    minmaf = num(field(options, "minmaf"), 0),
+    maxmaf = num(field(options, "maxmaf"), 0.5)
   )
   if (requireNamespace("digest", quietly = TRUE)) return(digest::digest(payload, algo = "sha1"))
   gsub("[^A-Za-z0-9_.-]+", "_", paste(sort(unique(pops)), collapse = "__"))
+}
+
+cache_ready <- function(path) {
+  dir.exists(path) && (
+    file.exists(file.path(path, "block_lengths")) ||
+    file.exists(file.path(path, "block_lengths_f2.rds")) ||
+    file.exists(file.path(path, "block_lengths_ap.rds")) ||
+    file.exists(file.path(path, "block_lengths_fst.rds"))
+  )
 }
 
 ensure_f2_cache <- function(geno_prefix, cache_root, pops, options) {
@@ -72,9 +89,8 @@ ensure_f2_cache <- function(geno_prefix, cache_root, pops, options) {
   dir.create(cache_root, recursive = TRUE, showWarnings = FALSE)
   key <- cache_key(geno_prefix, pops, options)
   cache_dir <- file.path(cache_root, paste0("f2_", key))
-  metadata <- file.path(cache_dir, "cache_metadata.json")
   status <- "hit"
-  if (!file.exists(metadata)) {
+  if (!cache_ready(cache_dir)) {
     lock_dir <- paste0(cache_dir, ".lock")
     acquired <- FALSE
     for (attempt in seq_len(300)) {
@@ -82,29 +98,40 @@ ensure_f2_cache <- function(geno_prefix, cache_root, pops, options) {
         acquired <- TRUE
         break
       }
-      if (file.exists(metadata)) break
+      if (cache_ready(cache_dir)) break
       Sys.sleep(1)
     }
-    if (!file.exists(metadata)) {
+    if (!cache_ready(cache_dir)) {
       if (!acquired) stop("Timed out waiting for f2 cache lock: ", cache_dir, call. = FALSE)
       on.exit(unlink(lock_dir, recursive = TRUE, force = TRUE), add = TRUE)
-      dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+      tmp_dir <- paste0(cache_dir, ".tmp.", Sys.getpid())
+      unlink(tmp_dir, recursive = TRUE, force = TRUE)
+      dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+      on.exit(unlink(tmp_dir, recursive = TRUE, force = TRUE), add = TRUE)
       extract_args <- list(
         pref = geno_prefix,
-        outdir = cache_dir,
+        outdir = tmp_dir,
         pops = unique(pops),
-        blgsize = num(options$blgsize, 0.05),
-        maxmiss = num(options$maxmiss, 0),
-        minmaf = num(options$minmaf, 0),
-        maxmaf = num(options$maxmaf, 0.5),
-        transitions = bool(options$transitions, TRUE),
-        transversions = bool(options$transversions, TRUE),
-        auto_only = bool(options$auto_only, TRUE),
-        adjust_pseudohaploid = bool(options$adjust_pseudohaploid, TRUE),
+        blgsize = num(field(options, "blgsize"), 0.05),
+        maxmiss = num(field(options, "maxmiss"), 0),
+        minmaf = num(field(options, "minmaf"), 0),
+        maxmaf = num(field(options, "maxmaf"), 0.5),
+        transitions = bool(field(options, "transitions"), TRUE),
+        transversions = bool(field(options, "transversions"), TRUE),
+        auto_only = bool(field(options, "auto_only"), TRUE),
+        afprod = bool(field(options, "afprod"), TRUE),
+        adjust_pseudohaploid = bool(field(options, "adjust_pseudohaploid"), TRUE),
         overwrite = TRUE,
         verbose = FALSE
       )
       do.call(admixtools::extract_f2, extract_args)
+      if (!cache_ready(tmp_dir)) {
+        stop("extract_f2 finished but did not create block_lengths in: ", tmp_dir, call. = FALSE)
+      }
+      unlink(cache_dir, recursive = TRUE, force = TRUE)
+      if (!file.rename(tmp_dir, cache_dir)) {
+        stop("Could not move rebuilt f2 cache into place: ", cache_dir, call. = FALSE)
+      }
       status <- "created"
     } else {
       status <- "hit_after_wait"
@@ -117,10 +144,10 @@ data_source <- function(request, pops) {
   files <- request$dataset_files
   options <- request$options
   if (is.null(options)) options <- list()
-  f2_dir <- scalar(files$f2_dir, scalar(files$f2, NULL))
-  f2_cache_dir <- scalar(files$f2_cache_dir, scalar(files$f2_cache, NULL))
-  geno_prefix <- scalar(files$geno_prefix, NULL)
-  afprod <- bool(options$afprod, FALSE)
+  f2_dir <- scalar(field(files, "f2_dir"), scalar(field(files, "f2"), NULL))
+  f2_cache_dir <- scalar(field(files, "f2_cache_dir"), scalar(field(files, "f2_cache"), NULL))
+  geno_prefix <- scalar(field(files, "geno_prefix"), NULL)
+  afprod <- bool(field(options, "afprod"), TRUE)
   if (!is.null(f2_dir)) {
     return(list(data = admixtools::f2_from_precomp(f2_dir, pops = unique(pops), afprod = afprod, verbose = FALSE), source = list(type = "precomputed_f2", path = f2_dir)))
   }
@@ -177,13 +204,13 @@ run_qpwave <- function(request) {
       source$data,
       left = left,
       right = right,
-      fudge = num(options$fudge, 1e-04),
-      auto_only = bool(options$auto_only, TRUE),
-      blgsize = num(options$blgsize, 0.05),
-      poly_only = bool(options$poly_only, FALSE),
-      boot = bool(options$boot, FALSE),
-      constrained = bool(options$constrained, FALSE),
-      cpp = bool(options$cpp, TRUE),
+      fudge = num(field(options, "fudge"), 1e-04),
+      auto_only = bool(field(options, "auto_only"), TRUE),
+      blgsize = num(field(options, "blgsize"), 0.05),
+      poly_only = bool(field(options, "poly_only"), FALSE),
+      boot = bool(field(options, "boot"), FALSE),
+      constrained = bool(field(options, "constrained"), FALSE),
+      cpp = bool(field(options, "cpp"), TRUE),
       verbose = FALSE
     ),
     message = function(message) {
@@ -204,7 +231,7 @@ run_fstats <- function(request) {
   source <- data_source(request, pops)
   options <- request$options
   if (is.null(options)) options <- list()
-  boot <- bool(options$boot, TRUE)
+  boot <- bool(field(options, "boot"), TRUE)
   result <- switch(
     stat,
     f2 = admixtools::f2(source$data, pop1 = pops[[1]], pop2 = pops[[2]], boot = boot, verbose = FALSE),

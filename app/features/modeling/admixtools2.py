@@ -107,6 +107,8 @@ def _cache_rows() -> list[dict[str, Any]]:
             continue
         cache_dir = Path(str(files.get("f2_cache_dir") or files.get("f2_cache") or ""))
         entries = []
+        ready_entries = 0
+        stale_entries = 0
         latest_mtime = None
         if cache_dir.exists():
             try:
@@ -114,6 +116,10 @@ def _cache_rows() -> list[dict[str, Any]]:
             except OSError:
                 entries = []
             for entry in entries:
+                if (entry / "block_lengths").exists():
+                    ready_entries += 1
+                else:
+                    stale_entries += 1
                 try:
                     mtime = entry.stat().st_mtime
                 except OSError:
@@ -126,6 +132,8 @@ def _cache_rows() -> list[dict[str, Any]]:
                 "path": str(cache_dir),
                 "exists": cache_dir.exists(),
                 "entries": len(entries),
+                "ready_entries": ready_entries,
+                "stale_entries": stale_entries,
                 "size": size,
                 "file_count": file_count,
                 "latest_mtime": latest_mtime,
@@ -145,11 +153,19 @@ def _format_cache_status(lang: str = "ru") -> str:
         latest = "none"
         if isinstance(row.get("latest_mtime"), (int, float)):
             latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(float(row["latest_mtime"])))
-        status = "ready" if row.get("exists") else "missing"
+        if not row.get("exists"):
+            status = "missing"
+        elif int(row.get("ready_entries") or 0) > 0:
+            status = "ready"
+        elif int(row.get("stale_entries") or 0) > 0:
+            status = "stale"
+        else:
+            status = "empty"
         lines.extend(
             [
                 f"• <b>{html.escape(_dataset_label(row.get('dataset')))}</b> · <code>{status}</code>",
-                f"  caches: <code>{int(row.get('entries') or 0)}</code>, size: <code>{_format_bytes(int(row.get('size') or 0))}</code>, files: <code>{int(row.get('file_count') or 0)}</code>",
+                f"  caches: <code>{int(row.get('ready_entries') or 0)} ready</code>, <code>{int(row.get('stale_entries') or 0)} stale</code>, total: <code>{int(row.get('entries') or 0)}</code>",
+                f"  size: <code>{_format_bytes(int(row.get('size') or 0))}</code>, files: <code>{int(row.get('file_count') or 0)}</code>",
                 f"  latest: <code>{html.escape(latest)}</code>",
             ]
         )

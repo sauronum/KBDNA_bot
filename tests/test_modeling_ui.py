@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
+
+from telegram import InlineKeyboardMarkup
+from telegram.error import BadRequest
 
 from app.features.modeling.menu import build_admixtools2_keyboard, build_modeling_keyboard, modeling_text
 from app.features.modeling.source_sets import _parse_source_set_import
+from app.features.modeling.ui import show_message
 
 
 class ModelingUiTests(unittest.TestCase):
@@ -49,6 +54,29 @@ class ModelingUiTests(unittest.TestCase):
         self.assertEqual(len(footer), 2)
         self.assertEqual(footer[0].callback_data, "main:root")
         self.assertEqual(footer[1].callback_data, "main:cancel")
+
+    def test_show_message_replaces_non_text_messages_without_traceback(self) -> None:
+        class Message:
+            def __init__(self) -> None:
+                self.reply_sent = False
+                self.markup_removed = False
+
+            async def edit_text(self, *args, **kwargs) -> None:
+                raise BadRequest("There is no text in the message to edit")
+
+            async def edit_reply_markup(self, *args, **kwargs) -> None:
+                self.markup_removed = True
+
+            async def reply_text(self, *args, **kwargs):
+                self.reply_sent = True
+                return type("Sent", (), {"chat_id": 1, "message_id": 2})()
+
+        message = Message()
+
+        asyncio.run(show_message(message, "text", InlineKeyboardMarkup([]), edit_existing=True))
+
+        self.assertTrue(message.markup_removed)
+        self.assertTrue(message.reply_sent)
 
     def test_source_set_import_accepts_spaced_left_right_format(self) -> None:
         parsed = _parse_source_set_import(

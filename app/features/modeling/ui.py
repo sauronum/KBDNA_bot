@@ -43,9 +43,11 @@ async def show_message(message, text: str, reply_markup: InlineKeyboardMarkup, *
         try:
             await message.edit_text(text, reply_markup=reply_markup, parse_mode="HTML")
         except BadRequest as exc:
-            if "message is not modified" in str(exc).lower():
+            error_text = str(exc).lower()
+            if "message is not modified" in error_text:
                 return
-            if not getattr(message, "photo", None):
+            can_replace = bool(getattr(message, "photo", None)) or "there is no text" in error_text
+            if not can_replace:
                 raise
             try:
                 await message.edit_reply_markup(reply_markup=None)
