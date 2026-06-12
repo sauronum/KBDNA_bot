@@ -4,7 +4,14 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from app.features.modeling.admixtools2 import admixtools2_callback_handler, admixtools2_text_input_handler
-from app.features.modeling.navigation import nav_enter, nav_pop, nav_reset, reset_callback_context, set_callback_context
+from app.features.modeling.navigation import (
+    nav_back_callback,
+    nav_enter,
+    nav_pop,
+    nav_reset,
+    reset_callback_context,
+    set_callback_context,
+)
 from app.features.modeling.qpadm_classic import (
     qpadm_classic_callback_handler,
     qpadm_classic_text_input_handler,
@@ -131,7 +138,7 @@ async def show_admixtools2_pending(
     await show_message(
         message,
         _admixtools2_pending_text(action, lang),
-        InlineKeyboardMarkup([footer_row(modeling_cb("at2"), lang)]),
+        InlineKeyboardMarkup([footer_row(nav_back_callback(), lang)]),
         edit_existing=edit_existing,
     )
 

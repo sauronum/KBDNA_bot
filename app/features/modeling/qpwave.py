@@ -1195,7 +1195,7 @@ async def qpwave_callback_handler(
     if action == "qpwave_reset":
         flow = _get_flow(context)
         engine = _qpwave_engine(flow.get("engine") if flow is not None else QPWAVE_ENGINE_CLASSIC)
-        nav_reset(context, _cb("qpwave_engine", engine))
+        nav_reset(context, _cb("at2" if engine == QPWAVE_ENGINE_ADMIXTOOLS2 else "root"))
         await show_qpwave_dataset_menu(message, context, engine=engine, edit_existing=True, lang=lang)
         return
     if action == "qpwave_import":

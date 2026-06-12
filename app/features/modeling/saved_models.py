@@ -200,7 +200,7 @@ async def _show_saved_view(message, update: Update, context: ContextTypes.DEFAUL
     markup = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Удалить", callback_data=_cb("saved_delete", record_id))],
-            _footer_row(_cb("saved"), lang),
+            _footer_row(nav_back_callback(), lang),
         ]
     )
     visual_value = str(record.get("visual_path") or "").strip()

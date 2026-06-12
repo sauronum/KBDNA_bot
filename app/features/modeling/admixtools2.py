@@ -183,7 +183,7 @@ async def show_f2_cache_status(
     markup = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("🔄 Refresh", callback_data=_cb("at2_f2_cache"))],
-            _footer_row(_cb("at2"), lang),
+            _footer_row(nav_back_callback(), lang),
         ]
     )
     await _show_message(message, _format_cache_status(lang), markup, edit_existing=edit_existing)
