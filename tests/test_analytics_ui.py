@@ -17,7 +17,7 @@ class AnalyticsUiTests(unittest.TestCase):
     def test_root_keyboard_can_return_to_main_menu(self) -> None:
         keyboard = analytics_ui.build_haplo_root_keyboard("haplo", "menu", include_back=True)
 
-        self.assertEqual(_inline_text_rows(keyboard), [["Y-ДНК"], ["МтДНК"], ["Назад", "Отмена"]])
+        self.assertEqual(_inline_text_rows(keyboard), [["🧬 Y-ДНК"], ["🧬 mtDNA"], ["Назад", "Отмена"]])
         self.assertEqual(_inline_callback_rows(keyboard)[-1], ["menu:root", "haplo:cancel"])
 
     def test_mtdna_groups_keyboard_uses_two_columns_and_footer(self) -> None:

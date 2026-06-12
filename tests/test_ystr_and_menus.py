@@ -232,7 +232,7 @@ class MenuKeyboardTests(unittest.TestCase):
         self.assertEqual(
             rows,
             [
-                ["🔎 Поиск по фамилии", "📊 Аналитика"],
+                ["🔎 Поиск", "📊 Аналитика"],
                 ["🧬 My DNA", "🧪 DNA Lab"],
                 ["📚 Справка", "⚙️ Настройки"],
             ],
@@ -241,8 +241,9 @@ class MenuKeyboardTests(unittest.TestCase):
     def test_start_text_points_g25_to_dna_lab_engine(self) -> None:
         text = bot.LOOKUP_START_TEXT
 
-        self.assertIn("Получать и сохранять G25-профили", text)
+        self.assertIn("DNA-инструменты", text)
         self.assertIn("My DNA", text)
+        self.assertIn("G25", text)
         self.assertNotIn("старая pca", text.lower())
 
     def test_ystr_root_keyboard_has_optional_menu_back(self) -> None:
@@ -256,7 +257,7 @@ class MenuKeyboardTests(unittest.TestCase):
         rows = _inline_text_rows(analytics_ui.build_haplo_mode_keyboard(bot.HAPLO_CALLBACK_PREFIX))
         callbacks = _inline_callback_rows(analytics_ui.build_haplo_mode_keyboard(bot.HAPLO_CALLBACK_PREFIX))
 
-        self.assertIn(["STR-маркеры"], rows)
+        self.assertTrue(any("STR-маркеры" in label for row in rows for label in row))
         self.assertIn([f"{bot.HAPLO_CALLBACK_PREFIX}:ystr"], callbacks)
 
     def test_ystr_test_data_keyboard_back_changes_when_showing_all_markers(self) -> None:
@@ -288,7 +289,7 @@ class MenuKeyboardTests(unittest.TestCase):
         self.assertEqual(
             rows,
             [
-                ["🔎 Поиск по фамилии", "📊 Аналитика"],
+                ["🔎 Поиск", "📊 Аналитика"],
                 ["🧬 My DNA", "🧪 DNA Lab"],
                 ["📚 Справка", "⚙️ Настройки"],
                 ["Отмена"],
@@ -306,26 +307,28 @@ class MenuKeyboardTests(unittest.TestCase):
             rows,
             [
                 ["✨ Traits"],
-                ["🧭 Coordinates"],
+                ["📊 Admixture"],
+                ["🏛 AdmixLab"],
                 ["📐 Vahaduo Lab"],
+                ["🧭 Coordinates"],
                 ["🧩 Matching"],
-                ["🧬 Admixture"],
-                ["🧱 AdmixLab"],
+                ["🧬 SNP Lab"],
                 ["🌿 Haplogroups"],
                 ["Отмена"],
             ],
         )
-        self.assertTrue(any("🧱 AdmixLab" in row for row in rows))
+        self.assertTrue(any("🏛 AdmixLab" in row for row in rows))
         self.assertFalse(any("Modeling" in label for row in rows for label in row))
         self.assertEqual(
             callbacks,
             [
                 [f"{bot.LAB_CALLBACK_PREFIX}:traits"],
-                [f"{bot.LAB_CALLBACK_PREFIX}:coordinates"],
-                [f"{bot.LAB_CALLBACK_PREFIX}:vahaduo"],
-                [f"{bot.LAB_CALLBACK_PREFIX}:matching"],
                 [f"{bot.LAB_CALLBACK_PREFIX}:admixture"],
                 [f"{bot.LAB_CALLBACK_PREFIX}:modeling"],
+                [f"{bot.LAB_CALLBACK_PREFIX}:vahaduo"],
+                [f"{bot.LAB_CALLBACK_PREFIX}:coordinates"],
+                [f"{bot.LAB_CALLBACK_PREFIX}:matching"],
+                [f"{bot.LAB_CALLBACK_PREFIX}:snp_report"],
                 [f"{bot.LAB_CALLBACK_PREFIX}:haplogroups"],
                 [f"{bot.LAB_CALLBACK_PREFIX}:cancel"],
             ],
@@ -389,11 +392,11 @@ class MenuKeyboardTests(unittest.TestCase):
             rows,
             [
                 ["🚀 Быстрый старт"],
-                ["🔎 Поиск по фамилиям"],
+                ["🔎 Поиск"],
                 ["📊 Аналитика KBDNA"],
                 ["🧬 Данные: raw, G25, SNP"],
                 ["🧪 Разделы DNA Lab"],
-                ["🧱 AdmixLab / qpAdm"],
+                ["🏛 AdmixLab / qpAdm"],
                 ["📖 Термины DNA"],
                 ["🛡 Ограничения"],
                 ["📚 КБ словарь"],
@@ -800,7 +803,6 @@ class MenuKeyboardTests(unittest.TestCase):
         self.assertEqual(
             rows,
             [
-                ["🔎 Поиск по фамилии", "✅ Качество"],
                 ["Отмена"],
             ],
         )

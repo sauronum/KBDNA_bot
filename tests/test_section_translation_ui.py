@@ -48,11 +48,10 @@ from app.features.haplogroups.ui import (
 from app.features.matching.menu import MATCHING_CALLBACK_PREFIX, show_matching_menu
 from app.features.matching.ui import build_markup, matching_root_text, sample_picker_text, saved_matches_text
 from app.features.modeling.menu import (
+    admixtools2_text,
+    build_admixtools2_keyboard,
     build_modeling_keyboard,
-    build_source_sets_keyboard,
-    modeling_placeholder_text,
     modeling_text,
-    source_sets_text,
 )
 from app.features.my_data.storage import SampleAsset
 from app.features.reports.menu import build_reports_keyboard, reports_text
@@ -64,10 +63,11 @@ class SectionTranslationUiTests(unittest.TestCase):
         keyboard = build_modeling_keyboard("en")
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-        self.assertIn("🧱 AdmixLab", modeling_text("en"))
-        self.assertIn("Formal models: qpAdm, qpWave, sources, and outgroups.", modeling_text("en"))
-        self.assertIn("🏛 qpAdm", labels)
-        self.assertIn("〰️ qpWave", labels)
+        self.assertIn("🏛 AdmixLab", modeling_text("en"))
+        self.assertIn("Formal models.", modeling_text("en"))
+        self.assertIn("🧬 ADMIXTOOLS 2", labels)
+        self.assertIn("🏛 qpAdm classic", labels)
+        self.assertIn("🌊 qpWave classic", labels)
         self.assertIn("📚 Source sets", labels)
         self.assertIn("💾 Saved models", labels)
         self.assertIn("⬅️ Back", labels)
@@ -78,33 +78,41 @@ class SectionTranslationUiTests(unittest.TestCase):
         labels = [[button.text for button in row] for row in keyboard.inline_keyboard]
         callbacks = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
 
-        self.assertIn("🧱 AdmixLab", modeling_text("ru"))
-        self.assertIn("Формальные модели: qpAdm, qpWave, sources и outgroups.", modeling_text("ru"))
+        self.assertIn("🏛 AdmixLab", modeling_text("ru"))
+        self.assertIn("Формальные модели.", modeling_text("ru"))
         self.assertEqual(labels, [
-            ["🏛 qpAdm"],
-            ["〰️ qpWave"],
+            ["🧬 ADMIXTOOLS 2"],
+            ["🏛 qpAdm classic"],
+            ["🌊 qpWave classic"],
             ["📚 Source sets"],
             ["💾 Saved models"],
             ["⬅️ Назад", "Отмена"],
         ])
         self.assertEqual(callbacks, [
+            ["modeling:at2"],
             ["modeling:qpadm"],
             ["modeling:qpwave"],
             ["modeling:source_sets"],
             ["modeling:saved"],
             ["main:root", "main:cancel"],
         ])
-        self.assertIn("Формальная проверка модели через target, sources и outgroups.", modeling_placeholder_text("qpadm", "ru"))
-        self.assertIn("Пока нет сохранённых моделей.", modeling_placeholder_text("saved", "ru"))
 
-    def test_modeling_source_sets_catalog_uses_product_copy(self) -> None:
-        keyboard = build_source_sets_keyboard(lang="ru")
-        text = source_sets_text(lang="ru")
+    def test_admixtools2_workflow_menu_uses_product_copy(self) -> None:
+        keyboard = build_admixtools2_keyboard("ru")
+        text = admixtools2_text("ru")
 
-        self.assertIn("📚 Source sets", text)
-        self.assertIn("Наборы sources и outgroups для формальных моделей.", text)
-        self.assertIn("Функция пока не подключена.", text)
-        self.assertEqual([button.text for row in keyboard.inline_keyboard for button in row], ["⬅️ Назад", "Отмена"])
+        self.assertIn("🧬 ADMIXTOOLS 2", text)
+        self.assertEqual(
+            [[button.text for button in row] for row in keyboard.inline_keyboard],
+            [
+                ["🧪 qpAdm 2"],
+                ["〰️ qpWave 2"],
+                ["🕸 qpGraph 2"],
+                ["📊 f-statistics"],
+                ["📦 f2 cache"],
+                ["⬅️ Назад", "Отмена"],
+            ],
+        )
 
     def test_reports_uses_english_copy(self) -> None:
         text = reports_text([], total_samples=0, lang="en")
