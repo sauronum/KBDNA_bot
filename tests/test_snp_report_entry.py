@@ -7,7 +7,8 @@ from types import SimpleNamespace
 
 import bot
 from app.features.snp_report.domain import SnpCategorySummary, SnpReportResult, SnpReportRow, load_snp_rules
-from app.features.snp_report.ui import build_db_rule_keyboard, db_rule_text, render_html_report
+from app.features.snp_report.storage import SnpReportRecord, SnpReportSummary
+from app.features.snp_report.ui import build_db_rule_keyboard, db_rule_text, render_html_report, result_text
 
 
 class _FakeMyDataStore:
@@ -133,6 +134,43 @@ class SnpReportEntryTests(unittest.TestCase):
 
         self.assertIn("COMT", html)
         self.assertIn("Val158Met", html)
+
+    def test_report_summary_uses_compact_category_bars(self) -> None:
+        record = SnpReportRecord(
+            summary=SnpReportSummary(
+                report_id="report",
+                sample_id="sample",
+                sample_name="Sample",
+                raw_file_id="raw",
+                created_at="2026-01-01T00:00:00Z",
+                total_rules=10,
+                ok=4,
+                warn=3,
+                bad=2,
+                missing=1,
+                html_path="report.html",
+            ),
+            payload={
+                "categories": [
+                    {
+                        "category": "Высокобелк. диета",
+                        "total": 4,
+                        "ok": 1,
+                        "warn": 2,
+                        "bad": 1,
+                        "missing": 0,
+                        "risk_percent": 50,
+                    }
+                ]
+            },
+        )
+
+        text = result_text(record)
+
+        self.assertIn("<b>Нагрузка по категориям:</b>", text)
+        self.assertIn("█████░░░░░", text)
+        self.assertIn("1/2/0", text)
+        self.assertNotIn("🔴 1, 🟡 2, ⚪ 0", text)
 
 
 if __name__ == "__main__":
