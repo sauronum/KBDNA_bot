@@ -310,7 +310,7 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     width = 1080
     ref_rows = max(1, (len(references) + 1) // 2)
     detail_rows = max(1, len(rows))
-    height = 725 + detail_rows * 48 + ref_rows * 38
+    height = 655 + detail_rows * 78 + ref_rows * 38
     image, draw = _canvas(height, width=width, background=str(QPADM_ADMIXTOOLS2_VISUAL["background"]), panel=str(QPADM_ADMIXTOOLS2_VISUAL["panel"]))
     content_left = 64
     content_right = width - 64
@@ -326,7 +326,6 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
     small_font = _font(17)
     detail_font = _font(16)
     detail_bold_font = _font(16, bold=True)
-    segment_font = _font(16, bold=True)
 
     y = 58
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
@@ -370,73 +369,54 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
         draw.text((x + 14, y + 38), _fit_text(draw, value, value_font, tile_w - 28), font=value_font, fill=value_color)
 
     y += 118
-    draw.text((content_left, y), "Source Composition", font=h_font, fill="#f8fafc")
-    draw.text((content_right - 112, y + 8), "100% total", font=small_font, fill="#8fa0b5")
-    y += 46
-    bar_left = content_left
-    bar_right = content_right
-    bar_w = bar_right - bar_left
-    bar_h = 44
-    positive_total = sum(max(0.0, float(row["weight"])) for row in rows)
+    draw.text((content_left, y), "Source Weight Bars", font=h_font, fill="#f8fafc")
+    draw.text((content_right - 116, y + 8), "0-100% scale", font=small_font, fill="#8fa0b5")
+    y += 44
     if not rows:
         draw.rounded_rectangle((content_left, y, content_right, y + 46), radius=9, fill="#10171d", outline="#2b3742", width=1)
         draw.text((content_left + 18, y + 13), "No source weights returned.", font=row_font, fill="#a8b3c5")
         y += 70
     else:
-        draw.rounded_rectangle((bar_left, y, bar_right, y + bar_h), radius=10, fill="#10171d", outline=outline, width=1)
-        cursor = bar_left
-        positive_scale = positive_total if positive_total > 0 else 100.0
-        positive_rows = [(index, row) for index, row in enumerate(rows) if float(row["weight"]) > 0]
-        for positive_index, (row_index, row) in enumerate(positive_rows):
-            weight = float(row["weight"])
-            color = palette[row_index % len(palette)]
-            if positive_index == len(positive_rows) - 1:
-                segment_right = bar_right
-            else:
-                segment_right = min(bar_right, cursor + int(round(bar_w * weight / positive_scale)))
-            if segment_right <= cursor:
-                continue
-            draw.rectangle((cursor, y, segment_right, y + bar_h), fill=color)
-            visible_w = segment_right - cursor
-            percent_text = _format_number(weight, percent=True)
-            if visible_w > 58:
-                text_bbox = draw.textbbox((0, 0), percent_text, font=segment_font)
-                text_w = text_bbox[2] - text_bbox[0]
-                draw.text((cursor + max(8, (visible_w - text_w) // 2), y + 12), percent_text, font=segment_font, fill="#071019")
-            cursor = segment_right
-        draw.rounded_rectangle((bar_left, y, bar_right, y + bar_h), radius=10, outline=outline, width=1)
-        y += 72
-
-        draw.text((content_left, y), "Source Details", font=h_font, fill="#f8fafc")
-        y += 36
-        table_top = y
-        row_h = 44
-        table_h = 38 + len(rows) * row_h
-        draw.rounded_rectangle((content_left, table_top, content_right, table_top + table_h), radius=10, fill="#10171d", outline=outline, width=1)
-        name_x = content_left + 20
-        weight_x = content_right - 272
-        se_x = content_right - 168
-        z_x = content_right - 66
-        header_y = table_top + 12
-        draw.text((name_x + 24, header_y), "Source", font=metric_label_font, fill="#8fa0b5")
-        draw.text((weight_x, header_y), "Weight", font=metric_label_font, fill="#8fa0b5")
-        draw.text((se_x, header_y), "SE", font=metric_label_font, fill="#8fa0b5")
-        draw.text((z_x, header_y), "z", font=metric_label_font, fill="#8fa0b5")
-        draw.line((content_left, table_top + 38, content_right, table_top + 38), fill="#223241", width=1)
+        bar_left = content_left
+        bar_right = content_right - 196
+        bar_w = bar_right - bar_left
+        row_h = 78
+        bar_h = 16
+        meta_x = content_right - 176
+        draw.text((bar_left, y), "Source", font=metric_label_font, fill="#8fa0b5")
+        draw.text((meta_x, y), "Weight / SE / z", font=metric_label_font, fill="#8fa0b5")
+        y += 30
         for index, row in enumerate(rows):
-            row_y = table_top + 38 + index * row_h
-            if index:
-                draw.line((content_left, row_y, content_right, row_y), fill="#1d2a35", width=1)
+            row_y = y + index * row_h
             weight = float(row["weight"])
             stderr = float(row["stderr"])
             z_value = row.get("z")
             color = "#fb7185" if weight < 0 else palette[index % len(palette)]
-            draw.rounded_rectangle((name_x, row_y + 13, name_x + 14, row_y + 27), radius=3, fill=color)
-            draw.text((name_x + 24, row_y + 10), _fit_text(draw, row["source"], detail_font, weight_x - name_x - 38), font=detail_font, fill="#dbe5ef")
-            draw.text((weight_x, row_y + 10), _format_signed_percent(weight), font=detail_bold_font, fill=color)
-            draw.text((se_x, row_y + 10), f"+/- {_format_number(stderr, percent=True)}", font=detail_font, fill="#cbd5e1")
-            draw.text((z_x, row_y + 10), _format_number(z_value), font=detail_font, fill="#cbd5e1")
-        y = table_top + table_h + 28
+            label = _fit_text(draw, row["source"], detail_bold_font, bar_right - bar_left)
+            draw.text((bar_left, row_y), label, font=detail_bold_font, fill="#e5edf5")
+            weight_text = _format_signed_percent(weight)
+            weight_bbox = draw.textbbox((0, 0), weight_text, font=detail_bold_font)
+            draw.text((content_right - (weight_bbox[2] - weight_bbox[0]), row_y), weight_text, font=detail_bold_font, fill=color)
+            baseline_y = row_y + 38
+            draw.line((bar_left, baseline_y, bar_right, baseline_y), fill="#2b3742", width=2)
+            draw.line((bar_left, baseline_y - 7, bar_left, baseline_y + 7), fill="#475569", width=1)
+            draw.line((bar_right, baseline_y - 7, bar_right, baseline_y + 7), fill="#475569", width=1)
+            fill_percent = min(100.0, max(0.0, abs(weight)))
+            fill_w = int(round(bar_w * fill_percent / 100.0))
+            if fill_w == 0 and weight:
+                fill_w = 3
+            if fill_w:
+                draw.rounded_rectangle((bar_left, baseline_y - bar_h // 2, bar_left + fill_w, baseline_y + bar_h // 2), radius=8, fill=color)
+            point_x = bar_left + fill_w
+            err_left = bar_left + int(round(bar_w * max(0.0, fill_percent - abs(stderr)) / 100.0))
+            err_right = bar_left + int(round(bar_w * min(100.0, fill_percent + abs(stderr)) / 100.0))
+            draw.line((err_left, baseline_y, err_right, baseline_y), fill="#dbe5ef", width=1)
+            draw.line((err_left, baseline_y - 5, err_left, baseline_y + 5), fill="#dbe5ef", width=1)
+            draw.line((err_right, baseline_y - 5, err_right, baseline_y + 5), fill="#dbe5ef", width=1)
+            draw.ellipse((point_x - 5, baseline_y - 5, point_x + 5, baseline_y + 5), fill="#10171d", outline="#f8fafc", width=2)
+            draw.text((meta_x, baseline_y - 16), f"SE +/- {_format_number(stderr, percent=True)}", font=detail_font, fill="#cbd5e1")
+            draw.text((meta_x, baseline_y + 5), f"z {_format_number(z_value)}", font=detail_font, fill="#cbd5e1")
+        y += len(rows) * row_h + 10
 
     draw.text((content_left, y), "Reference Panel", font=h_font, fill="#f8fafc")
     y += 42
