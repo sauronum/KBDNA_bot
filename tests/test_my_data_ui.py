@@ -807,6 +807,21 @@ class MyDataUiTests(unittest.TestCase):
         self.assertNotIn("[G25]", button.text)
         self.assertEqual(button.callback_data, f"{MY_DATA_CALLBACK_PREFIX}:coordinate_item:coord-a")
 
+    def test_coordinate_items_paginate_after_first_ten(self) -> None:
+        coordinates = [
+            CoordinateAsset(f"coord-{index}", f"Profile {index}", f"Profile {index}", "g25", f"Profile {index},1,2", "manual", "2026-05-10T22:00:00")
+            for index in range(1, 13)
+        ]
+        text = view_coordinates_text(coordinates, page=1, lang="en")
+        keyboard = build_coordinate_items_keyboard(coordinates, page=1, lang="en")
+        rows = keyboard.inline_keyboard
+
+        self.assertIn("Showing 11-12 of 12. Page 2/2.", text)
+        self.assertEqual(rows[0][0].callback_data, f"{MY_DATA_CALLBACK_PREFIX}:coordinates_new_profile")
+        self.assertEqual(rows[1][0].text, "11. Profile 11")
+        self.assertEqual(rows[2][0].text, "12. Profile 12")
+        self.assertEqual(rows[3][0].callback_data, f"{MY_DATA_CALLBACK_PREFIX}:coordinates_page:0")
+
     def test_new_g25_profile_menu_routes_to_existing_flows(self) -> None:
         keyboard = build_new_g25_profile_keyboard()
         rows = keyboard.inline_keyboard
@@ -867,18 +882,17 @@ class MyDataUiTests(unittest.TestCase):
         self.assertIn("<code>Target,1,2</code>", result)
         self.assertEqual(labels, ["Создать Sample", "Сохранить G25-профиль"])
 
-    def test_add_data_input_screens_use_horizontal_back_cancel_footer(self) -> None:
-        upload_keyboard = build_upload_raw_keyboard(back_callback="mydna:add_data", add_data_flow=True)
-        manual_keyboard = build_add_coordinates_keyboard(back_callback="mydna:add_data", add_data_flow=True)
-        extract_keyboard = build_extract_coordinates_keyboard(back_callback="mydna:add_data", add_data_flow=True)
+    def test_g25_profile_input_screens_use_profile_back_footer(self) -> None:
+        manual_keyboard = build_add_coordinates_keyboard(back_callback="my_data:coordinates_new_profile", add_data_flow=True)
+        extract_keyboard = build_extract_coordinates_keyboard(back_callback="my_data:coordinates_new_profile", add_data_flow=True)
 
         self.assertIn("🧬 Загрузить raw", upload_raw_text())
         self.assertIn("Я сохраню его в вашей библиотеке My DNA.", upload_raw_text())
         self.assertIn("✍️ Вставить G25 вручную", add_coordinates_text("g25"))
         self.assertIn("Я сохраню их как отдельный G25-профиль.", add_coordinates_text("g25"))
-        for keyboard in (upload_keyboard, manual_keyboard, extract_keyboard):
+        for keyboard in (manual_keyboard, extract_keyboard):
             self.assertEqual([button.text for button in keyboard.inline_keyboard[-1]], ["⬅️ Назад", "Отмена"])
-            self.assertEqual([button.callback_data for button in keyboard.inline_keyboard[-1]], ["mydna:add_data", "my_data:cancel"])
+            self.assertEqual([button.callback_data for button in keyboard.inline_keyboard[-1]], ["my_data:coordinates_new_profile", "my_data:cancel"])
 
     def test_sample_without_raw_copy_does_not_claim_missing_raw(self) -> None:
         sample = SampleAsset("sample-a", "A", "", ["coord-a"], "2026-05-10T22:00:00")

@@ -334,11 +334,9 @@ class MenuKeyboardTests(unittest.TestCase):
             ],
         )
 
-    def test_my_dna_entry_and_add_data_menus(self) -> None:
+    def test_my_dna_entry_menu_offers_direct_actions(self) -> None:
         rows = _inline_text_rows(bot._build_my_dna_inline_keyboard())
         callbacks = _inline_callback_rows(bot._build_my_dna_inline_keyboard())
-        add_rows = _inline_text_rows(bot._build_my_dna_add_data_keyboard())
-        add_callbacks = _inline_callback_rows(bot._build_my_dna_add_data_keyboard())
 
         self.assertEqual(
             rows,
@@ -360,27 +358,6 @@ class MenuKeyboardTests(unittest.TestCase):
                 [f"{bot.MY_DNA_CALLBACK_PREFIX}:get_g25_raw"],
             ],
         )
-        self.assertEqual(
-            add_rows,
-            [
-                ["📤 Загрузить raw"],
-                ["🧬 Получить G25 координаты"],
-                ["✍️ Вставить G25 вручную"],
-                ["🌿 Добавить гаплогруппу"],
-                ["⬅️ Назад", "Отмена"],
-            ],
-        )
-        self.assertEqual(
-            add_callbacks,
-            [
-                ["my_data:raw_files_upload:add_data"],
-                [f"{bot.MY_DNA_CALLBACK_PREFIX}:get_g25_raw"],
-                ["my_data:coordinates_add_type:g25:add_data"],
-                ["haplogroups:manual_add_data"],
-                [f"{bot.MY_DNA_CALLBACK_PREFIX}:root", "my_data:cancel"],
-            ],
-        )
-
     def test_support_menu_is_documentation_root(self) -> None:
         rows = _inline_text_rows(bot._build_help_inline_keyboard())
         callbacks = _inline_callback_rows(bot._build_help_inline_keyboard())

@@ -32,11 +32,8 @@ LAB_BUTTON_GET_G25 = "🧬 Получить G25"
 MY_DNA_BUTTON_SAMPLES = "📁 Samples"
 MY_DNA_BUTTON_G25_PROFILES = "📍 G25-профили"
 MY_DNA_BUTTON_REPORTS = "📊 Reports"
-MY_DNA_BUTTON_ADD_DATA = "➕ Добавить данные"
 MY_DNA_BUTTON_ADD_RAW = "📤 Загрузить raw"
 MY_DNA_BUTTON_GET_G25_FROM_RAW = "🧬 Получить G25 координаты"
-MY_DNA_BUTTON_ADD_G25_MANUAL = "✍️ Вставить G25 вручную"
-MY_DNA_BUTTON_ADD_HAPLOGROUP = "🌿 Добавить гаплогруппу"
 MY_DNA_BUTTON_BACK = "⬅️ Назад"
 HELP_BUTTON_RAW = "🧬 Что такое raw?"
 HELP_BUTTON_G25 = "📍 Что такое G25?"
@@ -277,19 +274,6 @@ def build_my_dna_inline_keyboard(my_dna_callback_prefix: str) -> InlineKeyboardM
         [InlineKeyboardButton(MY_DNA_BUTTON_REPORTS, callback_data="reports:root")],
         [InlineKeyboardButton(MY_DNA_BUTTON_ADD_RAW, callback_data="my_data:raw_files_upload:root")],
         [InlineKeyboardButton(MY_DNA_BUTTON_GET_G25_FROM_RAW, callback_data=f"{my_dna_callback_prefix}:get_g25_raw")],
-    ])
-
-
-def build_my_dna_add_data_keyboard(my_dna_callback_prefix: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(MY_DNA_BUTTON_ADD_RAW, callback_data="my_data:raw_files_upload:add_data")],
-        [InlineKeyboardButton(MY_DNA_BUTTON_GET_G25_FROM_RAW, callback_data=f"{my_dna_callback_prefix}:get_g25_raw")],
-        [InlineKeyboardButton(MY_DNA_BUTTON_ADD_G25_MANUAL, callback_data="my_data:coordinates_add_type:g25:add_data")],
-        [InlineKeyboardButton(MY_DNA_BUTTON_ADD_HAPLOGROUP, callback_data="haplogroups:manual_add_data")],
-        [
-            InlineKeyboardButton(MY_DNA_BUTTON_BACK, callback_data=f"{my_dna_callback_prefix}:root"),
-            InlineKeyboardButton(BOTTOM_BUTTON_CANCEL, callback_data="my_data:cancel"),
-        ],
     ])
 
 

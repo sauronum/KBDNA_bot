@@ -48,7 +48,6 @@ from ui.common import (
     build_help_inline_keyboard as build_help_inline_keyboard_ui,
     build_laboratory_inline_keyboard as build_laboratory_inline_keyboard_ui,
     build_lookup_start_text,
-    build_my_dna_add_data_keyboard as build_my_dna_add_data_keyboard_ui,
     build_my_dna_inline_keyboard as build_my_dna_inline_keyboard_ui,
     build_stats_root_keyboard as build_stats_root_keyboard_ui,
     help_section_text,
@@ -242,7 +241,6 @@ _build_group_sections_keyboard = partial(build_group_sections_keyboard_ui, MENU_
 _build_laboratory_inline_keyboard = partial(build_laboratory_inline_keyboard_ui, LAB_CALLBACK_PREFIX)
 _build_help_inline_keyboard = partial(build_help_inline_keyboard_ui, HELP_CALLBACK_PREFIX)
 _build_my_dna_inline_keyboard = partial(build_my_dna_inline_keyboard_ui, MY_DNA_CALLBACK_PREFIX)
-_build_my_dna_add_data_keyboard = partial(build_my_dna_add_data_keyboard_ui, MY_DNA_CALLBACK_PREFIX)
 _build_help_keyboard = partial(build_help_keyboard_ui, MENU_CALLBACK_PREFIX)
 _build_help_section_keyboard = partial(build_help_section_keyboard_ui, MENU_CALLBACK_PREFIX)
 _build_bottom_menu_keyboard = build_bottom_menu_keyboard_ui
@@ -731,10 +729,6 @@ def _laboratory_entry_text() -> str:
 
 def _my_dna_entry_text() -> str:
     return "🧬 <b>My DNA</b>\n\nЗдесь хранятся ваши образцы и координаты."
-
-
-def _my_dna_add_data_text() -> str:
-    return "➕ <b>Добавить данные</b>\n\nВыберите, что хотите добавить:"
 
 
 def _help_entry_text() -> str:
@@ -1598,9 +1592,9 @@ async def my_dna_entry_callback_handler(update: Update, context: ContextTypes.DE
         _clear_ystr_pending(context)
         context.user_data.pop("ystr_root_back_callback", None)
         await query.message.edit_text(
-            _my_dna_add_data_text(),
+            _my_dna_entry_text(),
             parse_mode="HTML",
-            reply_markup=_build_my_dna_add_data_keyboard(),
+            reply_markup=_build_my_dna_inline_keyboard(),
         )
         return
 

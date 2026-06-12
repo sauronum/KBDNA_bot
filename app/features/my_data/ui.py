@@ -15,6 +15,7 @@ from .storage import CoordinateAsset, RawFileAsset, SampleAsset
 MY_DATA_CALLBACK_PREFIX = "my_data"
 MY_DNA_ENTRY_CALLBACK = "mydna:root"
 SAMPLE_PAGE_SIZE = 10
+COORDINATE_PAGE_SIZE = 10
 COORD_REPORT_OPEN_ACTION = "scr"
 COORD_REPORT_DELETE_PROMPT_ACTION = "scrdp"
 COORD_REPORT_DELETE_CONFIRM_ACTION = "scrdc"
@@ -111,6 +112,18 @@ def _sample_page_bounds(samples: list[SampleAsset], page: int) -> tuple[int, int
     safe_page = min(max(int(page), 0), page_count - 1)
     start = safe_page * SAMPLE_PAGE_SIZE
     end = min(start + SAMPLE_PAGE_SIZE, len(samples))
+    return safe_page, start, end
+
+
+def _coordinate_page_count(items: list[CoordinateAsset]) -> int:
+    return max(1, (len(items) + COORDINATE_PAGE_SIZE - 1) // COORDINATE_PAGE_SIZE)
+
+
+def _coordinate_page_bounds(items: list[CoordinateAsset], page: int) -> tuple[int, int, int]:
+    page_count = _coordinate_page_count(items)
+    safe_page = min(max(int(page), 0), page_count - 1)
+    start = safe_page * COORDINATE_PAGE_SIZE
+    end = min(start + COORDINATE_PAGE_SIZE, len(items))
     return safe_page, start, end
 
 
@@ -746,57 +759,8 @@ def build_sample_coordinates_menu_keyboard(sample_id: str, *, lang: str = "ru") 
     )
 
 
-def sample_extract_coordinates_type_text(asset: SampleAsset, *, raw_file: RawFileAsset | None, lang: str = "ru") -> str:
-    raw_name = raw_file.display_name if raw_file is not None else ("raw file not found" if lang == "en" else "raw-файл не найден")
-    if lang == "en":
-        return (
-            "Extract coordinates from raw\n\n"
-            f"Sample: {asset.display_name}\n"
-            f"Source raw: {raw_name}\n\n"
-            "Choose the coordinate type to extract."
-        )
-    return (
-        "Извлечение координат из raw\n\n"
-        f"Sample: {asset.display_name}\n"
-        f"Исходный raw: {raw_name}\n\n"
-        "Выберите тип координат, который нужно извлечь."
-    )
-
-
-def build_sample_extract_coordinates_type_keyboard(sample_id: str, *, lang: str = "ru") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("G25", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:scxt:g25|{sample_id}")],
-            *_footer_rows(f"{MY_DATA_CALLBACK_PREFIX}:sample_attach_coords:{sample_id}", lang=lang),
-        ]
-    )
-
-
 def _format_coordinate_type_name(value: str) -> str:
     return format_coordinate_type(value)
-
-
-def sample_add_coordinates_type_text(asset: SampleAsset, *, lang: str = "ru") -> str:
-    if lang == "en":
-        return (
-            "Add coordinates to sample\n\n"
-            f"Sample: {asset.display_name}\n\n"
-            "Choose the coordinate type."
-        )
-    return (
-        "Добавление координат к sample\n\n"
-        f"Sample: {asset.display_name}\n\n"
-        "Выберите тип координат."
-    )
-
-
-def build_sample_add_coordinates_type_keyboard(sample_id: str, *, lang: str = "ru") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("G25", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:scmt:g25|{sample_id}")],
-            *_footer_rows(f"{MY_DATA_CALLBACK_PREFIX}:sample_attach_coords:{sample_id}", lang=lang),
-        ]
-    )
 
 
 def sample_add_coordinates_text(asset: SampleAsset, coordinate_type: str, *, lang: str = "ru") -> str:
@@ -862,13 +826,16 @@ def build_sample_rename_keyboard(asset_id: str, *, lang: str = "ru") -> InlineKe
     return InlineKeyboardMarkup(_footer_rows(f"{MY_DATA_CALLBACK_PREFIX}:sample_item:{asset_id}", lang=lang))
 
 
-def sample_attach_coordinates_picker_text(asset: SampleAsset, coordinates: list[CoordinateAsset], *, lang: str = "ru") -> str:
+def sample_attach_coordinates_picker_text(asset: SampleAsset, coordinates: list[CoordinateAsset], page: int = 0, *, lang: str = "ru") -> str:
     if lang == "en":
         lines = ["Choose coordinates from library", "", f"Sample: {asset.display_name}", ""]
         if not coordinates:
             lines.append("No available coordinates in the library.")
         else:
             lines.append("Choose coordinates to attach to this sample.")
+            safe_page, start, end = _coordinate_page_bounds(coordinates, page)
+            if len(coordinates) > COORDINATE_PAGE_SIZE:
+                lines.extend(["", f"Showing {start + 1}-{end} of {len(coordinates)}. Page {safe_page + 1}/{_coordinate_page_count(coordinates)}."])
         return "\n".join(lines)
     lines = ["Выбор координат из библиотеки", "", f"Sample: {asset.display_name}", ""]
     if not coordinates:
@@ -878,9 +845,10 @@ def sample_attach_coordinates_picker_text(asset: SampleAsset, coordinates: list[
     return "\n".join(lines)
 
 
-def build_sample_attach_coordinates_picker_keyboard(sample_id: str, coordinates: list[CoordinateAsset], *, lang: str = "ru") -> InlineKeyboardMarkup:
+def build_sample_attach_coordinates_picker_keyboard(sample_id: str, coordinates: list[CoordinateAsset], page: int = 0, *, lang: str = "ru") -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    for index, item in enumerate(coordinates[:10], start=1):
+    safe_page, start, end = _coordinate_page_bounds(coordinates, page)
+    for index, item in enumerate(coordinates[start:end], start=start + 1):
         rows.append(
             [
                 InlineKeyboardButton(
@@ -889,11 +857,21 @@ def build_sample_attach_coordinates_picker_keyboard(sample_id: str, coordinates:
                 )
             ]
         )
+    if len(coordinates) > COORDINATE_PAGE_SIZE:
+        nav_row: list[InlineKeyboardButton] = []
+        if safe_page > 0:
+            previous_label = "← Back" if lang == "en" else "← Назад"
+            nav_row.append(InlineKeyboardButton(previous_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sclp:{sample_id}|{safe_page - 1}"))
+        if end < len(coordinates):
+            next_label = "Next →" if lang == "en" else "Далее →"
+            nav_row.append(InlineKeyboardButton(next_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sclp:{sample_id}|{safe_page + 1}"))
+        if nav_row:
+            rows.append(nav_row)
     rows.extend(_footer_rows(f"{MY_DATA_CALLBACK_PREFIX}:sample_attach_coords:{sample_id}", lang=lang))
     return InlineKeyboardMarkup(rows)
 
 
-def sample_attached_coordinates_text(asset: SampleAsset, coordinates: list[CoordinateAsset], *, lang: str = "ru") -> str:
+def sample_attached_coordinates_text(asset: SampleAsset, coordinates: list[CoordinateAsset], page: int = 0, *, lang: str = "ru") -> str:
     if lang == "en":
         lines = ["Sample coordinates", "", f"Sample: {asset.display_name}", ""]
         if not coordinates:
@@ -901,6 +879,9 @@ def sample_attached_coordinates_text(asset: SampleAsset, coordinates: list[Coord
             return "\n".join(lines)
         lines.append(f"Attached coordinates: {len(coordinates)}")
         lines.extend(["", "Choose a record below."])
+        safe_page, start, end = _coordinate_page_bounds(coordinates, page)
+        if len(coordinates) > COORDINATE_PAGE_SIZE:
+            lines.extend(["", f"Showing {start + 1}-{end} of {len(coordinates)}. Page {safe_page + 1}/{_coordinate_page_count(coordinates)}."])
         return "\n".join(lines)
     lines = ["Координаты sample", "", f"Sample: {asset.display_name}", ""]
     if not coordinates:
@@ -911,9 +892,10 @@ def sample_attached_coordinates_text(asset: SampleAsset, coordinates: list[Coord
     return "\n".join(lines)
 
 
-def build_sample_attached_coordinates_keyboard(sample_id: str, coordinates: list[CoordinateAsset], *, lang: str = "ru") -> InlineKeyboardMarkup:
+def build_sample_attached_coordinates_keyboard(sample_id: str, coordinates: list[CoordinateAsset], page: int = 0, *, lang: str = "ru") -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    for index, item in enumerate(coordinates[:10], start=1):
+    safe_page, start, end = _coordinate_page_bounds(coordinates, page)
+    for index, item in enumerate(coordinates[start:end], start=start + 1):
         rows.append(
             [
                 InlineKeyboardButton(
@@ -922,6 +904,16 @@ def build_sample_attached_coordinates_keyboard(sample_id: str, coordinates: list
                 )
             ]
         )
+    if len(coordinates) > COORDINATE_PAGE_SIZE:
+        nav_row: list[InlineKeyboardButton] = []
+        if safe_page > 0:
+            previous_label = "← Back" if lang == "en" else "← Назад"
+            nav_row.append(InlineKeyboardButton(previous_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:scvp:{sample_id}|{safe_page - 1}"))
+        if end < len(coordinates):
+            next_label = "Next →" if lang == "en" else "Далее →"
+            nav_row.append(InlineKeyboardButton(next_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:scvp:{sample_id}|{safe_page + 1}"))
+        if nav_row:
+            rows.append(nav_row)
     rows.extend(
         [
             [InlineKeyboardButton("Get coordinates" if lang == "en" else "Получить координаты", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sample_attach_coords:{sample_id}")],
@@ -1089,23 +1081,25 @@ def build_coordinates_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     )
 
 
-def view_coordinates_text(coordinates: list[CoordinateAsset], *, lang: str = "ru") -> str:
+def view_coordinates_text(coordinates: list[CoordinateAsset], page: int = 0, *, lang: str = "ru") -> str:
     if lang == "en":
         lines = ["📍 G25 profiles", "", f"Standalone coordinates: {len(coordinates)}"]
         if not coordinates:
             lines.extend(["", "No standalone G25 profiles yet."])
             return "\n".join(lines)
         lines.extend(["", "These G25 profiles are not attached to a sample."])
+        safe_page, start, end = _coordinate_page_bounds(coordinates, page)
         if len(coordinates) > 10:
-            lines.extend(["", f"Showing the first 10 of {len(coordinates)}."])
+            lines.extend(["", f"Showing {start + 1}-{end} of {len(coordinates)}. Page {safe_page + 1}/{_coordinate_page_count(coordinates)}."])
         return "\n".join(lines)
     lines = ["📍 G25-профили", "", f"Отдельные координаты: {len(coordinates)}"]
     if not coordinates:
         lines.extend(["", "Пока нет отдельных G25-профилей."])
         return "\n".join(lines)
     lines.extend(["", "Здесь хранятся G25-профили, не привязанные к sample."])
-    if len(coordinates) > 10:
-        lines.extend(["", f"Показаны первые 10 из {len(coordinates)}."])
+    safe_page, start, end = _coordinate_page_bounds(coordinates, page)
+    if len(coordinates) > COORDINATE_PAGE_SIZE:
+        lines.extend(["", f"Showing {start + 1}-{end} of {len(coordinates)}. Page {safe_page + 1}/{_coordinate_page_count(coordinates)}."])
     return "\n".join(lines)
 
 
@@ -1133,6 +1127,7 @@ def build_new_g25_profile_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
 
 def build_coordinate_items_keyboard(
     coordinates: list[CoordinateAsset],
+    page: int = 0,
     *,
     lang: str = "ru",
     back_callback: str = MY_DNA_ENTRY_CALLBACK,
@@ -1141,7 +1136,8 @@ def build_coordinate_items_keyboard(
     rows: list[list[InlineKeyboardButton]] = [
         [InlineKeyboardButton(new_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_new_profile")]
     ]
-    for index, item in enumerate(coordinates[:10], start=1):
+    safe_page, start, end = _coordinate_page_bounds(coordinates, page)
+    for index, item in enumerate(coordinates[start:end], start=start + 1):
         label = _short_button_label(item.display_name)
         rows.append(
             [
@@ -1151,29 +1147,18 @@ def build_coordinate_items_keyboard(
                 )
             ]
         )
+    if len(coordinates) > COORDINATE_PAGE_SIZE:
+        nav_row: list[InlineKeyboardButton] = []
+        if safe_page > 0:
+            previous_label = "← Back" if lang == "en" else "← Назад"
+            nav_row.append(InlineKeyboardButton(previous_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_page:{safe_page - 1}"))
+        if end < len(coordinates):
+            next_label = "Next →" if lang == "en" else "Далее →"
+            nav_row.append(InlineKeyboardButton(next_label, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_page:{safe_page + 1}"))
+        if nav_row:
+            rows.append(nav_row)
     rows.extend(build_view_coordinates_keyboard(lang=lang, back_callback=back_callback).inline_keyboard)
     return InlineKeyboardMarkup(rows)
-
-
-def add_coordinates_type_text(*, lang: str = "ru") -> str:
-    if lang == "en":
-        return (
-            "Add coordinates\n\n"
-            "Choose the coordinate type."
-        )
-    return (
-        "Добавление координат\n\n"
-        "Выберите тип координат."
-    )
-
-
-def build_add_coordinates_type_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("G25", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_add_type:g25")],
-            *_footer_rows(f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view", lang=lang),
-        ]
-    )
 
 
 def add_coordinates_text(coordinate_type: str, *, lang: str = "ru") -> str:
@@ -1201,30 +1186,9 @@ def add_coordinates_text(coordinate_type: str, *, lang: str = "ru") -> str:
     )
 
 
-def build_add_coordinates_keyboard(*, back_callback: str = f"{MY_DATA_CALLBACK_PREFIX}:coordinates_add_root", add_data_flow: bool = False, lang: str = "ru") -> InlineKeyboardMarkup:
+def build_add_coordinates_keyboard(*, back_callback: str = f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view", add_data_flow: bool = False, lang: str = "ru") -> InlineKeyboardMarkup:
     rows = _add_data_footer_rows(back_callback) if add_data_flow else _footer_rows(back_callback, lang=lang)
     return InlineKeyboardMarkup(rows)
-
-
-def extract_coordinates_type_text(*, lang: str = "ru") -> str:
-    if lang == "en":
-        return (
-            "Extract coordinates from raw\n\n"
-            "Choose the coordinate type. Raw extraction is currently available only for G25."
-        )
-    return (
-        "Извлечение координат из raw\n\n"
-        "Выберите тип координат. Сейчас извлечение из raw доступно только для G25."
-    )
-
-
-def build_extract_coordinates_type_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("G25", callback_data=f"{MY_DATA_CALLBACK_PREFIX}:coordinates_extract_type:g25")],
-            *_footer_rows(f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view", lang=lang),
-        ]
-    )
 
 
 def extract_coordinates_text(coordinate_type: str, *, lang: str = "ru") -> str:
@@ -1252,7 +1216,7 @@ def extract_coordinates_text(coordinate_type: str, *, lang: str = "ru") -> str:
     )
 
 
-def build_extract_coordinates_keyboard(*, back_callback: str = f"{MY_DATA_CALLBACK_PREFIX}:coordinates_extract_root", add_data_flow: bool = False, lang: str = "ru") -> InlineKeyboardMarkup:
+def build_extract_coordinates_keyboard(*, back_callback: str = f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view", add_data_flow: bool = False, lang: str = "ru") -> InlineKeyboardMarkup:
     rows = _add_data_footer_rows(back_callback) if add_data_flow else _footer_rows(back_callback, lang=lang)
     return InlineKeyboardMarkup(rows)
 

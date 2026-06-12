@@ -25,9 +25,7 @@ from .snp_lookup import lookup_snp_in_sample
 from .ui import (
     MY_DATA_CALLBACK_PREFIX,
     add_coordinates_text,
-    add_coordinates_type_text,
     build_add_coordinates_keyboard,
-    build_add_coordinates_type_keyboard,
     build_coordinate_delete_prompt_keyboard,
     build_coordinate_detail_keyboard,
     build_coordinate_items_keyboard,
@@ -35,7 +33,6 @@ from .ui import (
     build_coordinates_keyboard,
     build_create_sample_keyboard,
     build_extract_coordinates_keyboard,
-    build_extract_coordinates_type_keyboard,
     build_my_data_keyboard,
     build_new_g25_profile_keyboard,
     build_raw_file_delete_prompt_keyboard,
@@ -60,11 +57,9 @@ from .ui import (
     build_sample_coordinates_menu_keyboard,
     build_sample_items_keyboard,
     build_sample_add_coordinates_keyboard,
-    build_sample_add_coordinates_type_keyboard,
     build_sample_rename_keyboard,
     build_sample_snp_lookup_input_keyboard,
     build_sample_snp_lookup_result_keyboard,
-    build_sample_extract_coordinates_type_keyboard,
     build_quick_g25_result_keyboard,
     build_upload_raw_keyboard,
     build_view_coordinates_keyboard,
@@ -74,7 +69,6 @@ from .ui import (
     coordinate_detail_text,
     coordinate_rename_text,
     create_sample_text,
-    extract_coordinates_type_text,
     extract_coordinates_text,
     my_data_text,
     new_g25_profile_text,
@@ -95,10 +89,8 @@ from .ui import (
     sample_delete_prompt_text,
     sample_detail_text,
     sample_add_coordinates_text,
-    sample_add_coordinates_type_text,
     sample_saved_section_text,
     sample_matching_reports_text,
-    sample_extract_coordinates_type_text,
     sample_rename_text,
     sample_snp_lookup_input_text,
     sample_snp_lookup_invalid_text,
@@ -544,14 +536,15 @@ async def show_view_coordinates_menu(
     user_id: int,
     *,
     edit_existing: bool = False,
+    page: int = 0,
     back_callback: str = "mydna:root",
 ) -> None:
     items = _standalone_my_data_coordinates(_data_store(context), user_id)
     lang = get_user_language(context, user_id)
     await _show_or_edit(
         message,
-        view_coordinates_text(items, lang=lang),
-        build_coordinate_items_keyboard(items, lang=lang, back_callback=back_callback),
+        view_coordinates_text(items, page, lang=lang),
+        build_coordinate_items_keyboard(items, page, lang=lang, back_callback=back_callback),
         edit_existing=edit_existing,
     )
 
@@ -562,16 +555,6 @@ async def show_new_g25_profile_menu(message, context: ContextTypes.DEFAULT_TYPE,
         message,
         new_g25_profile_text(lang=lang),
         build_new_g25_profile_keyboard(lang=lang),
-        edit_existing=edit_existing,
-    )
-
-
-async def show_add_coordinates_type_menu(message, context: ContextTypes.DEFAULT_TYPE, user_id: int, *, edit_existing: bool = False) -> None:
-    lang = get_user_language(context, user_id)
-    await _show_or_edit(
-        message,
-        add_coordinates_type_text(lang=lang),
-        build_add_coordinates_type_keyboard(lang=lang),
         edit_existing=edit_existing,
     )
 
@@ -591,20 +574,10 @@ async def show_add_coordinates_menu(
         message,
         add_coordinates_text(coordinate_type, lang=lang),
         build_add_coordinates_keyboard(
-            back_callback=back_callback or f"{MY_DATA_CALLBACK_PREFIX}:coordinates_add_root",
+            back_callback=back_callback or f"{MY_DATA_CALLBACK_PREFIX}:coordinates_view",
             add_data_flow=add_data_flow,
             lang=lang,
         ),
-        edit_existing=edit_existing,
-    )
-
-
-async def show_extract_coordinates_type_menu(message, context: ContextTypes.DEFAULT_TYPE, user_id: int, *, edit_existing: bool = False) -> None:
-    lang = get_user_language(context, user_id)
-    await _show_or_edit(
-        message,
-        extract_coordinates_type_text(lang=lang),
-        build_extract_coordinates_type_keyboard(lang=lang),
         edit_existing=edit_existing,
     )
 
@@ -759,28 +732,6 @@ async def show_sample_snp_lookup_input_menu(
         )
 
 
-async def show_sample_attach_raw_picker_menu(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    sample_id: str,
-    *,
-    edit_existing: bool = False,
-) -> None:
-    await show_sample_detail_menu(message, context, user_id, sample_id, edit_existing=edit_existing)
-    return
-    lang = get_user_language(context, user_id)
-    sample = _data_store(context).get_sample(user_id, sample_id)
-    if sample is None:
-        text = "Attach raw file\n\nSaved sample not found." if lang == "en" else "Attach raw file\n\nСохраненный sample не найден."
-        markup = build_view_samples_keyboard(lang=lang)
-    else:
-        items = _data_store(context).list_attachable_raw_files(user_id, sample_id)
-        text = sample_attach_raw_picker_text(sample, items)
-        markup = build_sample_attach_raw_picker_keyboard(sample.asset_id, items)
-    await _show_or_edit(message, text, markup, edit_existing=edit_existing)
-
-
 async def show_sample_attach_coordinates_picker_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -788,6 +739,7 @@ async def show_sample_attach_coordinates_picker_menu(
     sample_id: str,
     *,
     edit_existing: bool = False,
+    page: int = 0,
 ) -> None:
     lang = get_user_language(context, user_id)
     sample = _data_store(context).get_sample(user_id, sample_id)
@@ -796,8 +748,8 @@ async def show_sample_attach_coordinates_picker_menu(
         markup = build_view_samples_keyboard(lang=lang)
     else:
         items = _visible_my_data_coordinates(_data_store(context).list_attachable_coordinates(user_id, sample_id))
-        text = sample_attach_coordinates_picker_text(sample, items, lang=lang)
-        markup = build_sample_attach_coordinates_picker_keyboard(sample.asset_id, items, lang=lang)
+        text = sample_attach_coordinates_picker_text(sample, items, page, lang=lang)
+        markup = build_sample_attach_coordinates_picker_keyboard(sample.asset_id, items, page, lang=lang)
     await _show_or_edit(message, text, markup, edit_existing=edit_existing)
 
 
@@ -821,26 +773,6 @@ async def show_sample_coordinates_menu(
     await _show_or_edit(message, text, markup, edit_existing=edit_existing)
 
 
-async def show_sample_extract_coordinates_type_menu(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    sample_id: str,
-    *,
-    edit_existing: bool = False,
-) -> None:
-    lang = get_user_language(context, user_id)
-    sample = _data_store(context).get_sample(user_id, sample_id)
-    if sample is None:
-        text = "Extract coordinates\n\nSaved sample not found." if lang == "en" else "Извлечение координат\n\nСохранённый sample не найден."
-        markup = build_view_samples_keyboard(lang=lang)
-    else:
-        raw_file = _data_store(context).get_sample_raw_file(user_id, sample.asset_id)
-        text = sample_extract_coordinates_type_text(sample, raw_file=raw_file, lang=lang)
-        markup = build_sample_extract_coordinates_type_keyboard(sample.asset_id, lang=lang)
-    await _show_or_edit(message, text, markup, edit_existing=edit_existing)
-
-
 async def show_sample_add_coordinates_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -861,47 +793,6 @@ async def show_sample_add_coordinates_menu(
     await _show_or_edit(message, text, markup, edit_existing=edit_existing)
 
 
-async def show_sample_add_coordinates_type_menu(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    sample_id: str,
-    *,
-    edit_existing: bool = False,
-) -> None:
-    lang = get_user_language(context, user_id)
-    sample = _data_store(context).get_sample(user_id, sample_id)
-    if sample is None:
-        text = "Add coordinates\n\nSaved sample not found." if lang == "en" else "Добавление координат\n\nСохранённый sample не найден."
-        markup = build_view_samples_keyboard(lang=lang)
-    else:
-        text = sample_add_coordinates_type_text(sample, lang=lang)
-        markup = build_sample_add_coordinates_type_keyboard(sample.asset_id, lang=lang)
-    await _show_or_edit(message, text, markup, edit_existing=edit_existing)
-
-
-async def show_sample_attached_raws_menu(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    sample_id: str,
-    *,
-    edit_existing: bool = False,
-) -> None:
-    await show_sample_detail_menu(message, context, user_id, sample_id, edit_existing=edit_existing)
-    return
-    lang = get_user_language(context, user_id)
-    sample = _data_store(context).get_sample(user_id, sample_id)
-    if sample is None:
-        text = "Attached raw files\n\nSaved sample not found." if lang == "en" else "Attached raw files\n\nСохраненный sample не найден."
-        markup = build_view_samples_keyboard(lang=lang)
-    else:
-        items = _data_store(context).list_sample_raw_files(user_id, sample_id)
-        text = sample_attached_raws_text(sample, items)
-        markup = build_sample_attached_raws_keyboard(sample.asset_id)
-    await _show_or_edit(message, text, markup, edit_existing=edit_existing)
-
-
 async def show_sample_attached_coordinates_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -909,6 +800,7 @@ async def show_sample_attached_coordinates_menu(
     sample_id: str,
     *,
     edit_existing: bool = False,
+    page: int = 0,
 ) -> None:
     lang = get_user_language(context, user_id)
     sample = _data_store(context).get_sample(user_id, sample_id)
@@ -928,9 +820,8 @@ async def show_sample_attached_coordinates_menu(
                 edit_existing=edit_existing,
             )
             return
-        text = sample_attached_coordinates_text(sample, items)
-        text = sample_attached_coordinates_text(sample, items, lang=lang)
-        markup = build_sample_attached_coordinates_keyboard(sample.asset_id, items, lang=lang)
+        text = sample_attached_coordinates_text(sample, items, page, lang=lang)
+        markup = build_sample_attached_coordinates_keyboard(sample.asset_id, items, page, lang=lang)
     await _show_or_edit(message, text, markup, edit_existing=edit_existing)
 
 
@@ -1502,30 +1393,22 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
     if action == "sample_attach_raw_choose_disabled":
         await query.answer("A sample can have only one source raw." if lang == "en" else "У sample может быть только один source raw.", show_alert=True)
         return
-        sample_id = str(_flow_store(context).get_payload(chat_id, user_id).get("sample_id") or "").strip()
-        if not sample_id:
-            await query.answer("Open the sample again." if lang == "en" else "Откройте sample заново.", show_alert=True)
-            return
-        asset = _data_store(context).attach_raw_file_to_sample(user_id, sample_id, asset_id)
-        if asset is None:
-            await query.answer("Could not attach the raw file." if lang == "en" else "Не удалось привязать raw file.", show_alert=True)
-            return
-        _flow_store(context).clear(chat_id, user_id)
-        await show_sample_detail_menu(query.message, context, user_id, sample_id, edit_existing=True)
-        return
     if action == "sample_view_raws_disabled":
         await show_sample_detail_menu(query.message, context, user_id, asset_id, edit_existing=True)
-        return
-        await show_sample_attached_raws_menu(query.message, context, user_id, asset_id, edit_existing=True)
         return
     if action == "sample_attach_coords":
         await show_sample_coordinates_menu(query.message, context, user_id, asset_id, edit_existing=True)
         return
     if action in {"sample_coords_extract_root", "scx"}:
-        await show_sample_extract_coordinates_type_menu(query.message, context, user_id, asset_id, edit_existing=True)
-        return
-    if action in {"sample_coords_extract_type", "scxt"}:
+        coordinate_type = "g25"
+        sample_id = asset_id
+    elif action in {"sample_coords_extract_type", "scxt"}:
         coordinate_type, _, sample_id = asset_id.partition("|")
+        coordinate_type = coordinate_type or "g25"
+    else:
+        coordinate_type = ""
+        sample_id = ""
+    if action in {"sample_coords_extract_root", "scx", "sample_coords_extract_type", "scxt"}:
         sample = _data_store(context).get_sample(user_id, sample_id)
         if sample is None:
             await query.answer("Open the sample again." if lang == "en" else "Откройте sample заново.", show_alert=True)
@@ -1586,7 +1469,21 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
         await _refresh_sample_detail(context, chat_id, user_id, query.message.message_id, updated_sample)
         return
     if action in {"sample_coords_add_manual", "scm"}:
-        await show_sample_add_coordinates_type_menu(query.message, context, user_id, asset_id, edit_existing=True)
+        _flow_store(context).expect(
+            chat_id,
+            user_id,
+            COORDINATE_ADD_ACTION,
+            query.message.message_id,
+            payload={"sample_id": asset_id, "coordinate_type": "g25"},
+        )
+        await show_sample_add_coordinates_menu(
+            query.message,
+            context,
+            user_id,
+            asset_id,
+            "g25",
+            edit_existing=True,
+        )
         return
     if action in {"sample_coords_add_type", "scmt"}:
         coordinate_type, _, sample_id = asset_id.partition("|")
@@ -1619,6 +1516,21 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
         )
         await show_sample_attach_coordinates_picker_menu(query.message, context, user_id, asset_id, edit_existing=True)
         return
+    if action == "sclp":
+        sample_id, _, page_text = asset_id.partition("|")
+        try:
+            page = int(page_text)
+        except ValueError:
+            page = 0
+        _flow_store(context).expect(
+            chat_id,
+            user_id,
+            SAMPLE_ATTACH_COORD_ACTION,
+            query.message.message_id,
+            payload={"sample_id": sample_id},
+        )
+        await show_sample_attach_coordinates_picker_menu(query.message, context, user_id, sample_id, edit_existing=True, page=page)
+        return
     if action == "sample_attach_coord_choose":
         sample_id = str(_flow_store(context).get_payload(chat_id, user_id).get("sample_id") or "").strip()
         if not sample_id:
@@ -1633,6 +1545,14 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
         return
     if action == "sample_view_coords":
         await show_sample_attached_coordinates_menu(query.message, context, user_id, asset_id, edit_existing=True)
+        return
+    if action == "scvp":
+        sample_id, _, page_text = asset_id.partition("|")
+        try:
+            page = int(page_text)
+        except ValueError:
+            page = 0
+        await show_sample_attached_coordinates_menu(query.message, context, user_id, sample_id, edit_existing=True, page=page)
         return
     if action == "sample_reports":
         await show_sample_reports_menu(query.message, context, user_id, asset_id, edit_existing=True)
@@ -1774,8 +1694,7 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
             query.message,
             context,
             user_id,
-            back_callback="mydna:add_data" if from_add_data else ("mydna:root" if from_root else None),
-            add_data_flow=from_add_data,
+            back_callback="mydna:root" if (from_add_data or from_root) else None,
             edit_existing=True,
         )
         return
@@ -1863,11 +1782,32 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
             back_callback=_origin_callback(context, PRIVACY_ROOT_BACK_KEY, "mydna:root"),
         )
         return
+    if action == "coordinates_page":
+        try:
+            page = int(asset_id)
+        except ValueError:
+            page = 0
+        await show_view_coordinates_menu(
+            query.message,
+            context,
+            user_id,
+            edit_existing=True,
+            page=page,
+            back_callback=_origin_callback(context, PRIVACY_ROOT_BACK_KEY, "mydna:root"),
+        )
+        return
     if action == "coordinates_new_profile":
         await show_new_g25_profile_menu(query.message, context, user_id, edit_existing=True)
         return
     if action == "coordinates_add_root":
-        await show_add_coordinates_type_menu(query.message, context, user_id, edit_existing=True)
+        _flow_store(context).expect(
+            chat_id,
+            user_id,
+            COORDINATE_ADD_ACTION,
+            query.message.message_id,
+            payload={"coordinate_type": "g25"},
+        )
+        await show_add_coordinates_menu(query.message, context, user_id, "g25", edit_existing=True)
         return
     if action == "coordinates_add_type":
         coordinate_type, _, origin = asset_id.strip().lower().partition(":")
@@ -1886,8 +1826,8 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
             context,
             user_id,
             coordinate_type,
-            back_callback="mydna:add_data" if from_add_data else (f"{MY_DATA_CALLBACK_PREFIX}:coordinates_new_profile" if from_g25_profiles else None),
-            add_data_flow=from_add_data or from_g25_profiles,
+            back_callback="mydna:root" if from_add_data else (f"{MY_DATA_CALLBACK_PREFIX}:coordinates_new_profile" if from_g25_profiles else None),
+            add_data_flow=from_g25_profiles,
             edit_existing=True,
         )
         return
@@ -1904,7 +1844,14 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
         )
         return
     if action == "coordinates_extract_root":
-        await show_extract_coordinates_type_menu(query.message, context, user_id, edit_existing=True)
+        _flow_store(context).expect(
+            chat_id,
+            user_id,
+            COORDINATE_EXTRACT_ACTION,
+            query.message.message_id,
+            payload={"coordinate_type": "g25"},
+        )
+        await show_extract_coordinates_menu(query.message, context, user_id, "g25", edit_existing=True)
         return
     if action == "coordinates_extract_type":
         coordinate_type = asset_id.strip().lower() or "g25"
@@ -2407,7 +2354,7 @@ async def open_quick_g25_prompt(
     _clear_my_data_pending(context, chat_id, user_id)
     prompt_text = extract_coordinates_text("g25", lang=lang)
     prompt_markup = build_extract_coordinates_keyboard(
-        back_callback=back_callback or f"{MY_DATA_CALLBACK_PREFIX}:coordinates_extract_root",
+        back_callback=back_callback or "mydna:root",
         add_data_flow=add_data_flow,
         lang=lang,
     )
