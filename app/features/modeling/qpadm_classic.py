@@ -538,7 +538,6 @@ async def show_qpadm_classic_dataset_menu(
         message,
         context,
         engine=QPADM_ENGINE_CLASSIC,
-        root_action="qpadm",
         edit_existing=edit_existing,
         lang=lang,
     )
@@ -555,7 +554,6 @@ async def show_qpadm_admixtools2_dataset_menu(
         message,
         context,
         engine=QPADM_ENGINE_ADMIXTOOLS2,
-        root_action="qpadm_at2",
         edit_existing=edit_existing,
         lang=lang,
     )
@@ -566,14 +564,12 @@ async def _show_qpadm_entry_dataset_menu(
     context: ContextTypes.DEFAULT_TYPE | None,
     *,
     engine: object,
-    root_action: str,
     edit_existing: bool,
     lang: str,
 ) -> None:
     if context is not None:
         context.user_data.pop(QPADM_FLOW_KEY, None)
         context.user_data.pop(QPADM_ENGINE_KEY, None)
-        nav_enter(context, _cb(root_action))
         await _show_qpadm_dataset_menu(message, context, engine=engine, edit_existing=edit_existing, lang=lang)
         return
     title = _qpadm_title(engine)
@@ -2307,12 +2303,11 @@ async def qpadm_classic_callback_handler(
     if action == "qpadm_reset":
         flow = _get_flow(context) or {}
         engine = _qpadm_engine(flow.get("engine") or context.user_data.get(QPADM_ENGINE_KEY))
-        nav_reset(context, _cb("qpadm_at2" if engine == QPADM_ENGINE_ADMIXTOOLS2 else "qpadm"))
+        nav_reset(context, _cb("at2" if engine == QPADM_ENGINE_ADMIXTOOLS2 else "root"))
         await _show_qpadm_entry_dataset_menu(
             message,
             context,
             engine=engine,
-            root_action="qpadm_at2" if engine == QPADM_ENGINE_ADMIXTOOLS2 else "qpadm",
             edit_existing=True,
             lang=lang,
         )

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 from types import SimpleNamespace
 
 from app.features.modeling.navigation import NAV_CURRENT_KEY, NAV_STACK_KEY, nav_enter, nav_pop
+from app.features.modeling.qpadm_classic import show_qpadm_admixtools2_dataset_menu
 
 
 class ModelingNavigationTests(unittest.TestCase):
@@ -26,6 +28,22 @@ class ModelingNavigationTests(unittest.TestCase):
         nav_enter(context, "modeling:qpadm_samples_page:0")
 
         self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:qpadm_target"])
+
+    def test_admixtools2_qpadm_dataset_back_returns_to_admixtools2_menu(self) -> None:
+        class Message:
+            async def edit_text(self, *args, **kwargs) -> None:
+                self.args = args
+                self.kwargs = kwargs
+
+        context = SimpleNamespace(user_data={})
+        nav_enter(context, "modeling:root")
+        nav_enter(context, "modeling:at2")
+
+        asyncio.run(show_qpadm_admixtools2_dataset_menu(Message(), context, edit_existing=True, lang="ru"))
+
+        self.assertEqual(context.user_data[NAV_CURRENT_KEY], "modeling:qpadm_engine:admixtools2_qpadm")
+        self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:root", "modeling:at2"])
+        self.assertEqual(nav_pop(context), "modeling:at2")
 
 
 if __name__ == "__main__":
