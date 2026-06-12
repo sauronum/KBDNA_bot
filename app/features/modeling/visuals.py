@@ -151,6 +151,15 @@ def _target_display(flow: dict[str, Any]) -> str:
     return str(flow.get("target_label") or flow.get("target") or "unknown")
 
 
+def _target_mode_label(flow: dict[str, Any]) -> str:
+    target_type = str(flow.get("target_type") or "").strip()
+    if target_type == "raw_file":
+        return "raw sample mode"
+    if target_type == "dataset_sample":
+        return "dataset sample mode"
+    return "dataset population mode"
+
+
 def _canvas(
     height: int,
     *,
@@ -296,7 +305,7 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
 
     y = 58
     draw.text((content_left, y), "ADMIXTOOLS2 qpAdm", font=title_font, fill="#f8fafc")
-    draw.text((content_left, y + 54), "signed source weights / dataset population mode", font=subtitle_font, fill="#99a8b5")
+    draw.text((content_left, y + 54), f"signed source weights / {_target_mode_label(flow)}", font=subtitle_font, fill="#99a8b5")
     status = str(summary.get("status", "unknown"))
     status_color = "#22c55e" if status == "completed" else "#f97316"
     badge = f" {status.upper()} "
@@ -332,7 +341,8 @@ def render_admixtools2_qpadm_result(summary: dict[str, Any], *, flow: dict[str, 
             value_color = "#22c55e"
         elif label == "fit" and str(value).upper() in {"FAIL", "WARNING"}:
             value_color = "#fb7185"
-        draw.text((x + 14, y + 38), _fit_text(draw, value, metric_value_font, tile_w - 28), font=metric_value_font, fill=value_color)
+        value_font = _font(21, bold=True) if label == "fit" and len(str(value)) > 4 else metric_value_font
+        draw.text((x + 14, y + 38), _fit_text(draw, value, value_font, tile_w - 28), font=value_font, fill=value_color)
 
     y += 118
     draw.text((content_left, y), "Source Weight Bars", font=h_font, fill="#f8fafc")
