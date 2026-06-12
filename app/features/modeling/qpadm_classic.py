@@ -1590,17 +1590,59 @@ def _format_messages(items: object, limit: int = 4, *, lang: str = "ru", friendl
         safe_limit = max(0, int(limit))
     except (TypeError, ValueError):
         safe_limit = 4
-    for item in items[:safe_limit]:
+    shown_items = items[:safe_limit]
+    for item in shown_items:
         if isinstance(item, dict):
             message = item.get("message") or item.get("code") or item
         else:
             message = item
         text = _friendly_warning(message, lang) if friendly else str(message)
         lines.append(f"• {html.escape(text)}")
-    remaining = len(items) - len(lines)
+        if isinstance(item, dict):
+            lines.extend(_format_diagnostic_details(item, lang=lang))
+    remaining = len(items) - len(shown_items)
     if remaining > 0:
         suffix = f"... and {remaining} more" if lang == "en" else f"... и еще {remaining}"
         lines.append(f"• {html.escape(suffix)}")
+    return lines
+
+
+def _format_diagnostic_details(item: dict[str, Any], *, lang: str) -> list[str]:
+    details = item.get("details")
+    if not isinstance(details, dict):
+        return []
+    missing = details.get("missing")
+    if not isinstance(missing, list) or not missing:
+        population_id = str(details.get("population_id") or "").strip()
+        if not population_id:
+            return []
+        missing = [{"role": "target", "label": population_id}]
+
+    if not missing:
+        return []
+
+    header = "  Missing in dataset:" if lang == "en" else "  Нет в dataset:"
+    lines = [header]
+    detail_limit = 8
+    for row in missing[:detail_limit]:
+        if not isinstance(row, dict):
+            continue
+        role = str(row.get("role") or "population")
+        label = str(row.get("label") or "").strip()
+        if not label:
+            continue
+        text = f"{role}: {label}"
+        suggestions = row.get("suggestions")
+        if isinstance(suggestions, list):
+            suggestion_labels = [str(value).strip() for value in suggestions[:3] if str(value).strip()]
+            if suggestion_labels:
+                text = f"{text} (try: {', '.join(suggestion_labels)})"
+        lines.append(f"  - {html.escape(text)}")
+
+    remaining = len(missing) - min(len(missing), detail_limit)
+    if remaining > 0:
+        suffix = f"... and {remaining} more" if lang == "en" else f"... и еще {remaining}"
+        lines.append(f"  - {html.escape(suffix)}")
     return lines
 
 

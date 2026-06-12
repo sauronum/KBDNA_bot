@@ -88,6 +88,60 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertIn("raw target could not be prepared", text)
         self.assertNotIn('"raw_preparation"', text)
 
+    def test_preflight_expands_missing_population_details(self) -> None:
+        payload = {
+            "status": "population_not_found",
+            "engine_status": "backend_not_ready",
+            "can_run": False,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "population_not_found",
+                    "message": "One or more qpAdm sources/references are not available in the selected dataset.",
+                    "details": {
+                        "dataset": "v62_1240k_public",
+                        "missing": [
+                            {
+                                "role": "source",
+                                "label": "Missing_Source.AG",
+                                "suggestions": ["Missing_Source_Possible.AG"],
+                            },
+                            {"role": "reference", "label": "Missing_Reference.DG", "suggestions": []},
+                        ],
+                    },
+                }
+            ],
+        }
+
+        text, can_run = _format_preflight(payload, elapsed_seconds=2.5, lang="en", product_title="ADMIXTOOLS2 qpAdm")
+
+        self.assertFalse(can_run)
+        self.assertIn("Missing in dataset:", text)
+        self.assertIn("source: Missing_Source.AG", text)
+        self.assertIn("try: Missing_Source_Possible.AG", text)
+        self.assertIn("reference: Missing_Reference.DG", text)
+
+    def test_preflight_expands_missing_target_population_detail(self) -> None:
+        payload = {
+            "status": "population_not_found",
+            "engine_status": "skipped",
+            "can_run": False,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "population_not_found",
+                    "message": "Population 'Balkar' is not available in dataset 'v62_1240k_public'.",
+                    "details": {"dataset": "v62_1240k_public", "population_id": "Balkar"},
+                }
+            ],
+        }
+
+        text, can_run = _format_preflight(payload, elapsed_seconds=0.5, lang="en", product_title="ADMIXTOOLS2 qpAdm")
+
+        self.assertFalse(can_run)
+        self.assertIn("Missing in dataset:", text)
+        self.assertIn("target: Balkar", text)
+
     def test_admixtools2_titles_are_not_labeled_classic(self) -> None:
         flow = {
             "engine": QPADM_ENGINE_ADMIXTOOLS2,
