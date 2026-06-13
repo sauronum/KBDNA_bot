@@ -23,7 +23,6 @@ from app.features.my_data.handlers import (
     show_view_coordinates_menu,
     show_view_samples_menu,
 )
-from app.features.reports.menu import show_reports_menu
 
 from .storage import (
     CARD_FORMAT_MOBILE,
@@ -1263,21 +1262,13 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
     if action == "privacy_reports":
         context.user_data[PRIVACY_ROOT_BACK_KEY] = f"{SETTINGS_CALLBACK_PREFIX}:privacy"
         context.user_data[PRIVACY_REPORTS_BACK_KEY] = f"{SETTINGS_CALLBACK_PREFIX}:privacy_reports"
-        context.user_data["reports_back_callback"] = f"{SETTINGS_CALLBACK_PREFIX}:privacy"
-        context.user_data["reports_my_dna_callback"] = f"{SETTINGS_CALLBACK_PREFIX}:privacy"
-        context.user_data["reports_sample_callback_template"] = f"{SETTINGS_CALLBACK_PREFIX}:privacy_sample_reports:{{sample_id}}"
         set_active_main_menu_message(context, query.message.chat_id, user_id, query.message.message_id)
-        lang = get_user_language(context, user_id)
-        await show_reports_menu(
+        await show_view_samples_menu(
             query.message,
             context,
             user_id,
             edit_existing=True,
-            lang=lang,
             back_callback=f"{SETTINGS_CALLBACK_PREFIX}:privacy",
-            my_dna_callback=f"{SETTINGS_CALLBACK_PREFIX}:privacy",
-            show_my_dna_shortcut=False,
-            sample_callback_template=f"{SETTINGS_CALLBACK_PREFIX}:privacy_sample_reports:{{sample_id}}",
         )
         return
     if action == "privacy_sample_reports":

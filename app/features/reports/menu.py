@@ -1,140 +1,156 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from app.i18n import get_user_language, t
-from app.features.coordinate_space.reports import CoordinateSpaceReportStore
 from app.main_menu import ensure_active_main_menu
 
 
 REPORTS_CALLBACK_PREFIX = "reports"
-REPORTS_PAGE_SIZE = 10
+REPORT_SAMPLE_PAGE_SIZE = 8
 
 
-def _safe_count(callback) -> int:
-    try:
-        return len(callback())
-    except Exception:
-        return 0
+@dataclass(frozen=True)
+class ReportProduct:
+    product_id: str
+    emoji: str
+    title_ru: str
+    title_en: str
+    price_ru: str
+    price_en: str
+    description_ru: str
+    description_en: str
+    is_paid: bool = False
+
+    def title(self, lang: str) -> str:
+        return self.title_en if lang == "en" else self.title_ru
+
+    def price(self, lang: str) -> str:
+        return self.price_en if lang == "en" else self.price_ru
+
+    def description(self, lang: str) -> str:
+        return self.description_en if lang == "en" else self.description_ru
+
+    def button_label(self, lang: str) -> str:
+        return f"{self.emoji} {self.title(lang)} · {self.price(lang)}"
 
 
-def _sample_report_count(context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str) -> int:
-    total = 0
-    coordinate_store = context.application.bot_data.get("coordinate_space_report_store")
-    if isinstance(coordinate_store, CoordinateSpaceReportStore):
-        total += _safe_count(lambda: coordinate_store.list_results(user_id, sample_id))
-
-    admixture_store = context.application.bot_data.get("admixture_report_store")
-    if admixture_store is not None:
-        total += _safe_count(lambda: admixture_store.list_reports(user_id, sample_id))
-
-    matching_store = context.application.bot_data.get("matching_store")
-    if matching_store is not None:
-        total += _safe_count(lambda: matching_store.list_matches_for_sample(user_id, sample_id))
-
-    traits_store = context.application.bot_data.get("traits_report_store")
-    if traits_store is not None:
-        total += _safe_count(lambda: traits_store.list_reports(user_id, sample_id))
-
-    haplogroup_store = context.application.bot_data.get("haplogroup_store")
-    if haplogroup_store is not None:
-        total += _safe_count(lambda: haplogroup_store.list_sample_records(user_id, sample_id))
-
-    return total
-
-
-def _report_samples(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> list[tuple[object, int]]:
-    store = context.application.bot_data.get("my_data_store")
-    if store is None:
-        return []
-    try:
-        samples = store.list_samples(user_id)
-    except Exception:
-        return []
-
-    items: list[tuple[object, int]] = []
-    for sample in samples:
-        sample_id = str(getattr(sample, "asset_id", ""))
-        if not sample_id:
-            continue
-        report_count = _sample_report_count(context, user_id, sample_id)
-        if report_count > 0:
-            items.append((sample, report_count))
-    return items
-
-
-def _page_bounds(items: list[tuple[object, int]], page: int) -> tuple[int, int, int, int]:
-    page_count = max(1, (len(items) + REPORTS_PAGE_SIZE - 1) // REPORTS_PAGE_SIZE)
-    safe_page = min(max(int(page), 0), page_count - 1)
-    start = safe_page * REPORTS_PAGE_SIZE
-    end = min(start + REPORTS_PAGE_SIZE, len(items))
-    return safe_page, start, end, page_count
+REPORT_PRODUCTS: tuple[ReportProduct, ...] = (
+    ReportProduct(
+        product_id="r0",
+        emoji="🧬",
+        title_ru="Комплексный обзор",
+        title_en="Complete overview",
+        price_ru="Бесплатно",
+        price_en="Free",
+        description_ru=(
+            "Короткий понятный отчёт по образцу: что уже есть в My DNA, какие G25-профили привязаны, "
+            "какие разделы можно запускать дальше и где будут появляться сохранённые результаты."
+        ),
+        description_en=(
+            "A short sample overview: stored My DNA data, linked G25 profiles, suggested next steps, "
+            "and where saved results will live."
+        ),
+    ),
+    ReportProduct(
+        product_id="r1",
+        emoji="🏺",
+        title_ru="Древние совпадения",
+        title_en="Ancient matches",
+        price_ru="⭐ 99",
+        price_en="⭐ 99",
+        description_ru=(
+            "Заготовка для красивого отчёта по древним и средневековым параллелям: близкие профили, "
+            "временные пласты и аккуратные пояснения без ручного входа в DNA Lab."
+        ),
+        description_en=(
+            "A polished report concept for ancient and medieval parallels: close profiles, time layers, "
+            "and plain-language notes without manual DNA Lab setup."
+        ),
+        is_paid=True,
+    ),
+    ReportProduct(
+        product_id="r2",
+        emoji="⛰",
+        title_ru="Кавказ / Степь / Ближний Восток",
+        title_en="Caucasus / Steppe / Near East",
+        price_ru="⭐ 149",
+        price_en="⭐ 149",
+        description_ru=(
+            "Региональный комплексный отчёт: G25-ориентиры, близкие кластеры, исторический контекст "
+            "и компактное резюме по выбранному образцу."
+        ),
+        description_en=(
+            "A regional report concept: G25 anchors, close clusters, historical context, "
+            "and a compact summary for the selected sample."
+        ),
+        is_paid=True,
+    ),
+)
 
 
 def _copy(lang: str, ru: str, en: str) -> str:
     return en if lang == "en" else ru
 
 
-def reports_text(items: list[tuple[object, int]], *, total_samples: int, page: int = 0, lang: str = "ru") -> str:
-    total_reports = sum(report_count for _sample, report_count in items)
-    safe_page, start, end, page_count = _page_bounds(items, page)
-    lines = [
-        _copy(lang, "📊 Отчёты", "📊 Reports"),
-        "",
-        f"{_copy(lang, 'Образцы с отчетами', 'Samples with reports')}: {len(items)} / {total_samples}",
-        f"{_copy(lang, 'Сохраненных отчетов', 'Saved reports')}: {total_reports}",
+def _product(product_id: str) -> ReportProduct | None:
+    for item in REPORT_PRODUCTS:
+        if item.product_id == product_id:
+            return item
+    return None
+
+
+def _samples(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> list[object]:
+    store = context.application.bot_data.get("my_data_store")
+    if store is None:
+        return []
+    try:
+        return list(store.list_samples(user_id))
+    except Exception:
+        return []
+
+
+def _sample_by_id(context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str) -> object | None:
+    store = context.application.bot_data.get("my_data_store")
+    if store is None:
+        return None
+    try:
+        sample = store.get_sample(user_id, sample_id)
+    except Exception:
+        return None
+    return sample
+
+
+def _sample_page_bounds(samples: list[object], page: int) -> tuple[int, int, int, int]:
+    page_count = max(1, (len(samples) + REPORT_SAMPLE_PAGE_SIZE - 1) // REPORT_SAMPLE_PAGE_SIZE)
+    safe_page = min(max(int(page), 0), page_count - 1)
+    start = safe_page * REPORT_SAMPLE_PAGE_SIZE
+    end = min(start + REPORT_SAMPLE_PAGE_SIZE, len(samples))
+    return safe_page, start, end, page_count
+
+
+def reports_text(*, lang: str = "ru") -> str:
+    if lang == "en":
+        return (
+            "📊 Reports\n\n"
+            "Ready-made DNA reports for people who want a clear result without configuring DNA Lab by hand.\n\n"
+            "Choose a report, then choose a sample. Saved DNA Lab results still live inside each sample card."
+        )
+    return (
+        "📊 Отчёты\n\n"
+        "Готовые комплексные отчёты по вашим образцам без ручной настройки DNA Lab.\n\n"
+        "Выберите отчёт, затем образец. Сохранённые результаты DNA Lab остаются внутри карточек образцов."
+    )
+
+
+def build_reports_keyboard(*, lang: str = "ru", back_callback: str = "mydna:root") -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(product.button_label(lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:s:{product.product_id}")]
+        for product in REPORT_PRODUCTS
     ]
-    if not items:
-        lines.extend(
-            [
-                "",
-                _copy(lang, "Пока нет сохраненных отчетов.", "There are no saved reports yet."),
-                _copy(lang, "Запустите расчет в Coordinate spaces, Admixture, Matching, Traits или Haplogroups и сохраните результат.", "Run a calculation in Coordinate spaces, Admixture, Matching, Traits, or Haplogroups and save the result."),
-            ]
-        )
-        return "\n".join(lines)
-    lines.extend(["", _copy(lang, "Выберите образец, чтобы открыть его отчеты.", "Choose a sample to open its reports.")])
-    if len(items) > REPORTS_PAGE_SIZE:
-        lines.append(_copy(lang, f"Показаны {start + 1}-{end} из {len(items)}. Страница {safe_page + 1}/{page_count}.", f"Showing {start + 1}-{end} of {len(items)}. Page {safe_page + 1}/{page_count}."))
-    return "\n".join(lines)
-
-
-def build_reports_keyboard(
-    items: list[tuple[object, int]],
-    *,
-    page: int = 0,
-    lang: str = "ru",
-    back_callback: str = "mydna:root",
-    my_dna_callback: str = "mydna:root",
-    show_my_dna_shortcut: bool = False,
-    sample_callback_template: str = "my_data:sample_reports:{sample_id}",
-) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    safe_page, start, end, _page_count = _page_bounds(items, page)
-    for sample, report_count in items[start:end]:
-        sample_id = str(getattr(sample, "asset_id", ""))
-        sample_name = str(getattr(sample, "display_name", "Sample"))
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    f"{sample_name} · {report_count}",
-                    callback_data=sample_callback_template.format(sample_id=sample_id),
-                )
-            ]
-        )
-
-    if len(items) > REPORTS_PAGE_SIZE:
-        nav_row: list[InlineKeyboardButton] = []
-        if safe_page > 0:
-            nav_row.append(InlineKeyboardButton(f"← {t('nav.back', lang)}", callback_data=f"{REPORTS_CALLBACK_PREFIX}:p:{safe_page - 1}"))
-        if end < len(items):
-            nav_row.append(InlineKeyboardButton(f"{_copy(lang, 'Далее', 'Next')} →", callback_data=f"{REPORTS_CALLBACK_PREFIX}:p:{safe_page + 1}"))
-        if nav_row:
-            rows.append(nav_row)
-
-    if show_my_dna_shortcut:
-        rows.append([InlineKeyboardButton("📁 My DNA", callback_data=my_dna_callback)])
     rows.append(
         [
             InlineKeyboardButton(t("nav.back", lang), callback_data=back_callback),
@@ -144,46 +160,251 @@ def build_reports_keyboard(
     return InlineKeyboardMarkup(rows)
 
 
+def report_detail_text(product: ReportProduct, samples_count: int, *, lang: str = "ru") -> str:
+    if lang == "en":
+        if samples_count:
+            tail = "Choose a sample below. This is a placeholder screen for now."
+        else:
+            tail = "Add a raw file first, then come back here to generate this report."
+        return (
+            f"{product.emoji} {product.title(lang)}\n"
+            f"{product.price(lang)}\n\n"
+            f"{product.description(lang)}\n\n"
+            f"{tail}\n\n"
+            "Saved DNA Lab results remain available from Samples -> sample -> Reports."
+        )
+    tail = (
+        "Выберите образец ниже. Пока это экран-заглушка для будущей генерации."
+        if samples_count
+        else "Сначала загрузите файл и создайте образец, потом вернитесь сюда за отчётом."
+    )
+    return (
+        f"{product.emoji} {product.title(lang)}\n"
+        f"{product.price(lang)}\n\n"
+        f"{product.description(lang)}\n\n"
+        f"{tail}\n\n"
+        "Сохранённые результаты DNA Lab доступны в Образцы -> образец -> Отчёты."
+    )
+
+
+def build_report_detail_keyboard(
+    product: ReportProduct,
+    samples: list[object],
+    *,
+    page: int = 0,
+    lang: str = "ru",
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if samples:
+        safe_page, start, end, page_count = _sample_page_bounds(samples, page)
+        for index, sample in enumerate(samples[start:end], start=start + 1):
+            sample_id = str(getattr(sample, "asset_id", ""))
+            sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        f"{index}. {sample_name}",
+                        callback_data=f"{REPORTS_CALLBACK_PREFIX}:c:{product.product_id}:{sample_id}",
+                    )
+                ]
+            )
+        if page_count > 1:
+            nav_row: list[InlineKeyboardButton] = []
+            if safe_page > 0:
+                nav_row.append(
+                    InlineKeyboardButton(
+                        f"← {t('nav.back', lang)}",
+                        callback_data=f"{REPORTS_CALLBACK_PREFIX}:sp:{product.product_id}:{safe_page - 1}",
+                    )
+                )
+            if end < len(samples):
+                nav_row.append(
+                    InlineKeyboardButton(
+                        f"{_copy(lang, 'Далее', 'Next')} →",
+                        callback_data=f"{REPORTS_CALLBACK_PREFIX}:sp:{product.product_id}:{safe_page + 1}",
+                    )
+                )
+            if nav_row:
+                rows.append(nav_row)
+    else:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    _copy(lang, "📤 Загрузить файл", "📤 Upload file"),
+                    callback_data="my_data:raw_files_upload:root",
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(t("nav.back", lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:root"),
+            InlineKeyboardButton(t("nav.cancel", lang), callback_data="main:cancel"),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
+
+
+def report_confirmation_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
+    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
+    if lang == "en":
+        return (
+            f"{product.emoji} {product.title(lang)}\n\n"
+            f"Sample: {sample_name}\n"
+            f"Price: {product.price(lang)}\n\n"
+            "This is a clean placeholder: the real report generator and Stars payment flow will be connected later."
+        )
+    return (
+        f"{product.emoji} {product.title(lang)}\n\n"
+        f"Образец: {sample_name}\n"
+        f"Стоимость: {product.price(lang)}\n\n"
+        "Это аккуратная заглушка: настоящую генерацию отчёта и оплату звёздами подключим следующим шагом."
+    )
+
+
+def build_report_confirmation_keyboard(product: ReportProduct, sample: object, *, lang: str = "ru") -> InlineKeyboardMarkup:
+    sample_id = str(getattr(sample, "asset_id", ""))
+    if product.is_paid:
+        action_label = _copy(lang, f"Получить за {product.price(lang)}", f"Get for {product.price(lang)}")
+        action_callback = f"{REPORTS_CALLBACK_PREFIX}:pay:{product.product_id}:{sample_id}"
+    else:
+        action_label = _copy(lang, "🚀 Сформировать демо", "🚀 Generate demo")
+        action_callback = f"{REPORTS_CALLBACK_PREFIX}:g:{product.product_id}:{sample_id}"
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(action_label, callback_data=action_callback)],
+            [
+                InlineKeyboardButton(t("nav.back", lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:s:{product.product_id}"),
+                InlineKeyboardButton(t("nav.cancel", lang), callback_data="main:cancel"),
+            ],
+        ]
+    )
+
+
+def report_demo_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
+    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
+    if lang == "en":
+        return (
+            f"✅ {product.title(lang)}\n\n"
+            f"Sample: {sample_name}\n\n"
+            "Report preview\n"
+            "1. Input data check\n"
+            "2. G25 and raw-file readiness\n"
+            "3. Suggested next DNA Lab calculations\n\n"
+            "The full renderer will replace this placeholder."
+        )
+    return (
+        f"✅ {product.title(lang)}\n\n"
+        f"Образец: {sample_name}\n\n"
+        "Черновик отчёта\n"
+        "1. Проверка исходных данных\n"
+        "2. Готовность raw/G25\n"
+        "3. Что стоит посчитать дальше в DNA Lab\n\n"
+        "Позже эту заглушку заменит полноценный генератор."
+    )
+
+
+def payment_stub_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
+    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
+    if lang == "en":
+        return (
+            f"⭐ {product.title(lang)}\n\n"
+            f"Sample: {sample_name}\n"
+            f"Price: {product.price(lang)}\n\n"
+            "Stars payment is not connected yet. This screen reserves the future purchase flow."
+        )
+    return (
+        f"⭐ {product.title(lang)}\n\n"
+        f"Образец: {sample_name}\n"
+        f"Стоимость: {product.price(lang)}\n\n"
+        "Оплата звёздами пока не подключена. Этот экран фиксирует будущий сценарий покупки."
+    )
+
+
+def build_stub_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(_copy(lang, "📊 К отчётам", "📊 Reports"), callback_data=f"{REPORTS_CALLBACK_PREFIX}:root"),
+                InlineKeyboardButton(t("nav.cancel", lang), callback_data="main:cancel"),
+            ],
+        ]
+    )
+
+
 async def show_reports_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE,
     user_id: int,
     *,
-    page: int = 0,
     edit_existing: bool = False,
     lang: str = "ru",
     back_callback: str | None = None,
-    my_dna_callback: str | None = None,
-    show_my_dna_shortcut: bool | None = None,
-    sample_callback_template: str | None = None,
+    **_ignored,
 ) -> None:
-    store = context.application.bot_data.get("my_data_store")
-    if store is None:
-        samples = []
-    else:
-        try:
-            samples = store.list_samples(user_id)
-        except Exception:
-            samples = []
-    items = _report_samples(context, user_id)
-    text = reports_text(items, total_samples=len(samples), page=page, lang=lang)
-    resolved_back_callback = back_callback or str(context.user_data.get("reports_back_callback") or context.application.bot_data.get("reports_back_callback") or "mydna:root")
-    resolved_my_dna_callback = my_dna_callback or str(context.user_data.get("reports_my_dna_callback") or context.application.bot_data.get("reports_my_dna_callback") or "mydna:root")
-    resolved_show_my_dna_shortcut = bool(context.application.bot_data.get("reports_show_my_dna_shortcut", False)) if show_my_dna_shortcut is None else bool(show_my_dna_shortcut)
-    resolved_sample_callback_template = sample_callback_template or str(context.user_data.get("reports_sample_callback_template") or "my_data:sample_reports:{sample_id}")
-    markup = build_reports_keyboard(
-        items,
-        page=page,
-        lang=lang,
-        back_callback=resolved_back_callback,
-        my_dna_callback=resolved_my_dna_callback,
-        show_my_dna_shortcut=resolved_show_my_dna_shortcut,
-        sample_callback_template=resolved_sample_callback_template,
-    )
+    text = reports_text(lang=lang)
+    markup = build_reports_keyboard(lang=lang, back_callback=back_callback or "mydna:root")
     if edit_existing:
         await message.edit_text(text, reply_markup=markup)
     else:
         await message.reply_text(text, reply_markup=markup, do_quote=False)
+
+
+async def _show_report_detail(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    product: ReportProduct,
+    *,
+    page: int = 0,
+    lang: str = "ru",
+) -> None:
+    samples = _samples(context, user_id)
+    text = report_detail_text(product, len(samples), lang=lang)
+    markup = build_report_detail_keyboard(product, samples, page=page, lang=lang)
+    await message.edit_text(text, reply_markup=markup)
+
+
+async def _show_report_confirmation(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    product: ReportProduct,
+    sample_id: str,
+    *,
+    lang: str = "ru",
+) -> None:
+    sample = _sample_by_id(context, user_id, sample_id)
+    if sample is None:
+        await message.edit_text(
+            _copy(lang, "Отчёт\n\nОбразец не найден. Откройте My DNA заново.", "Report\n\nSample not found. Open My DNA again."),
+            reply_markup=build_reports_keyboard(lang=lang),
+        )
+        return
+    await message.edit_text(
+        report_confirmation_text(product, sample, lang=lang),
+        reply_markup=build_report_confirmation_keyboard(product, sample, lang=lang),
+    )
+
+
+async def _show_report_stub(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    product: ReportProduct,
+    sample_id: str,
+    *,
+    lang: str = "ru",
+    paid: bool = False,
+) -> None:
+    sample = _sample_by_id(context, user_id, sample_id)
+    if sample is None:
+        await message.edit_text(
+            _copy(lang, "Отчёт\n\nОбразец не найден. Откройте My DNA заново.", "Report\n\nSample not found. Open My DNA again."),
+            reply_markup=build_reports_keyboard(lang=lang),
+        )
+        return
+    text = payment_stub_text(product, sample, lang=lang) if paid else report_demo_text(product, sample, lang=lang)
+    await message.edit_text(text, reply_markup=build_stub_keyboard(lang=lang))
 
 
 async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -200,13 +421,31 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
     user = update.effective_user
     if user is None:
         return
-    lang = get_user_language(context, int(user.id))
+    user_id = int(user.id)
+    lang = get_user_language(context, user_id)
 
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else "root"
-    if action == "root":
-        await show_reports_menu(query.message, context, int(user.id), edit_existing=True, lang=lang)
+    if action in {"root", "p"}:
+        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
         return
-    if action == "p":
-        page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
-        await show_reports_menu(query.message, context, int(user.id), page=page, edit_existing=True, lang=lang)
+    if action in {"s", "sp"}:
+        product_id = parts[2] if len(parts) > 2 else ""
+        product = _product(product_id)
+        if product is None:
+            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+            return
+        page = int(parts[3]) if action == "sp" and len(parts) > 3 and parts[3].isdigit() else 0
+        await _show_report_detail(query.message, context, user_id, product, page=page, lang=lang)
+        return
+    if action in {"c", "g", "pay"}:
+        product_id = parts[2] if len(parts) > 2 else ""
+        sample_id = parts[3] if len(parts) > 3 else ""
+        product = _product(product_id)
+        if product is None:
+            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+            return
+        if action == "c":
+            await _show_report_confirmation(query.message, context, user_id, product, sample_id, lang=lang)
+            return
+        await _show_report_stub(query.message, context, user_id, product, sample_id, lang=lang, paid=action == "pay")

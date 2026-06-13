@@ -81,7 +81,7 @@ HELP_SECTIONS: dict[str, tuple[str, str]] = {
             "Matching предназначен для сравнения sample между собой. "
             "Раздел полезен, когда нужно увидеть близость, похожие профили, возможные кластеры или повторяющиеся паттерны.\n\n"
             "Лучший вход для Matching - сохраненные sample с координатами в 📁 My DNA. "
-            "Так результаты можно связать с конкретными карточками и потом открыть их из Reports.\n\n"
+            "Так результаты можно связать с конкретными карточками и потом открыть их внутри образца.\n\n"
             "Matching не заменяет генеалогическую проверку родства, но помогает быстро находить похожие autosomal-профили."
         ),
     ),
@@ -98,14 +98,14 @@ HELP_SECTIONS: dict[str, tuple[str, str]] = {
         ),
     ),
     "reports": (
-        "📊 Reports",
+        "📊 Отчёты",
         (
-            "📊 Reports\n\n"
-            "Reports - общий вход к сохраненным результатам. Раздел показывает samples, у которых уже есть отчеты, "
-            "и открывает карточку Reports внутри конкретного sample.\n\n"
-            "Сюда попадают сохраненные результаты из Coordinate spaces, Admixture, Matching, Traits и Haplogroups. "
-            "Если расчет был просто просмотрен и не сохранен, он не появится в Reports.\n\n"
-            "Практическое правило: сохраняйте только те результаты, к которым хотите вернуться позже."
+            "📊 Отчёты\n\n"
+            "Отчёты в My DNA - это витрина готовых комплексных отчётов по вашим образцам. "
+            "Идея раздела: выбрать понятный отчёт, выбрать образец и получить результат без ручной настройки DNA Lab.\n\n"
+            "Сохраненные результаты из Coordinate spaces, Admixture, Matching, Traits и Haplogroups "
+            "остаются внутри карточки конкретного образца: Образцы -> образец -> Отчёты.\n\n"
+            "Часть комплексных отчётов может быть бесплатной, часть позже будет доступна за звёзды."
         ),
     ),
     "privacy": (
@@ -193,7 +193,7 @@ HELP_SECTIONS_EN: dict[str, tuple[str, str]] = {
             "Matching compares samples with each other. It is useful when you want to see similarity, related-looking profiles, "
             "possible clusters, or repeated patterns.\n\n"
             "The best input for Matching is saved samples with coordinates in 📁 My DNA. "
-            "That way results can be tied to concrete cards and opened later from Reports.\n\n"
+            "That way results can be tied to concrete cards and opened later inside the sample.\n\n"
             "Matching does not replace genealogical relationship verification, but it helps quickly find similar autosomal profiles."
         ),
     ),
@@ -212,11 +212,11 @@ HELP_SECTIONS_EN: dict[str, tuple[str, str]] = {
         "📊 Reports",
         (
             "📊 Reports\n\n"
-            "Reports is the shared entry point for saved results. It shows samples that already have reports "
-            "and opens the Reports card inside a specific sample.\n\n"
-            "Saved results from Coordinate spaces, Admixture, Matching, Traits, and Haplogroups appear here. "
-            "If a calculation was only previewed and not saved, it will not appear in Reports.\n\n"
-            "Practical rule: save only the results you want to return to later."
+            "Reports is a catalog of ready-made comprehensive reports for your samples. "
+            "The goal is to choose a clear report, choose a sample, and get a result without configuring DNA Lab by hand.\n\n"
+            "Saved results from Coordinate spaces, Admixture, Matching, Traits, and Haplogroups "
+            "remain inside each sample card: Samples -> sample -> Reports.\n\n"
+            "Some comprehensive reports can be free, and some can later be unlocked with Stars."
         ),
     ),
     "privacy": (
@@ -252,7 +252,7 @@ def help_text(lang: str = "ru") -> str:
             "🧩 Matching - sample-to-sample comparison.\n"
             "🧾 Traits - trait reports.\n"
             "🌿 Haplogroups - Y-DNA, mtDNA, and related records.\n"
-            "📊 Reports - saved reports.\n\n"
+            "📊 Reports - ready-made sample reports.\n\n"
             "Choose a topic below."
         )
     return (
@@ -267,7 +267,7 @@ def help_text(lang: str = "ru") -> str:
         "🧩 Matching - сравнение sample между собой.\n"
         "🧾 Traits - отчеты по признакам.\n"
         "🌿 Haplogroups - Y/mtDNA и связанные справочные блоки.\n\n"
-        "📊 Reports - общий вход к сохраненным отчетам.\n"
+        "📊 Отчёты - готовые комплексные отчёты по образцам.\n"
         "\n"
         "Выберите тему ниже, чтобы открыть подробное описание."
     )

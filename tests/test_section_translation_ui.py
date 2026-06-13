@@ -54,7 +54,7 @@ from app.features.modeling.menu import (
     modeling_text,
 )
 from app.features.my_data.storage import SampleAsset
-from app.features.reports.menu import build_reports_keyboard, reports_text
+from app.features.reports.menu import REPORT_PRODUCTS, build_report_detail_keyboard, build_reports_keyboard, report_detail_text, reports_text
 from app.features.traits.texts import localize_group, localize_product_status, localize_status
 
 
@@ -115,34 +115,34 @@ class SectionTranslationUiTests(unittest.TestCase):
         )
 
     def test_reports_uses_english_copy(self) -> None:
-        text = reports_text([], total_samples=0, lang="en")
-        keyboard = build_reports_keyboard([], lang="en")
+        text = reports_text(lang="en")
+        keyboard = build_reports_keyboard(lang="en")
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-        self.assertIn("Samples with reports", text)
-        self.assertIn("There are no saved reports yet", text)
+        self.assertIn("Ready-made DNA reports", text)
+        self.assertIn("Saved DNA Lab results still live inside each sample card", text)
+        self.assertIn("🧬 Complete overview · Free", labels)
+        self.assertIn("🏺 Ancient matches · ⭐ 99", labels)
         self.assertIn("Back", labels)
         self.assertIn("Cancel", labels)
 
     def test_reports_can_return_to_product_my_dna_entry(self) -> None:
-        keyboard = build_reports_keyboard([], back_callback="mydna:root", show_my_dna_shortcut=False)
+        keyboard = build_reports_keyboard(back_callback="mydna:root")
         rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
 
         self.assertNotIn(["my_data:samples_view"], rows)
         self.assertEqual(rows[-1], ["mydna:root", "main:cancel"])
 
-    def test_reports_can_use_contextual_sample_callbacks(self) -> None:
+    def test_reports_selects_sample_for_product(self) -> None:
+        product = REPORT_PRODUCTS[0]
         sample = SampleAsset("sample-a", "Азамат", "raw-a", [], "2026-05-31T19:30:00")
-        keyboard = build_reports_keyboard(
-            [(sample, 2)],
-            back_callback="main:privacy",
-            show_my_dna_shortcut=False,
-            sample_callback_template="main:privacy_sample_reports:{sample_id}",
-        )
+        text = report_detail_text(product, 1)
+        keyboard = build_report_detail_keyboard(product, [sample])
         rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
 
-        self.assertEqual(rows[0], ["main:privacy_sample_reports:sample-a"])
-        self.assertEqual(rows[-1], ["main:privacy", "main:cancel"])
+        self.assertIn("Выберите образец ниже", text)
+        self.assertEqual(rows[0], ["reports:c:r0:sample-a"])
+        self.assertEqual(rows[-1], ["reports:root", "main:cancel"])
 
     def test_matching_root_uses_english_copy(self) -> None:
         text = matching_root_text(lang="en")
