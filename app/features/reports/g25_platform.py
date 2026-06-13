@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
@@ -13,6 +14,9 @@ from uuid import uuid4
 DEFAULT_REPORT_TIMEOUT_SECONDS = int(os.getenv("KBDNA_G25_REPORT_TIMEOUT_SECONDS", "600"))
 DNA_PLATFORM_ROOT_ENV = "DNA_PLATFORM_ROOT"
 DNA_PLATFORM_PYTHON_ENV = "DNA_PLATFORM_PYTHON"
+
+
+logger = logging.getLogger(__name__)
 
 
 class G25PlatformReportError(RuntimeError):
@@ -108,6 +112,7 @@ async def generate_g25_platform_report(
         "--distance-top",
         "12",
     ]
+    args.extend(_platform_reference_args(dna_platform_root))
 
     try:
         process = await asyncio.create_subprocess_exec(
@@ -125,8 +130,13 @@ async def generate_g25_platform_report(
     stdout = stdout_bytes.decode("utf-8", errors="replace").strip()
     stderr = stderr_bytes.decode("utf-8", errors="replace").strip()
     if process.returncode != 0:
-        detail = stderr or stdout or f"exit code {process.returncode}"
-        raise G25PlatformReportError(f"dna_platform analyze failed: {detail[:800]}")
+        logger.warning(
+            "dna_platform analyze failed with code %s\nSTDERR:\n%s\nSTDOUT:\n%s",
+            process.returncode,
+            stderr,
+            stdout,
+        )
+        raise G25PlatformReportError(_summarize_process_error(stderr, stdout, process.returncode))
 
     analysis_path = output_dir / "analysis.json"
     if not analysis_path.exists():
@@ -198,6 +208,52 @@ def _default_python_for_platform(root: Path) -> str:
         return str(candidate) if candidate.exists() else "python"
     candidate = root / ".venv" / "bin" / "python"
     return str(candidate) if candidate.exists() else "python3"
+
+
+def _platform_reference_args(root: Path) -> list[str]:
+    data = root / "data"
+    bootstrap = data / "bootstrap_global"
+    hybrid = root / "backbone_method_hybrid"
+
+    paths = {
+        "--vahaduo-modern-refs": bootstrap / "Global25_PCA_modern_pop_averages_scaled.txt",
+        "--vahaduo-mixed-refs": _first_existing(
+            bootstrap / "Global25_PCA_pop_averages_scaled.txt",
+            bootstrap / "Global25_PCA_ancient_pop_averages_scaled.txt",
+            data / "verified_backbone" / "downloads" / "vahaduo" / "ancient_scaled_averages.txt",
+        ),
+        "--modern-global-refs": bootstrap / "Modern_Global_v1.txt",
+        "--modern-global-manifest": bootstrap / "Modern_Global_v1_manifest.tsv",
+        "--ancient-global-refs": bootstrap / "Ancient_Global_v1.txt",
+        "--ancient-global-manifest": bootstrap / "Ancient_Global_v1_manifest.tsv",
+        "--v2-modern-source": bootstrap / "Global25_PCA_modern_pop_averages_scaled.txt",
+        "--v2-modern-manifest": hybrid / "modern_population_seed_manifest.tsv",
+        "--v2-thresholds": hybrid / "macroregion_scorer_thresholds.json",
+        "--v2-ancient-shortlist": hybrid / "ancient_shortlist_by_macroregion.tsv",
+        "--v2-ancient-bridge": hybrid / "ancient_modern_bridge_seed.tsv",
+    }
+
+    args: list[str] = []
+    for option, path in paths.items():
+        if path.exists():
+            args.extend([option, str(path)])
+    return args
+
+
+def _first_existing(*paths: Path) -> Path:
+    for path in paths:
+        if path.exists():
+            return path
+    return paths[0]
+
+
+def _summarize_process_error(stderr: str, stdout: str, returncode: int | None) -> str:
+    text = stderr or stdout
+    if "FileNotFoundError" in text:
+        return "dna_platform reference file is missing or configured for the wrong host"
+    if "Traceback (most recent call last)" in text:
+        return f"dna_platform failed with an internal error (exit code {returncode})"
+    return (text or f"dna_platform failed with exit code {returncode}")[:500]
 
 
 def _artifact_paths(analysis: dict[str, object], output_dir: Path) -> tuple[Path, ...]:

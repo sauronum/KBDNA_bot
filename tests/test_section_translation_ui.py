@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 import asyncio
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from telegram import InlineKeyboardButton
 
@@ -54,8 +56,15 @@ from app.features.modeling.menu import (
     modeling_text,
 )
 from app.features.my_data.storage import SampleAsset
-from app.features.reports.menu import REPORT_PRODUCTS, build_report_detail_keyboard, build_reports_keyboard, report_detail_text, reports_text
-from app.features.reports.g25_platform import build_report_summary_lines, choose_sample_g25_coordinate
+from app.features.reports.menu import (
+    REPORT_PRODUCTS,
+    build_report_detail_keyboard,
+    build_reports_keyboard,
+    platform_report_error_text,
+    report_detail_text,
+    reports_text,
+)
+from app.features.reports.g25_platform import _platform_reference_args, build_report_summary_lines, choose_sample_g25_coordinate
 from app.features.traits.texts import localize_group, localize_product_status, localize_status
 
 
@@ -201,6 +210,39 @@ class SectionTranslationUiTests(unittest.TestCase):
 
         self.assertEqual(store.called_with, (7, "sample-a"))
         self.assertEqual(coordinate.asset_id, "coord-g25")
+
+    def test_platform_report_passes_linux_safe_reference_paths(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for relative_path in (
+                "data/bootstrap_global/Global25_PCA_modern_pop_averages_scaled.txt",
+                "data/bootstrap_global/Global25_PCA_ancient_pop_averages_scaled.txt",
+                "data/bootstrap_global/Modern_Global_v1.txt",
+                "data/bootstrap_global/Modern_Global_v1_manifest.tsv",
+                "data/bootstrap_global/Ancient_Global_v1.txt",
+                "data/bootstrap_global/Ancient_Global_v1_manifest.tsv",
+                "backbone_method_hybrid/modern_population_seed_manifest.tsv",
+                "backbone_method_hybrid/macroregion_scorer_thresholds.json",
+                "backbone_method_hybrid/ancient_shortlist_by_macroregion.tsv",
+                "backbone_method_hybrid/ancient_modern_bridge_seed.tsv",
+            ):
+                path = root / relative_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+
+            args = _platform_reference_args(root)
+
+        self.assertIn("--v2-modern-source", args)
+        self.assertIn("--v2-modern-manifest", args)
+        self.assertIn("--vahaduo-modern-refs", args)
+        self.assertNotIn("Desktop\\DNA\\Vahaduo", " ".join(args))
+
+    def test_platform_report_error_text_hides_traceback(self) -> None:
+        text = platform_report_error_text(RuntimeError("Traceback (most recent call last):\nFileNotFoundError: missing"))
+
+        self.assertIn("Не удалось сформировать отчёт", text)
+        self.assertNotIn("Traceback", text)
+        self.assertNotIn("FileNotFoundError", text)
 
     def test_matching_root_uses_english_copy(self) -> None:
         text = matching_root_text(lang="en")

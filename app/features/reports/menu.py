@@ -421,8 +421,10 @@ def platform_report_missing_g25_text(sample: object, *, lang: str = "ru") -> str
 
 def platform_report_error_text(error: Exception, *, lang: str = "ru") -> str:
     detail = str(error).strip()
-    if len(detail) > 700:
-        detail = detail[:700].rstrip() + "..."
+    if "Traceback" in detail or "FileNotFoundError" in detail:
+        detail = "Technical backend error. Details are in the server log."
+    elif len(detail) > 240:
+        detail = detail[:240].rstrip() + "..."
     if lang == "en":
         return (
             "🧬 Complete overview\n\n"
