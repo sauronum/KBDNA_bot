@@ -21,8 +21,11 @@ from app.features.modeling.admixtools2 import (
     _new_qpgraph_flow,
     _parse_populations,
     _parse_qpgraph_graph_text,
+    _qpgraph_leaf_populations,
+    _qpgraph_preflight,
     _qpgraph_result_markup,
     _qpgraph_save_payload,
+    _format_qpgraph_preflight,
     _show_fstats_builder,
     _show_qpgraph_builder,
     admixtools2_callback_handler,
@@ -113,6 +116,77 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         )
 
         self.assertEqual(text.splitlines(), ["edge R Mbuti.DG", "edge R N1", "edge N1 Han.DG"])
+
+    def test_qpgraph_leaf_parser_uses_sampled_graph_leaves(self) -> None:
+        leaves = _qpgraph_leaf_populations(
+            "\n".join(
+                [
+                    "edge R Mbuti.DG",
+                    "edge R N1",
+                    "edge N1 Han.DG",
+                    "edge N1 Papuan.DG",
+                ]
+            )
+        )
+
+        self.assertEqual(leaves, ["Mbuti.DG", "Han.DG", "Papuan.DG"])
+
+    def test_qpgraph_preflight_reports_missing_dataset_populations(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir) / "dataset"
+            prefix.with_suffix(".ind").write_text(
+                "\n".join(
+                    [
+                        "sample1 U Mbuti.DG",
+                        "sample2 U Han.DG",
+                        "sample3 U Papuan.DG",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            flow = {
+                "dataset": "human_origins",
+                "graph_text": "\n".join(
+                    [
+                        "edge R Mbuti.DG",
+                        "edge R N1",
+                        "edge N1 Missing.Pop",
+                        "edge N1 Papuan.DG",
+                    ]
+                ),
+            }
+
+            payload = _qpgraph_preflight(flow, {"geno_prefix": str(prefix)})
+            text = _format_qpgraph_preflight(payload, flow=flow)
+
+        self.assertFalse(payload["can_run"])
+        self.assertEqual(payload["status"], "population_not_found")
+        self.assertIn("Missing.Pop", text)
+        self.assertIn("Нет в dataset", text)
+
+    def test_qpgraph_preflight_allows_present_dataset_populations(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir) / "dataset"
+            prefix.with_suffix(".ind").write_text(
+                "\n".join(
+                    [
+                        "sample1 U Mbuti.DG",
+                        "sample2 U Han.DG",
+                        "sample3 U Papuan.DG",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = _qpgraph_preflight(
+                {
+                    "dataset": "human_origins",
+                    "graph_text": "edge R Mbuti.DG\nedge R N1\nedge N1 Han.DG\nedge N1 Papuan.DG",
+                },
+                {"geno_prefix": str(prefix)},
+            )
+
+        self.assertTrue(payload["can_run"])
+        self.assertEqual(payload["status"], "ok")
 
     def test_qpgraph_result_formats_score_edges_and_residuals(self) -> None:
         text = _format_qpgraph_result(

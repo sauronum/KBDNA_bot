@@ -75,6 +75,33 @@ def _dataset_files(dataset: str) -> dict[str, Any]:
     return dict(files) if isinstance(files, dict) else {}
 
 
+def _population_index_path(dataset_files: dict[str, Any]) -> Path | None:
+    for key in ("ind", "ind_file", "ind_path"):
+        value = str(dataset_files.get(key) or "").strip()
+        if value:
+            return Path(value)
+    geno_prefix = str(dataset_files.get("geno_prefix") or "").strip()
+    if geno_prefix:
+        return Path(f"{geno_prefix}.ind")
+    return None
+
+
+def _load_population_ids(dataset_files: dict[str, Any]) -> set[str] | None:
+    ind_path = _population_index_path(dataset_files)
+    if ind_path is None or not ind_path.exists() or not ind_path.is_file():
+        return None
+    populations: set[str] = set()
+    try:
+        with ind_path.open("r", encoding="utf-8", errors="replace") as handle:
+            for raw_line in handle:
+                parts = raw_line.strip().split()
+                if len(parts) >= 3:
+                    populations.add(parts[-1])
+    except OSError:
+        return None
+    return populations
+
+
 def _format_bytes(size: int) -> str:
     value = float(max(0, size))
     for suffix in ("B", "KB", "MB", "GB", "TB"):
@@ -494,6 +521,97 @@ def _parse_qpgraph_graph_text(text: str) -> str:
     return "\n".join(lines)
 
 
+def _qpgraph_edge_pairs(graph_text: str) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for line in str(graph_text or "").splitlines():
+        parts = line.strip().split()
+        if len(parts) >= 3 and parts[0].lower() in {"edge", "ledge", "redge"}:
+            pairs.append((parts[1], parts[2]))
+    return pairs
+
+
+def _qpgraph_leaf_populations(graph_text: str) -> list[str]:
+    pairs = _qpgraph_edge_pairs(graph_text)
+    if not pairs:
+        return []
+    sources = {source for source, _target in pairs}
+    leaves: list[str] = []
+    seen: set[str] = set()
+    for _source, target in pairs:
+        if target not in sources and target not in seen:
+            leaves.append(target)
+            seen.add(target)
+    return leaves
+
+
+def _qpgraph_preflight(flow: dict[str, Any], dataset_files: dict[str, Any]) -> dict[str, Any]:
+    graph_text = str(flow.get("graph_text") or "").strip()
+    leaves = _qpgraph_leaf_populations(graph_text)
+    if len(leaves) < 3:
+        return {
+            "can_run": False,
+            "status": "invalid_graph",
+            "errors": [
+                {
+                    "code": "invalid_graph",
+                    "message": "qpGraph needs at least 3 sampled leaf populations. Check edge lines in graphfile.",
+                    "details": {"leaves": leaves},
+                }
+            ],
+        }
+    population_ids = _load_population_ids(dataset_files)
+    if population_ids is None:
+        return {"can_run": True, "status": "population_index_unavailable", "warnings": [], "errors": []}
+    missing = [item for item in leaves if item not in population_ids]
+    if not missing:
+        return {"can_run": True, "status": "ok", "warnings": [], "errors": [], "details": {"leaves": leaves}}
+    return {
+        "can_run": False,
+        "status": "population_not_found",
+        "errors": [
+            {
+                "code": "population_not_found",
+                "message": "One or more qpGraph leaf populations are not available in the selected dataset.",
+                "details": {
+                    "dataset": str(flow.get("dataset") or ""),
+                    "missing": missing,
+                    "leaves": leaves,
+                },
+            }
+        ],
+    }
+
+
+def _format_qpgraph_preflight(payload: dict[str, Any], *, flow: dict[str, Any]) -> str:
+    lines = [
+        "<b>🕸 ADMIXTOOLS2 qpGraph 2 · проверка</b>",
+        "",
+        f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
+        f"Status: <code>{html.escape(str(payload.get('status') or 'failed'))}</code>",
+    ]
+    errors = payload.get("errors") if isinstance(payload.get("errors"), list) else []
+    for error in errors[:3]:
+        if not isinstance(error, dict):
+            continue
+        message = str(error.get("message") or "").strip()
+        if message:
+            lines.extend(["", "<b>Ошибка</b>", html.escape(message)])
+        details = error.get("details") if isinstance(error.get("details"), dict) else {}
+        missing = details.get("missing") if isinstance(details.get("missing"), list) else []
+        if missing:
+            lines.append("")
+            lines.append("<b>Нет в dataset</b>")
+            lines.extend(f"• <code>{html.escape(str(item))}</code>" for item in missing[:12])
+            if len(missing) > 12:
+                lines.append(f"• ... и еще {len(missing) - 12}")
+        leaves = details.get("leaves") if isinstance(details.get("leaves"), list) else []
+        if leaves:
+            lines.append("")
+            lines.append("<b>Leaf populations</b>")
+            lines.append("<code>" + html.escape(", ".join(str(item) for item in leaves[:16])) + "</code>")
+    return "\n".join(lines)
+
+
 def _qpgraph_state_lines(flow: dict[str, Any]) -> list[str]:
     graph_text = str(flow.get("graph_text") or "").strip()
     graph_lines = [line for line in graph_text.splitlines() if line.strip()]
@@ -683,6 +801,10 @@ async def _run_qpgraph(message, update: Update | None, context: ContextTypes.DEF
     dataset_files = _dataset_files(dataset)
     if not dataset_files:
         await _show_message(message, "<b>🕸 qpGraph 2</b>\n\nDataset files не найдены.", InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
+        return
+    preflight = _qpgraph_preflight(flow, dataset_files)
+    if not bool(preflight.get("can_run")):
+        await _show_message(message, _format_qpgraph_preflight(preflight, flow=flow), _qpgraph_result_markup(lang), edit_existing=True)
         return
     await _show_message(message, "<b>🕸 qpGraph 2</b>\n\nСчитаю ADMIXTOOLS2...", InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
     started = time.monotonic()
