@@ -61,7 +61,7 @@ def my_data_text(*, lang: str = "ru") -> str:
 
 def build_my_data_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     g25_label = "G25 profiles" if lang == "en" else "G25-профили"
-    reports_label = "Reports" if lang == "en" else "Отчёты"
+    reports_label = "⭐ Reports" if lang == "en" else "⭐ Отчёты"
     raw_upload_label = "Upload raw" if lang == "en" else "Загрузить файл"
     g25_from_raw_label = "Get G25" if lang == "en" else "📏 Получить G25"
     return InlineKeyboardMarkup(
@@ -278,7 +278,7 @@ def sample_detail_text(
             f"{_sample_status(coordinate_count)} G25 profiles: {_count_text(coordinate_count, lang=lang)}\n"
             "\n"
             "━━━━━━━━━━━━━━\n"
-            "<b>📊 Reports</b>\n"
+            "<b>⭐ Reports</b>\n"
             "\n"
             f"🧭 Coordinate spaces: {coordinate_reports}\n"
             f"🧬 Admixture: {admixture_reports}\n"
@@ -299,7 +299,7 @@ def sample_detail_text(
         f"{_sample_status(coordinate_count)} G25-профили: {_count_text(coordinate_count, lang=lang)}\n"
         "\n"
         "━━━━━━━━━━━━━━\n"
-        "<b>📊 Отчёты</b>\n"
+        "<b>⭐ Отчёты</b>\n"
         "\n"
         f"🧭 Coordinate spaces: {coordinate_reports}\n"
         f"🧬 Admixture: {admixture_reports}\n"
@@ -322,7 +322,7 @@ def build_sample_detail_keyboard(
     coordinates = "📍 Coordinates" if lang == "en" else "📍 Coordinates"
     rename = "✏️ Rename" if lang == "en" else "✏️ Rename"
     delete = "🗑 Delete" if lang == "en" else "🗑 Delete"
-    reports = "📊 Reports" if lang == "en" else "📊 Отчёты"
+    reports = "⭐ Reports" if lang == "en" else "⭐ Отчёты"
     rows = [[InlineKeyboardButton(reports, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sample_reports:{asset.asset_id}")]]
     if asset.raw_file_id:
         rows.append([InlineKeyboardButton(source_raw, callback_data=f"{MY_DATA_CALLBACK_PREFIX}:sfr:{asset.asset_id}")])
@@ -456,12 +456,12 @@ def build_sample_snp_lookup_result_keyboard(sample_id: str, *, lang: str = "ru")
 def sample_reports_text(asset: SampleAsset, *, lang: str = "ru") -> str:
     if lang == "en":
         return (
-            "📊 Reports\n\n"
+            "⭐ Reports\n\n"
             f"Sample: {asset.display_name}\n\n"
             "Saved reports for this sample."
         )
     return (
-        "📊 Отчёты\n\n"
+        "⭐ Отчёты\n\n"
         f"Sample: {asset.display_name}\n\n"
         "Сохранённые отчёты по этому образцу."
     )

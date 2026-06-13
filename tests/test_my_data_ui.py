@@ -218,7 +218,7 @@ class MyDataUiTests(unittest.TestCase):
         keyboard = build_sample_reports_keyboard(sample.asset_id)
         labels = [row[0].text for row in keyboard.inline_keyboard[:6]]
 
-        self.assertIn("📊 Отчёты", text)
+        self.assertIn("⭐ Отчёты", text)
         self.assertIn("Sample: Азнаур", text)
         self.assertIn("Сохранённые отчёты по этому образцу.", text)
         self.assertEqual(labels, [
@@ -665,7 +665,7 @@ class MyDataUiTests(unittest.TestCase):
         self.assertIn("G25 profiles: none", text)
         self.assertIn("🧭 Coordinate spaces: 0", text)
         self.assertIn("<b>Total reports:</b> 0", text)
-        self.assertEqual(labels, ["📊 Reports", "🧬 Source raw", "🔎 SNP lookup", "📍 Coordinates", "✏️ Rename"])
+        self.assertEqual(labels, ["⭐ Reports", "🧬 Source raw", "🔎 SNP lookup", "📍 Coordinates", "✏️ Rename"])
 
     def test_sample_detail_contains_single_sample_snp_lookup_button(self) -> None:
         sample = SampleAsset("sample-a", "Заур", "raw-a", [], "2026-05-10T22:00:00")
@@ -860,7 +860,7 @@ class MyDataUiTests(unittest.TestCase):
 
         self.assertIn("G25-профили", my_data_text())
         self.assertEqual(my_data_text(), "🧬 My DNA\n\nВаши образцы и G25-профили.")
-        self.assertEqual(labels, ["Образцы", "Загрузить файл", "📏 Получить G25", "G25-профили", "Отчёты"])
+        self.assertEqual(labels, ["Образцы", "Загрузить файл", "📏 Получить G25", "G25-профили", "⭐ Отчёты"])
         self.assertEqual(
             callbacks,
             [
@@ -908,7 +908,7 @@ class MyDataUiTests(unittest.TestCase):
         self.assertIn("━━━━━━━━━━━━━━", text)
         self.assertIn("Raw-файл: нет", text)
         self.assertIn("G25-профили: 1", text)
-        self.assertIn("<b>📊 Отчёты</b>\n\n", text)
+        self.assertIn("<b>⭐ Отчёты</b>\n\n", text)
         self.assertIn("🧭 Coordinate spaces: 0", text)
         self.assertIn("🧬 Admixture: 0", text)
         self.assertIn("<b>Всего отчётов:</b> 0", text)
