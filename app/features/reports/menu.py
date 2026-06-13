@@ -1,16 +1,29 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from pathlib import Path
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
 from telegram.ext import ContextTypes
 
 from app.i18n import get_user_language, t
 from app.main_menu import ensure_active_main_menu
+from app.features.reports.g25_platform import (
+    G25PlatformReport,
+    G25PlatformReportError,
+    choose_sample_g25_coordinate,
+    generate_g25_platform_report,
+    safe_artifact_filename,
+)
 
 
 REPORTS_CALLBACK_PREFIX = "reports"
 REPORT_SAMPLE_PAGE_SIZE = 8
+PLATFORM_REPORT_PRODUCT_ID = "r0"
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -276,11 +289,27 @@ def build_report_detail_keyboard(
 def report_confirmation_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
     sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
     if lang == "en":
+        if product.product_id == PLATFORM_REPORT_PRODUCT_ID:
+            return (
+                f"{product.emoji} {product.title(lang)}\n\n"
+                f"Sample: {sample_name}\n"
+                f"Price: {product.price(lang)}\n\n"
+                "Admin prototype: the bot will take the sample's saved G25 profile, run dna_platform backbone analysis, "
+                "then send a short summary and generated artifacts."
+            )
         return (
             f"{product.emoji} {product.title(lang)}\n\n"
             f"Sample: {sample_name}\n"
             f"Price: {product.price(lang)}\n\n"
             "This is a clean placeholder: the real report generator and Stars payment flow will be connected later."
+        )
+    if product.product_id == PLATFORM_REPORT_PRODUCT_ID:
+        return (
+            f"{product.emoji} {product.title(lang)}\n\n"
+            f"Образец: {sample_name}\n"
+            f"Стоимость: {product.price(lang)}\n\n"
+            "Админский прототип: бот возьмёт сохранённый G25-профиль образца, запустит backbone-анализ через dna_platform "
+            "и отправит краткое резюме с артефактами."
         )
     return (
         f"{product.emoji} {product.title(lang)}\n\n"
@@ -360,6 +389,84 @@ def build_stub_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     )
 
 
+def platform_report_running_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
+    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
+    if lang == "en":
+        return (
+            f"{product.emoji} {product.title(lang)}\n\n"
+            f"Sample: {sample_name}\n\n"
+            "Generating the admin prototype report. This can take a few minutes."
+        )
+    return (
+        f"{product.emoji} {product.title(lang)}\n\n"
+        f"Образец: {sample_name}\n\n"
+        "Генерирую админский прототип отчёта. Это может занять несколько минут."
+    )
+
+
+def platform_report_missing_g25_text(sample: object, *, lang: str = "ru") -> str:
+    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
+    if lang == "en":
+        return (
+            "🧬 Complete overview\n\n"
+            f"Sample: {sample_name}\n\n"
+            "No saved G25 profile is attached to this sample. Add or extract G25 first, then run the report again."
+        )
+    return (
+        "🧬 Комплексный обзор\n\n"
+        f"Образец: {sample_name}\n\n"
+        "У этого образца нет привязанного G25-профиля. Сначала добавьте или получите G25, затем запустите отчёт снова."
+    )
+
+
+def platform_report_error_text(error: Exception, *, lang: str = "ru") -> str:
+    detail = str(error).strip()
+    if len(detail) > 700:
+        detail = detail[:700].rstrip() + "..."
+    if lang == "en":
+        return (
+            "🧬 Complete overview\n\n"
+            "Could not generate the dna_platform report.\n\n"
+            f"{detail}"
+        )
+    return (
+        "🧬 Комплексный обзор\n\n"
+        "Не удалось сформировать отчёт через dna_platform.\n\n"
+        f"{detail}"
+    )
+
+
+def platform_report_result_text(report: G25PlatformReport, *, lang: str = "ru") -> str:
+    title = "🧬 Complete overview" if lang == "en" else "🧬 Комплексный обзор"
+    sample_label = "Sample" if lang == "en" else "Образец"
+    g25_label = "G25 profile" if lang == "en" else "G25-профиль"
+    artifact_label = "Artifacts" if lang == "en" else "Артефакты"
+    lines = [
+        title,
+        "",
+        f"{sample_label}: {report.sample_name}",
+        f"{g25_label}: {report.coordinate_name}",
+        "",
+        "Backbone summary:",
+    ]
+    lines.extend(f"• {item}" for item in report.summary_lines[:8])
+    lines.extend(
+        [
+            "",
+            f"{artifact_label}: {len(report.artifact_paths)} SVG + analysis.json",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _reports_storage_root(context: ContextTypes.DEFAULT_TYPE) -> Path:
+    my_data_store = context.application.bot_data.get("my_data_store")
+    root_dir = getattr(my_data_store, "root_dir", None)
+    if root_dir is not None:
+        return Path(root_dir).parent / "reports"
+    return Path("storage") / "reports"
+
+
 async def show_reports_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -437,6 +544,71 @@ async def _show_report_stub(
     await message.edit_text(text, reply_markup=build_stub_keyboard(lang=lang))
 
 
+async def _show_platform_report(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    product: ReportProduct,
+    sample_id: str,
+    *,
+    lang: str = "ru",
+) -> None:
+    store = context.application.bot_data.get("my_data_store")
+    sample = _sample_by_id(context, user_id, sample_id)
+    if sample is None or store is None:
+        await message.edit_text(
+            _copy(lang, "Отчёт\n\nОбразец не найден. Откройте My DNA заново.", "Report\n\nSample not found. Open My DNA again."),
+            reply_markup=build_reports_keyboard(lang=lang),
+        )
+        return
+
+    coordinate = choose_sample_g25_coordinate(store, user_id, sample)
+    if coordinate is None:
+        await message.edit_text(platform_report_missing_g25_text(sample, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
+        return
+
+    await message.edit_text(platform_report_running_text(product, sample, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
+    try:
+        report = await generate_g25_platform_report(
+            storage_root=_reports_storage_root(context),
+            sample=sample,
+            coordinate=coordinate,
+            user_id=user_id,
+        )
+    except G25PlatformReportError as exc:
+        logger.warning("G25 platform report failed: %s", exc)
+        await message.edit_text(platform_report_error_text(exc, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
+        return
+    except Exception as exc:
+        logger.exception("Unexpected G25 platform report failure")
+        await message.edit_text(platform_report_error_text(exc, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
+        return
+
+    await message.edit_text(platform_report_result_text(report, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
+    chat_id = getattr(message, "chat_id", None)
+    if chat_id is None:
+        return
+    for artifact_path in report.artifact_paths:
+        try:
+            with artifact_path.open("rb") as handle:
+                await context.bot.send_document(
+                    chat_id=chat_id,
+                    document=InputFile(handle, filename=safe_artifact_filename(artifact_path)),
+                    caption=artifact_path.stem,
+                )
+        except Exception:
+            logger.exception("Could not send G25 platform report artifact: %s", artifact_path)
+    try:
+        with report.analysis_path.open("rb") as handle:
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=InputFile(handle, filename="analysis.json"),
+                caption="analysis.json",
+            )
+    except Exception:
+        logger.exception("Could not send G25 platform analysis artifact: %s", report.analysis_path)
+
+
 async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or query.data is None or query.message is None:
@@ -481,5 +653,8 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
             return
         if action == "c":
             await _show_report_confirmation(query.message, context, user_id, product, sample_id, lang=lang)
+            return
+        if action == "g" and product.product_id == PLATFORM_REPORT_PRODUCT_ID:
+            await _show_platform_report(query.message, context, user_id, product, sample_id, lang=lang)
             return
         await _show_report_stub(query.message, context, user_id, product, sample_id, lang=lang, paid=action == "pay")

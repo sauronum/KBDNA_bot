@@ -55,6 +55,7 @@ from app.features.modeling.menu import (
 )
 from app.features.my_data.storage import SampleAsset
 from app.features.reports.menu import REPORT_PRODUCTS, build_report_detail_keyboard, build_reports_keyboard, report_detail_text, reports_text
+from app.features.reports.g25_platform import build_report_summary_lines, choose_sample_g25_coordinate
 from app.features.traits.texts import localize_group, localize_product_status, localize_status
 
 
@@ -153,6 +154,53 @@ class SectionTranslationUiTests(unittest.TestCase):
         self.assertIn("Выберите образец ниже", text)
         self.assertEqual(rows[0], ["reports:c:r0:sample-a"])
         self.assertEqual(rows[-1], ["reports:root", "main:cancel"])
+
+    def test_platform_report_summary_extracts_backbone_fields(self) -> None:
+        analysis = {
+            "sample_name": "Target",
+            "routing": {
+                "global": {
+                    "modern_macro": {
+                        "predicted_group": "West Eurasia",
+                        "nearest": [{"reference": "Kabardin", "distance": 0.03123}],
+                    },
+                    "ancient_macro": {"predicted_group": "WestEurasia"},
+                },
+                "decision": {"selected_regions": [{"label": "West Eurasia"}]},
+                "selected_backbone_branch": "west_eurasia",
+                "regional_backbone": {
+                    "west_eurasia": {
+                        "modern_cluster": {"predicted_group": "Caucasus_North"},
+                        "ancient_family": {"predicted_group": "Caucasus"},
+                        "ancient_core": {"predicted_group": "Maikop"},
+                    }
+                },
+            },
+        }
+
+        lines = build_report_summary_lines(analysis)
+
+        self.assertIn("Modern macro: West Eurasia", lines)
+        self.assertIn("Modern cluster: Caucasus_North", lines)
+        self.assertIn("Nearest modern: Kabardin (0.0312)", lines)
+
+    def test_platform_report_uses_first_attached_g25_coordinate(self) -> None:
+        sample = SampleAsset("sample-a", "Азамат", "raw-a", ["coord-k36", "coord-g25"], "2026-05-31T19:30:00")
+
+        class Store:
+            def list_sample_coordinates(self, user_id, sample_id):
+                self.called_with = (user_id, sample_id)
+                return [
+                    type("Coordinate", (), {"coordinate_type": "k36", "g25_line": "K36,1", "asset_id": "coord-k36"})(),
+                    type("Coordinate", (), {"coordinate_type": "g25", "g25_line": "G25,1", "asset_id": "coord-g25"})(),
+                ]
+
+        store = Store()
+
+        coordinate = choose_sample_g25_coordinate(store, 7, sample)
+
+        self.assertEqual(store.called_with, (7, "sample-a"))
+        self.assertEqual(coordinate.asset_id, "coord-g25")
 
     def test_matching_root_uses_english_copy(self) -> None:
         text = matching_root_text(lang="en")
