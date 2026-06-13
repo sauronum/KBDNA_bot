@@ -12,6 +12,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from app.features.modeling.navigation import nav_back_callback, nav_enter, nav_reset
+from app.features.modeling.saved_models import register_pending_save
 from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
 from app.features.modeling.ui import show_message as _show_message
@@ -583,6 +584,17 @@ def _format_qpgraph_error(exc: Exception, *, flow: dict[str, Any] | None, elapse
     return "\n".join(lines)
 
 
+def _qpgraph_result_markup(lang: str, pending_save_id: str | None = None) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [InlineKeyboardButton("🕸 Новый qpGraph", callback_data=_cb("at2_qpgraph"))],
+        [InlineKeyboardButton("📝 Graphfile", callback_data=_cb("at2_qpgraph_graph"))],
+    ]
+    if pending_save_id:
+        rows.append([InlineKeyboardButton("💾 Сохранить результат", callback_data=_cb("saved_save", pending_save_id))])
+    rows.append(_footer_row(_cb("at2_qpgraph_builder"), lang))
+    return InlineKeyboardMarkup(rows)
+
+
 def _format_qpgraph_result(payload: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float) -> str:
     result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
     edges = result.get("edges") if isinstance(result.get("edges"), list) else []
@@ -590,13 +602,13 @@ def _format_qpgraph_result(payload: dict[str, Any], *, flow: dict[str, Any], ela
     leaves = result.get("leaf_populations") if isinstance(result.get("leaf_populations"), list) else []
     data_source = result.get("data_source") if isinstance(result.get("data_source"), dict) else {}
     lines = [
-        "<b>🕸 qpGraph 2</b>",
+        "<b>🕸 ADMIXTOOLS2 qpGraph 2</b>",
         "",
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Status: <code>{html.escape(str(payload.get('status') or 'completed'))}</code>",
         f"Time: <code>{elapsed_seconds:.1f}s</code>",
-        f"Score: <code>{html.escape(_num(result.get('score')))}</code>",
-        f"Worst residual: <code>{html.escape(_num(result.get('worst_residual')))}</code>",
+        f"Fit score: <code>{html.escape(_num(result.get('score')))}</code>",
+        f"Worst |z|: <code>{html.escape(_num(result.get('worst_residual')))}</code>",
     ]
     if result.get("p_value") is not None:
         lines.append(f"p-value: <code>{html.escape(_num(result.get('p_value')))}</code>")
@@ -609,12 +621,12 @@ def _format_qpgraph_result(payload: dict[str, Any], *, flow: dict[str, Any], ela
             continue
         weight = row.get("weight")
         edge_type = str(row.get("type") or "edge")
+        edge_label = "mix" if edge_type == "admix" else "w"
         lines.append(
             "• "
             f"<code>{html.escape(str(row.get('from') or '?'))}</code> → "
             f"<code>{html.escape(str(row.get('to') or '?'))}</code> "
-            f"<code>{html.escape(edge_type)}</code> "
-            f"w=<code>{html.escape(_num(weight))}</code>"
+            f"{edge_label}=<code>{html.escape(_num(weight))}</code>"
         )
     if len(edges) > 12:
         lines.append(f"• ... and {len(edges) - 12} more")
@@ -630,11 +642,35 @@ def _format_qpgraph_result(payload: dict[str, Any], *, flow: dict[str, Any], ela
         lines.append(f"• <code>{html.escape('/'.join(pops))}</code>: z=<code>{html.escape(_num(row.get('z')))}</code>")
     source_path = str(data_source.get("path") or "").strip()
     if source_path:
-        lines.extend(["", f"Data source: <code>{html.escape(str(data_source.get('type') or 'f2'))}</code>"])
+        lines.extend(["", f"Data: <code>{html.escape(str(data_source.get('type') or 'f2'))}</code>"])
     return "\n".join(lines)
 
 
-async def _run_qpgraph(message, context: ContextTypes.DEFAULT_TYPE, *, lang: str) -> None:
+def _qpgraph_save_payload(payload: dict[str, Any], *, flow: dict[str, Any], text: str) -> dict[str, Any]:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    graph_text = str(flow.get("graph_text") or "").strip()
+    leaves = result.get("leaf_populations") if isinstance(result.get("leaf_populations"), list) else []
+    title_bits = ["ADMIXTOOLS2 qpGraph 2", _dataset_label(flow.get("dataset"))]
+    if leaves:
+        title_bits.append(", ".join(str(item) for item in leaves[:3]))
+    return {
+        "kind": "qpgraph_admixtools2",
+        "title": " · ".join(title_bits),
+        "dataset": str(flow.get("dataset") or ""),
+        "engine": "admixtools2_qpgraph",
+        "engine_label": "ADMIXTOOLS2 qpGraph 2",
+        "graph_text": graph_text,
+        "score": result.get("score"),
+        "worst_residual": result.get("worst_residual"),
+        "leaves": leaves,
+        "edges": result.get("edges") if isinstance(result.get("edges"), list) else [],
+        "f3": result.get("f3") if isinstance(result.get("f3"), list) else [],
+        "result_payload": payload,
+        "result_text": text,
+    }
+
+
+async def _run_qpgraph(message, update: Update | None, context: ContextTypes.DEFAULT_TYPE, *, lang: str) -> None:
     flow = _get_qpgraph_flow(context)
     if flow is None:
         await show_qpgraph_dataset_menu(message, context, edit_existing=True, lang=lang)
@@ -666,7 +702,10 @@ async def _run_qpgraph(message, context: ContextTypes.DEFAULT_TYPE, *, lang: str
         await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
         return
     text = _format_qpgraph_result(payload, flow=flow, elapsed_seconds=time.monotonic() - started)
-    await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
+    pending_save_id: str | None = None
+    if update is not None and update.effective_user is not None:
+        pending_save_id = register_pending_save(context, int(update.effective_user.id), _qpgraph_save_payload(payload, flow=flow, text=text))
+    await _show_message(message, text, _qpgraph_result_markup(lang, pending_save_id), edit_existing=True)
 
 
 async def admixtools2_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -734,7 +773,7 @@ async def admixtools2_callback_handler(
         await _prompt_qpgraph_graph(message, context, lang=lang)
         return True
     if action == "at2_qpgraph_run":
-        await _run_qpgraph(message, context, lang=lang)
+        await _run_qpgraph(message, update, context, lang=lang)
         return True
     if action == "at2_fstats":
         nav_reset(context, _cb("at2"))

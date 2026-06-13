@@ -21,11 +21,14 @@ from app.features.modeling.admixtools2 import (
     _new_qpgraph_flow,
     _parse_populations,
     _parse_qpgraph_graph_text,
+    _qpgraph_result_markup,
+    _qpgraph_save_payload,
     _show_fstats_builder,
     _show_qpgraph_builder,
     admixtools2_callback_handler,
 )
 from app.features.modeling.navigation import NAV_CURRENT_KEY, NAV_STACK_KEY, nav_enter, nav_pop
+from app.features.modeling.saved_models import _kind_label
 from app.features.modeling.qpwave import (
     QPWAVE_ENGINE_ADMIXTOOLS2,
     _extract_admixtools2_ranks,
@@ -134,10 +137,42 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         )
 
         self.assertIn("qpGraph 2", text)
-        self.assertIn("Score", text)
+        self.assertIn("Fit score", text)
         self.assertIn("Mbuti.DG", text)
-        self.assertIn("Worst residual", text)
+        self.assertIn("Worst |z|", text)
         self.assertIn("precomputed_f2_cache", text)
+
+    def test_qpgraph_result_markup_includes_save_and_next_actions(self) -> None:
+        markup = _qpgraph_result_markup("ru", "pending123")
+
+        callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
+        self.assertIn("modeling:at2_qpgraph", callbacks)
+        self.assertIn("modeling:at2_qpgraph_graph", callbacks)
+        self.assertIn("modeling:saved_save:pending123", callbacks)
+
+    def test_qpgraph_save_payload_preserves_graph_and_result(self) -> None:
+        text = "<b>result</b>"
+        payload = _qpgraph_save_payload(
+            {
+                "status": "completed",
+                "result": {
+                    "score": [0.1],
+                    "worst_residual": [0.2],
+                    "leaf_populations": ["Mbuti.DG", "Han.DG"],
+                    "edges": [{"from": "R", "to": "Mbuti.DG"}],
+                    "f3": [{"z": [0.5]}],
+                },
+            },
+            flow={"dataset": "human_origins", "graph_text": "edge R Mbuti.DG"},
+            text=text,
+        )
+
+        self.assertEqual(payload["kind"], "qpgraph_admixtools2")
+        self.assertEqual(payload["dataset"], "human_origins")
+        self.assertEqual(payload["graph_text"], "edge R Mbuti.DG")
+        self.assertEqual(payload["result_text"], text)
+        self.assertEqual(payload["leaves"], ["Mbuti.DG", "Han.DG"])
+        self.assertEqual(_kind_label(payload), "ADMIXTOOLS2 qpGraph 2")
 
     def test_qpgraph_builder_enables_run_after_graph_text(self) -> None:
         class Message:

@@ -118,6 +118,8 @@ def _kind_label(record: dict[str, Any]) -> str:
         return "qpAdm classic"
     if kind == "qpwave":
         return "qpWave"
+    if kind == "qpgraph_admixtools2":
+        return "ADMIXTOOLS2 qpGraph 2"
     return kind or "AdmixLab"
 
 
