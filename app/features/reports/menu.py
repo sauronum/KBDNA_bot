@@ -159,23 +159,23 @@ def reports_text(*, lang: str = "ru", show_products: bool = True) -> str:
     if not show_products:
         if lang == "en":
             return (
-                "⭐ Reports\n\n"
+                "📊 Reports\n\n"
                 "Ready-made DNA reports are being prepared.\n\n"
                 "Saved DNA Lab results remain available inside each sample card."
             )
         return (
-            "⭐ Отчёты\n\n"
+            "📊 Отчёты\n\n"
             "Готовые комплексные отчёты пока готовятся.\n\n"
             "Сохранённые результаты DNA Lab доступны внутри карточек образцов."
         )
     if lang == "en":
         return (
-            "⭐ Reports\n\n"
+            "📊 Reports\n\n"
             "Ready-made DNA reports for people who want a clear result without configuring DNA Lab by hand.\n\n"
             "Choose a report, then choose a sample. Saved DNA Lab results still live inside each sample card."
         )
     return (
-        "⭐ Отчёты\n\n"
+        "📊 Отчёты\n\n"
         "Готовые комплексные отчёты по вашим образцам без ручной настройки DNA Lab.\n\n"
         "Выберите отчёт, затем образец. Сохранённые результаты DNA Lab остаются внутри карточек образцов."
     )
@@ -382,7 +382,7 @@ def build_stub_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton(_copy(lang, "⭐ К отчётам", "⭐ Reports"), callback_data=f"{REPORTS_CALLBACK_PREFIX}:root"),
+                InlineKeyboardButton(_copy(lang, "📊 К отчётам", "📊 Reports"), callback_data=f"{REPORTS_CALLBACK_PREFIX}:root"),
                 InlineKeyboardButton(t("nav.cancel", lang), callback_data="main:cancel"),
             ],
         ]
