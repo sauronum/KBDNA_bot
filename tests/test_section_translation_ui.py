@@ -129,22 +129,49 @@ class SectionTranslationUiTests(unittest.TestCase):
         keyboard = build_reports_keyboard(lang="en")
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-        self.assertIn("Ready-made DNA reports", text)
-        self.assertIn("Saved DNA Lab results still live inside each sample card", text)
-        self.assertIn("🧬 Complete overview · Free", labels)
-        self.assertIn("🏺 Ancient matches · ⭐ 99", labels)
+        self.assertIn("Personal studies based on your DNA samples.", text)
+        self.assertIn("Choose a direction.", text)
+        self.assertIn("🧬 DNA passport · Free", labels)
+        self.assertIn("🧭 Origin portrait", labels)
         self.assertIn("Back", labels)
         self.assertIn("Cancel", labels)
 
-    def test_reports_can_hide_product_catalog(self) -> None:
-        text = reports_text(show_products=False)
-        keyboard = build_reports_keyboard(show_products=False)
-        rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
-        labels = [button.text for row in keyboard.inline_keyboard for button in row]
+    def test_reports_root_uses_new_catalog_copy_and_order(self) -> None:
+        text = reports_text()
+        keyboard = build_reports_keyboard()
+        labels = [row[0].text for row in keyboard.inline_keyboard[:-1]]
+        callbacks = [row[0].callback_data for row in keyboard.inline_keyboard[:-1]]
 
-        self.assertIn("Готовые комплексные отчёты пока готовятся.", text)
-        self.assertNotIn("🧬 Комплексный обзор · Бесплатно", labels)
-        self.assertEqual(rows, [["mydna:root", "main:cancel"]])
+        self.assertIn("Персональные исследования по вашим DNA-образцам.", text)
+        self.assertIn("Выберите направление.", text)
+        self.assertEqual(
+            labels,
+            [
+                "🧬 DNA-паспорт · Бесплатно",
+                "🧭 Портрет происхождения",
+                "🏺 Древние корни",
+                "⛰ Региональное исследование",
+                "👥 Семейное сравнение",
+                "✨ Портрет признаков",
+                "🌿 Отцовская и материнская линии",
+            ],
+        )
+        self.assertEqual(
+            callbacks,
+            [
+                "reports:info:passport",
+                "reports:info:origin_portrait",
+                "reports:info:ancient_roots",
+                "reports:info:regional_study",
+                "reports:info:family_comparison",
+                "reports:info:traits_portrait",
+                "reports:info:lineage",
+            ],
+        )
+        self.assertNotIn("Комплексный обзор", text)
+        self.assertNotIn("Древние совпадения", " ".join(labels))
+        self.assertNotIn("dna_platform", text)
+        self.assertNotIn("Админский прототип", text)
 
     def test_reports_can_return_to_product_my_dna_entry(self) -> None:
         keyboard = build_reports_keyboard(back_callback="mydna:root")
@@ -153,16 +180,21 @@ class SectionTranslationUiTests(unittest.TestCase):
         self.assertNotIn(["my_data:samples_view"], rows)
         self.assertEqual(rows[-1], ["mydna:root", "main:cancel"])
 
-    def test_reports_selects_sample_for_product(self) -> None:
-        product = REPORT_PRODUCTS[0]
-        sample = SampleAsset("sample-a", "Азамат", "raw-a", [], "2026-05-31T19:30:00")
-        text = report_detail_text(product, 1)
-        keyboard = build_report_detail_keyboard(product, [sample])
-        rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
+    def test_report_cards_are_informational_only(self) -> None:
+        for product in REPORT_PRODUCTS:
+            with self.subTest(product=product.product_id):
+                text = report_detail_text(product)
+                keyboard = build_report_detail_keyboard(product)
+                rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
 
-        self.assertIn("Выберите образец ниже", text)
-        self.assertEqual(rows[0], ["reports:c:r0:sample-a"])
-        self.assertEqual(rows[-1], ["reports:root", "main:cancel"])
+                self.assertIn(product.title("ru"), text)
+                self.assertIn("Что вы получите:", text)
+                self.assertIn("В разработке", text)
+                self.assertNotIn("Выберите образец", text)
+                self.assertNotIn("Сформировать демо", text)
+                self.assertNotIn("backbone", text)
+                self.assertNotIn("dna_platform", text)
+                self.assertEqual(rows, [["reports:root", "main:cancel"]])
 
     def test_platform_report_summary_extracts_backbone_fields(self) -> None:
         analysis = {
@@ -240,7 +272,7 @@ class SectionTranslationUiTests(unittest.TestCase):
     def test_platform_report_error_text_hides_traceback(self) -> None:
         text = platform_report_error_text(RuntimeError("Traceback (most recent call last):\nFileNotFoundError: missing"))
 
-        self.assertIn("Не удалось сформировать отчёт", text)
+        self.assertIn("Этот отчёт находится в разработке.", text)
         self.assertNotIn("Traceback", text)
         self.assertNotIn("FileNotFoundError", text)
 

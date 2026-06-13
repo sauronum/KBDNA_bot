@@ -345,7 +345,7 @@ class MenuKeyboardTests(unittest.TestCase):
                 ["📤 Загрузить файл"],
                 ["📏 Получить G25"],
                 ["📍 G25-профили"],
-                ["📊 Отчёты"],
+                ["⭐ Отчёты"],
             ],
         )
         self.assertEqual(

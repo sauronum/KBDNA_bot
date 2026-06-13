@@ -1,29 +1,15 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
-from pathlib import Path
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from app.i18n import get_user_language, t
 from app.main_menu import ensure_active_main_menu
-from app.features.reports.g25_platform import (
-    G25PlatformReport,
-    G25PlatformReportError,
-    choose_sample_g25_coordinate,
-    generate_g25_platform_report,
-)
-from app.features.reports.visualization import build_g25_report_visuals
 
 
 REPORTS_CALLBACK_PREFIX = "reports"
-REPORT_SAMPLE_PAGE_SIZE = 8
-PLATFORM_REPORT_PRODUCT_ID = "r0"
-
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -32,77 +18,252 @@ class ReportProduct:
     emoji: str
     title_ru: str
     title_en: str
-    price_ru: str
-    price_en: str
-    description_ru: str
-    description_en: str
-    is_paid: bool = False
+    summary_ru: str
+    summary_en: str
+    bullets_ru: tuple[str, ...]
+    bullets_en: tuple[str, ...]
+    status_ru: str
+    status_en: str
+    note_ru: str = ""
+    note_en: str = ""
+    free: bool = False
+    extra_ru: tuple[str, ...] = ()
+    extra_en: tuple[str, ...] = ()
 
     def title(self, lang: str) -> str:
         return self.title_en if lang == "en" else self.title_ru
 
-    def price(self, lang: str) -> str:
-        return self.price_en if lang == "en" else self.price_ru
+    def summary(self, lang: str) -> str:
+        return self.summary_en if lang == "en" else self.summary_ru
 
-    def description(self, lang: str) -> str:
-        return self.description_en if lang == "en" else self.description_ru
+    def bullets(self, lang: str) -> tuple[str, ...]:
+        return self.bullets_en if lang == "en" else self.bullets_ru
+
+    def status(self, lang: str) -> str:
+        return self.status_en if lang == "en" else self.status_ru
+
+    def note(self, lang: str) -> str:
+        return self.note_en if lang == "en" else self.note_ru
+
+    def extra(self, lang: str) -> tuple[str, ...]:
+        return self.extra_en if lang == "en" else self.extra_ru
 
     def button_label(self, lang: str) -> str:
-        return f"{self.emoji} {self.title(lang)} · {self.price(lang)}"
+        title = self.title(lang)
+        if self.free:
+            return f"{self.emoji} {title} · {'Free' if lang == 'en' else 'Бесплатно'}"
+        return f"{self.emoji} {title}"
 
 
 REPORT_PRODUCTS: tuple[ReportProduct, ...] = (
     ReportProduct(
-        product_id="r0",
+        product_id="passport",
         emoji="🧬",
-        title_ru="Комплексный обзор",
-        title_en="Complete overview",
-        price_ru="Бесплатно",
-        price_en="Free",
-        description_ru=(
-            "Короткий понятный отчёт по образцу: что уже есть в My DNA, какие G25-профили привязаны, "
-            "какие разделы можно запускать дальше и где будут появляться сохранённые результаты."
+        title_ru="DNA-паспорт",
+        title_en="DNA passport",
+        summary_ru="Краткий обзор загруженного образца и доступных возможностей анализа.",
+        summary_en="A short overview of the uploaded sample and available analysis options.",
+        bullets_ru=(
+            "сведения об исходном DNA-файле",
+            "оценку доступности анализов",
+            "краткое положение в пространстве G25",
+            "основные результаты DNA Lab",
+            "рекомендации по дальнейшему исследованию",
         ),
-        description_en=(
-            "A short sample overview: stored My DNA data, linked G25 profiles, suggested next steps, "
-            "and where saved results will live."
+        bullets_en=(
+            "source DNA file details",
+            "analysis availability check",
+            "short G25 coordinate-space position",
+            "main DNA Lab results",
+            "recommended next research steps",
         ),
+        status_ru="Стоимость: Бесплатно\n\nВ разработке",
+        status_en="Price: Free\n\nIn development",
+        free=True,
     ),
     ReportProduct(
-        product_id="r1",
+        product_id="origin_portrait",
+        emoji="🧭",
+        title_ru="Портрет происхождения",
+        title_en="Origin portrait",
+        summary_ru="Комплексное исследование генетического происхождения, объединяющее современные и древние сравнения.",
+        summary_en="A combined ancestry report with modern and ancient comparisons.",
+        bullets_ru=(
+            "положение на глобальной и региональной карте",
+            "ближайшие современные популяции",
+            "основные направления генетического сходства",
+            "модели происхождения",
+            "древние генетические пласты",
+            "единый итог понятным языком",
+        ),
+        bullets_en=(
+            "global and regional map position",
+            "closest modern populations",
+            "main directions of genetic similarity",
+            "ancestry models",
+            "ancient genetic layers",
+            "plain-language final summary",
+        ),
+        status_ru="Статус: В разработке",
+        status_en="Status: In development",
+    ),
+    ReportProduct(
+        product_id="ancient_roots",
         emoji="🏺",
-        title_ru="Древние совпадения",
-        title_en="Ancient matches",
-        price_ru="⭐ 99",
-        price_en="⭐ 99",
-        description_ru=(
-            "Заготовка для красивого отчёта по древним и средневековым параллелям: близкие профили, "
-            "временные пласты и аккуратные пояснения без ручного входа в DNA Lab."
+        title_ru="Древние корни",
+        title_en="Ancient roots",
+        summary_ru="Исследование сходства с древними популяциями и археологическими группами разных эпох.",
+        summary_en="A report on similarity to ancient populations and archaeological groups from different periods.",
+        bullets_ru=(
+            "ближайшие древние образцы",
+            "временную шкалу",
+            "географию находок",
+            "группировку по эпохам и регионам",
+            "объяснение древних генетических связей",
+            "отделение реального вывода от простого внешнего сходства",
         ),
-        description_en=(
-            "A polished report concept for ancient and medieval parallels: close profiles, time layers, "
-            "and plain-language notes without manual DNA Lab setup."
+        bullets_en=(
+            "closest ancient samples",
+            "timeline",
+            "find geography",
+            "grouping by period and region",
+            "explanation of ancient genetic links",
+            "separation of evidence from superficial similarity",
         ),
-        is_paid=True,
+        status_ru="Статус: В разработке",
+        status_en="Status: In development",
     ),
     ReportProduct(
-        product_id="r2",
+        product_id="regional_study",
         emoji="⛰",
-        title_ru="Кавказ / Степь / Ближний Восток",
-        title_en="Caucasus / Steppe / Near East",
-        price_ru="⭐ 149",
-        price_en="⭐ 149",
-        description_ru=(
-            "Региональный комплексный отчёт: G25-ориентиры, близкие кластеры, исторический контекст "
-            "и компактное резюме по выбранному образцу."
+        title_ru="Региональное исследование",
+        title_en="Regional study",
+        summary_ru="Углублённый анализ происхождения внутри выбранного историко-географического региона.",
+        summary_en="A deeper ancestry analysis inside a selected historical-geographic region.",
+        bullets_ru=(
+            "сравнение с локальными популяциями",
+            "современные и древние референсы",
+            "региональные модели происхождения",
+            "проверку нескольких гипотез",
+            "подробный вывод по выбранному региону",
         ),
-        description_en=(
-            "A regional report concept: G25 anchors, close clusters, historical context, "
-            "and a compact summary for the selected sample."
+        bullets_en=(
+            "comparison with local populations",
+            "modern and ancient references",
+            "regional ancestry models",
+            "several hypothesis checks",
+            "detailed conclusion for the selected region",
         ),
-        is_paid=True,
+        extra_ru=(
+            "Примеры будущих направлений:",
+            "",
+            "Кавказ · Степь · Ближний Восток",
+            "Европа",
+            "Центральная Азия",
+            "Южная Азия",
+            "Восточная Евразия",
+        ),
+        extra_en=(
+            "Future direction examples:",
+            "",
+            "Caucasus · Steppe · Near East",
+            "Europe",
+            "Central Asia",
+            "South Asia",
+            "East Eurasia",
+        ),
+        status_ru="Статус: В разработке",
+        status_en="Status: In development",
+    ),
+    ReportProduct(
+        product_id="family_comparison",
+        emoji="👥",
+        title_ru="Семейное сравнение",
+        title_en="Family comparison",
+        summary_ru="Исследование генетического родства между двумя или несколькими образцами.",
+        summary_en="A report on genetic relatedness between two or more samples.",
+        bullets_ru=(
+            "предполагаемую степень родства",
+            "общую длину совпадений",
+            "количество и размер общих сегментов",
+            "распределение совпадений по хромосомам",
+            "возможные варианты родственной связи",
+            "оценку надёжности результата",
+        ),
+        bullets_en=(
+            "estimated relationship degree",
+            "total shared match length",
+            "number and size of shared segments",
+            "chromosome-level match distribution",
+            "possible relationship scenarios",
+            "result confidence estimate",
+        ),
+        status_ru="Статус: В разработке",
+        status_en="Status: In development",
+    ),
+    ReportProduct(
+        product_id="traits_portrait",
+        emoji="✨",
+        title_ru="Портрет признаков",
+        title_en="Trait portrait",
+        summary_ru="Сводный отчёт по генетическим признакам, доступным в загруженном DNA-файле.",
+        summary_en="A combined report on genetic traits available in the uploaded DNA file.",
+        bullets_ru=(
+            "наиболее выраженные результаты",
+            "признаки внешности и особенностей организма",
+            "показатели образа жизни и физической активности",
+            "процентили относительно референсной панели",
+            "уровень надёжности каждого результата",
+            "объяснение роли генетики и среды",
+        ),
+        bullets_en=(
+            "strongest results",
+            "appearance and body-related traits",
+            "lifestyle and physical activity signals",
+            "percentiles against a reference panel",
+            "confidence level for each result",
+            "explanation of genetics and environment",
+        ),
+        note_ru="Отчёт не является медицинским заключением.",
+        note_en="This report is not a medical conclusion.",
+        status_ru="Статус: В разработке",
+        status_en="Status: In development",
+    ),
+    ReportProduct(
+        product_id="lineage",
+        emoji="🌿",
+        title_ru="Отцовская и материнская линии",
+        title_en="Paternal and maternal lines",
+        summary_ru="Исследование прямых отцовской и материнской линий по Y-DNA и mtDNA.",
+        summary_en="A report on direct paternal and maternal lines using Y-DNA and mtDNA.",
+        bullets_ru=(
+            "положение ветви на генетическом дереве",
+            "предполагаемый возраст линии",
+            "географию родственных ветвей",
+            "современные и древние совпадения",
+            "возможные направления миграций",
+            "оценку точности определения",
+        ),
+        bullets_en=(
+            "branch position on the genetic tree",
+            "estimated lineage age",
+            "geography of related branches",
+            "modern and ancient matches",
+            "possible migration directions",
+            "accuracy estimate",
+        ),
+        note_ru="Доступность отчёта зависит от типа загруженных данных.",
+        note_en="Report availability depends on the uploaded data type.",
+        status_ru="Статус: В разработке",
+        status_en="Status: In development",
     ),
 )
+
+LEGACY_PRODUCT_ALIASES = {
+    "r0": "passport",
+    "r1": "ancient_roots",
+    "r2": "regional_study",
+}
 
 
 def _copy(lang: str, ru: str, en: str) -> str:
@@ -110,74 +271,26 @@ def _copy(lang: str, ru: str, en: str) -> str:
 
 
 def _product(product_id: str) -> ReportProduct | None:
+    product_id = LEGACY_PRODUCT_ALIASES.get(product_id, product_id)
     for item in REPORT_PRODUCTS:
         if item.product_id == product_id:
             return item
     return None
 
 
-def _samples(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> list[object]:
-    store = context.application.bot_data.get("my_data_store")
-    if store is None:
-        return []
-    try:
-        return list(store.list_samples(user_id))
-    except Exception:
-        return []
-
-
-def _sample_by_id(context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str) -> object | None:
-    store = context.application.bot_data.get("my_data_store")
-    if store is None:
-        return None
-    try:
-        sample = store.get_sample(user_id, sample_id)
-    except Exception:
-        return None
-    return sample
-
-
-def _sample_page_bounds(samples: list[object], page: int) -> tuple[int, int, int, int]:
-    page_count = max(1, (len(samples) + REPORT_SAMPLE_PAGE_SIZE - 1) // REPORT_SAMPLE_PAGE_SIZE)
-    safe_page = min(max(int(page), 0), page_count - 1)
-    start = safe_page * REPORT_SAMPLE_PAGE_SIZE
-    end = min(start + REPORT_SAMPLE_PAGE_SIZE, len(samples))
-    return safe_page, start, end, page_count
-
-
-def _is_report_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    access_store = context.application.bot_data.get("g25_access_store")
-    if access_store is None or not hasattr(access_store, "is_admin"):
-        return False
-    try:
-        return bool(access_store.is_admin(update))
-    except Exception:
-        return False
-
-
 def reports_text(*, lang: str = "ru", show_products: bool = True) -> str:
-    if not show_products:
-        if lang == "en":
-            return (
-                "📊 Reports\n\n"
-                "Ready-made DNA reports are being prepared.\n\n"
-                "Saved DNA Lab results remain available inside each sample card."
-            )
-        return (
-            "📊 Отчёты\n\n"
-            "Готовые комплексные отчёты пока готовятся.\n\n"
-            "Сохранённые результаты DNA Lab доступны внутри карточек образцов."
-        )
     if lang == "en":
         return (
             "📊 Reports\n\n"
-            "Ready-made DNA reports for people who want a clear result without configuring DNA Lab by hand.\n\n"
-            "Choose a report, then choose a sample. Saved DNA Lab results still live inside each sample card."
+            "Personal studies based on your DNA samples.\n\n"
+            "Each report combines results from different methods into a clear outcome: conclusions, visuals, and explanations.\n\n"
+            "Choose a direction."
         )
     return (
         "📊 Отчёты\n\n"
-        "Готовые комплексные отчёты по вашим образцам без ручной настройки DNA Lab.\n\n"
-        "Выберите отчёт, затем образец. Сохранённые результаты DNA Lab остаются внутри карточек образцов."
+        "Персональные исследования по вашим DNA-образцам.\n\n"
+        "Каждый отчёт объединяет результаты разных методов в понятный итог: с выводами, визуализациями и пояснениями.\n\n"
+        "Выберите направление."
     )
 
 
@@ -190,7 +303,12 @@ def build_reports_keyboard(
     rows: list[list[InlineKeyboardButton]] = []
     if show_products:
         rows.extend(
-            [InlineKeyboardButton(product.button_label(lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:s:{product.product_id}")]
+            [
+                InlineKeyboardButton(
+                    product.button_label(lang),
+                    callback_data=f"{REPORTS_CALLBACK_PREFIX}:info:{product.product_id}",
+                )
+            ]
             for product in REPORT_PRODUCTS
         )
     rows.append(
@@ -202,179 +320,40 @@ def build_reports_keyboard(
     return InlineKeyboardMarkup(rows)
 
 
-def report_detail_text(product: ReportProduct, samples_count: int, *, lang: str = "ru") -> str:
-    if lang == "en":
-        if samples_count:
-            tail = "Choose a sample below. This is a placeholder screen for now."
-        else:
-            tail = "Add a raw file first, then come back here to generate this report."
-        return (
-            f"{product.emoji} {product.title(lang)}\n"
-            f"{product.price(lang)}\n\n"
-            f"{product.description(lang)}\n\n"
-            f"{tail}\n\n"
-            "Saved DNA Lab results remain available from Samples -> sample -> Reports."
-        )
-    tail = (
-        "Выберите образец ниже. Пока это экран-заглушка для будущей генерации."
-        if samples_count
-        else "Сначала загрузите файл и создайте образец, потом вернитесь сюда за отчётом."
-    )
-    return (
-        f"{product.emoji} {product.title(lang)}\n"
-        f"{product.price(lang)}\n\n"
-        f"{product.description(lang)}\n\n"
-        f"{tail}\n\n"
-        "Сохранённые результаты DNA Lab доступны в Образцы -> образец -> Отчёты."
-    )
+def report_detail_text(product: ReportProduct, samples_count: int = 0, *, lang: str = "ru") -> str:
+    lines = [
+        f"{product.emoji} {product.title(lang)}",
+        "",
+        product.summary(lang),
+        "",
+        _copy(lang, "Что вы получите:", "What you get:"),
+        "",
+    ]
+    lines.extend(f"• {item}" for item in product.bullets(lang))
+    extra = product.extra(lang)
+    if extra:
+        lines.extend(["", *extra])
+    note = product.note(lang)
+    if note:
+        lines.extend(["", note])
+    lines.extend(["", product.status(lang)])
+    return "\n".join(lines)
 
 
 def build_report_detail_keyboard(
     product: ReportProduct,
-    samples: list[object],
+    samples: list[object] | None = None,
     *,
     page: int = 0,
     lang: str = "ru",
 ) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    if samples:
-        safe_page, start, end, page_count = _sample_page_bounds(samples, page)
-        for index, sample in enumerate(samples[start:end], start=start + 1):
-            sample_id = str(getattr(sample, "asset_id", ""))
-            sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
-            rows.append(
-                [
-                    InlineKeyboardButton(
-                        f"{index}. {sample_name}",
-                        callback_data=f"{REPORTS_CALLBACK_PREFIX}:c:{product.product_id}:{sample_id}",
-                    )
-                ]
-            )
-        if page_count > 1:
-            nav_row: list[InlineKeyboardButton] = []
-            if safe_page > 0:
-                nav_row.append(
-                    InlineKeyboardButton(
-                        f"← {t('nav.back', lang)}",
-                        callback_data=f"{REPORTS_CALLBACK_PREFIX}:sp:{product.product_id}:{safe_page - 1}",
-                    )
-                )
-            if end < len(samples):
-                nav_row.append(
-                    InlineKeyboardButton(
-                        f"{_copy(lang, 'Далее', 'Next')} →",
-                        callback_data=f"{REPORTS_CALLBACK_PREFIX}:sp:{product.product_id}:{safe_page + 1}",
-                    )
-                )
-            if nav_row:
-                rows.append(nav_row)
-    else:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    _copy(lang, "📤 Загрузить файл", "📤 Upload file"),
-                    callback_data="my_data:raw_files_upload:root",
-                )
-            ]
-        )
-    rows.append(
-        [
-            InlineKeyboardButton(t("nav.back", lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:root"),
-            InlineKeyboardButton(t("nav.cancel", lang), callback_data="main:cancel"),
-        ]
-    )
-    return InlineKeyboardMarkup(rows)
-
-
-def report_confirmation_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
-    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
-    if lang == "en":
-        if product.product_id == PLATFORM_REPORT_PRODUCT_ID:
-            return (
-                f"{product.emoji} {product.title(lang)}\n\n"
-                f"Sample: {sample_name}\n"
-                f"Price: {product.price(lang)}\n\n"
-                "Admin prototype: the bot will take the sample's saved G25 profile, run dna_platform backbone analysis, "
-                "then send a short summary and generated artifacts."
-            )
-        return (
-            f"{product.emoji} {product.title(lang)}\n\n"
-            f"Sample: {sample_name}\n"
-            f"Price: {product.price(lang)}\n\n"
-            "This is a clean placeholder: the real report generator and Stars payment flow will be connected later."
-        )
-    if product.product_id == PLATFORM_REPORT_PRODUCT_ID:
-        return (
-            f"{product.emoji} {product.title(lang)}\n\n"
-            f"Образец: {sample_name}\n"
-            f"Стоимость: {product.price(lang)}\n\n"
-            "Админский прототип: бот возьмёт сохранённый G25-профиль образца, запустит backbone-анализ через dna_platform "
-            "и отправит краткое резюме с артефактами."
-        )
-    return (
-        f"{product.emoji} {product.title(lang)}\n\n"
-        f"Образец: {sample_name}\n"
-        f"Стоимость: {product.price(lang)}\n\n"
-        "Это аккуратная заглушка: настоящую генерацию отчёта и оплату звёздами подключим следующим шагом."
-    )
-
-
-def build_report_confirmation_keyboard(product: ReportProduct, sample: object, *, lang: str = "ru") -> InlineKeyboardMarkup:
-    sample_id = str(getattr(sample, "asset_id", ""))
-    if product.is_paid:
-        action_label = _copy(lang, f"Получить за {product.price(lang)}", f"Get for {product.price(lang)}")
-        action_callback = f"{REPORTS_CALLBACK_PREFIX}:pay:{product.product_id}:{sample_id}"
-    else:
-        action_label = _copy(lang, "🚀 Сформировать демо", "🚀 Generate demo")
-        action_callback = f"{REPORTS_CALLBACK_PREFIX}:g:{product.product_id}:{sample_id}"
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(action_label, callback_data=action_callback)],
             [
-                InlineKeyboardButton(t("nav.back", lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:s:{product.product_id}"),
+                InlineKeyboardButton(t("nav.back", lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:root"),
                 InlineKeyboardButton(t("nav.cancel", lang), callback_data="main:cancel"),
-            ],
+            ]
         ]
-    )
-
-
-def report_demo_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
-    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
-    if lang == "en":
-        return (
-            f"✅ {product.title(lang)}\n\n"
-            f"Sample: {sample_name}\n\n"
-            "Report preview\n"
-            "1. Input data check\n"
-            "2. G25 and raw-file readiness\n"
-            "3. Suggested next DNA Lab calculations\n\n"
-            "The full renderer will replace this placeholder."
-        )
-    return (
-        f"✅ {product.title(lang)}\n\n"
-        f"Образец: {sample_name}\n\n"
-        "Черновик отчёта\n"
-        "1. Проверка исходных данных\n"
-        "2. Готовность raw/G25\n"
-        "3. Что стоит посчитать дальше в DNA Lab\n\n"
-        "Позже эту заглушку заменит полноценный генератор."
-    )
-
-
-def payment_stub_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
-    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
-    if lang == "en":
-        return (
-            f"⭐ {product.title(lang)}\n\n"
-            f"Sample: {sample_name}\n"
-            f"Price: {product.price(lang)}\n\n"
-            "Stars payment is not connected yet. This screen reserves the future purchase flow."
-        )
-    return (
-        f"⭐ {product.title(lang)}\n\n"
-        f"Образец: {sample_name}\n"
-        f"Стоимость: {product.price(lang)}\n\n"
-        "Оплата звёздами пока не подключена. Этот экран фиксирует будущий сценарий покупки."
     )
 
 
@@ -389,95 +368,10 @@ def build_stub_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     )
 
 
-def platform_report_running_text(product: ReportProduct, sample: object, *, lang: str = "ru") -> str:
-    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
-    if lang == "en":
-        return (
-            f"{product.emoji} {product.title(lang)}\n\n"
-            f"Sample: {sample_name}\n\n"
-            "Generating the admin prototype report. This can take a few minutes."
-        )
-    return (
-        f"{product.emoji} {product.title(lang)}\n\n"
-        f"Образец: {sample_name}\n\n"
-        "Генерирую админский прототип отчёта. Это может занять несколько минут."
-    )
-
-
-def platform_report_missing_g25_text(sample: object, *, lang: str = "ru") -> str:
-    sample_name = str(getattr(sample, "display_name", _copy(lang, "Образец", "Sample")))
-    if lang == "en":
-        return (
-            "🧬 Complete overview\n\n"
-            f"Sample: {sample_name}\n\n"
-            "No saved G25 profile is attached to this sample. Add or extract G25 first, then run the report again."
-        )
-    return (
-        "🧬 Комплексный обзор\n\n"
-        f"Образец: {sample_name}\n\n"
-        "У этого образца нет привязанного G25-профиля. Сначала добавьте или получите G25, затем запустите отчёт снова."
-    )
-
-
 def platform_report_error_text(error: Exception, *, lang: str = "ru") -> str:
-    detail = str(error).strip()
-    if "Traceback" in detail or "FileNotFoundError" in detail:
-        detail = "Technical backend error. Details are in the server log."
-    elif len(detail) > 240:
-        detail = detail[:240].rstrip() + "..."
     if lang == "en":
-        return (
-            "🧬 Complete overview\n\n"
-            "Could not generate the dna_platform report.\n\n"
-            f"{detail}"
-        )
-    return (
-        "🧬 Комплексный обзор\n\n"
-        "Не удалось сформировать отчёт через dna_platform.\n\n"
-        f"{detail}"
-    )
-
-
-def platform_report_result_text(report: G25PlatformReport, *, visual_count: int | None = None, lang: str = "ru") -> str:
-    title = "🧬 Complete overview" if lang == "en" else "🧬 Комплексный обзор"
-    sample_label = "Sample" if lang == "en" else "Образец"
-    g25_label = "G25 profile" if lang == "en" else "G25-профиль"
-    visual_label = "Visual cards" if lang == "en" else "PNG-карточки"
-    count = len(report.artifact_paths) if visual_count is None else visual_count
-    lines = [
-        title,
-        "",
-        f"{sample_label}: {report.sample_name}",
-        f"{g25_label}: {report.coordinate_name}",
-        "",
-        "Backbone summary:",
-    ]
-    lines.extend(f"• {item}" for item in report.summary_lines[:8])
-    lines.extend(
-        [
-            "",
-            f"{visual_label}: {count}",
-        ]
-    )
-    return "\n".join(lines)
-
-
-def platform_visual_caption(path: Path, *, lang: str = "ru") -> str:
-    labels = {
-        "g25_overview": ("Complex G25 overview", "Комплексный G25-обзор"),
-        "g25_distance_modern": ("Modern distances", "Современные совпадения"),
-        "g25_distance_ancient": ("Ancient distances", "Древние совпадения"),
-    }
-    en, ru = labels.get(path.stem, (path.stem.replace("_", " ").title(), path.stem.replace("_", " ")))
-    return en if lang == "en" else ru
-
-
-def _reports_storage_root(context: ContextTypes.DEFAULT_TYPE) -> Path:
-    my_data_store = context.application.bot_data.get("my_data_store")
-    root_dir = getattr(my_data_store, "root_dir", None)
-    if root_dir is not None:
-        return Path(root_dir).parent / "reports"
-    return Path("storage") / "reports"
+        return "📊 Reports\n\nThis report is in development."
+    return "📊 Отчёты\n\nЭтот отчёт находится в разработке."
 
 
 async def show_reports_menu(
@@ -501,123 +395,14 @@ async def show_reports_menu(
 
 async def _show_report_detail(
     message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
     product: ReportProduct,
-    *,
-    page: int = 0,
-    lang: str = "ru",
-) -> None:
-    samples = _samples(context, user_id)
-    text = report_detail_text(product, len(samples), lang=lang)
-    markup = build_report_detail_keyboard(product, samples, page=page, lang=lang)
-    await message.edit_text(text, reply_markup=markup)
-
-
-async def _show_report_confirmation(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    product: ReportProduct,
-    sample_id: str,
     *,
     lang: str = "ru",
 ) -> None:
-    sample = _sample_by_id(context, user_id, sample_id)
-    if sample is None:
-        await message.edit_text(
-            _copy(lang, "Отчёт\n\nОбразец не найден. Откройте My DNA заново.", "Report\n\nSample not found. Open My DNA again."),
-            reply_markup=build_reports_keyboard(lang=lang),
-        )
-        return
     await message.edit_text(
-        report_confirmation_text(product, sample, lang=lang),
-        reply_markup=build_report_confirmation_keyboard(product, sample, lang=lang),
+        report_detail_text(product, lang=lang),
+        reply_markup=build_report_detail_keyboard(product, lang=lang),
     )
-
-
-async def _show_report_stub(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    product: ReportProduct,
-    sample_id: str,
-    *,
-    lang: str = "ru",
-    paid: bool = False,
-) -> None:
-    sample = _sample_by_id(context, user_id, sample_id)
-    if sample is None:
-        await message.edit_text(
-            _copy(lang, "Отчёт\n\nОбразец не найден. Откройте My DNA заново.", "Report\n\nSample not found. Open My DNA again."),
-            reply_markup=build_reports_keyboard(lang=lang),
-        )
-        return
-    text = payment_stub_text(product, sample, lang=lang) if paid else report_demo_text(product, sample, lang=lang)
-    await message.edit_text(text, reply_markup=build_stub_keyboard(lang=lang))
-
-
-async def _show_platform_report(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    product: ReportProduct,
-    sample_id: str,
-    *,
-    lang: str = "ru",
-) -> None:
-    store = context.application.bot_data.get("my_data_store")
-    sample = _sample_by_id(context, user_id, sample_id)
-    if sample is None or store is None:
-        await message.edit_text(
-            _copy(lang, "Отчёт\n\nОбразец не найден. Откройте My DNA заново.", "Report\n\nSample not found. Open My DNA again."),
-            reply_markup=build_reports_keyboard(lang=lang),
-        )
-        return
-
-    coordinate = choose_sample_g25_coordinate(store, user_id, sample)
-    if coordinate is None:
-        await message.edit_text(platform_report_missing_g25_text(sample, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
-        return
-
-    await message.edit_text(platform_report_running_text(product, sample, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
-    try:
-        report = await generate_g25_platform_report(
-            storage_root=_reports_storage_root(context),
-            sample=sample,
-            coordinate=coordinate,
-            user_id=user_id,
-        )
-    except G25PlatformReportError as exc:
-        logger.warning("G25 platform report failed: %s", exc)
-        await message.edit_text(platform_report_error_text(exc, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
-        return
-    except Exception as exc:
-        logger.exception("Unexpected G25 platform report failure")
-        await message.edit_text(platform_report_error_text(exc, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
-        return
-
-    try:
-        visuals = build_g25_report_visuals(report)
-    except Exception as exc:
-        logger.exception("Could not render G25 platform report visuals")
-        await message.edit_text(platform_report_error_text(exc, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
-        return
-
-    await message.edit_text(platform_report_result_text(report, visual_count=len(visuals.paths), lang=lang), reply_markup=build_stub_keyboard(lang=lang))
-    chat_id = getattr(message, "chat_id", None)
-    if chat_id is None:
-        return
-    for visual_path in visuals.paths:
-        try:
-            with visual_path.open("rb") as handle:
-                await context.bot.send_photo(
-                    chat_id=chat_id,
-                    photo=InputFile(handle, filename=visual_path.name),
-                    caption=platform_visual_caption(visual_path, lang=lang),
-                )
-        except Exception:
-            logger.exception("Could not send G25 platform report visual: %s", visual_path)
 
 
 async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -636,36 +421,20 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
         return
     user_id = int(user.id)
     lang = get_user_language(context, user_id)
-    is_admin = _is_report_admin(update, context)
 
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else "root"
-    if not is_admin:
-        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=False)
-        return
     if action in {"root", "p"}:
-        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=True)
+        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
         return
-    if action in {"s", "sp"}:
+
+    if action in {"info", "s", "sp"}:
         product_id = parts[2] if len(parts) > 2 else ""
         product = _product(product_id)
         if product is None:
-            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=True)
+            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
             return
-        page = int(parts[3]) if action == "sp" and len(parts) > 3 and parts[3].isdigit() else 0
-        await _show_report_detail(query.message, context, user_id, product, page=page, lang=lang)
+        await _show_report_detail(query.message, product, lang=lang)
         return
-    if action in {"c", "g", "pay"}:
-        product_id = parts[2] if len(parts) > 2 else ""
-        sample_id = parts[3] if len(parts) > 3 else ""
-        product = _product(product_id)
-        if product is None:
-            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=True)
-            return
-        if action == "c":
-            await _show_report_confirmation(query.message, context, user_id, product, sample_id, lang=lang)
-            return
-        if action == "g" and product.product_id == PLATFORM_REPORT_PRODUCT_ID:
-            await _show_platform_report(query.message, context, user_id, product, sample_id, lang=lang)
-            return
-        await _show_report_stub(query.message, context, user_id, product, sample_id, lang=lang, paid=action == "pay")
+
+    await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
