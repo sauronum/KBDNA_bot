@@ -181,10 +181,13 @@ async def _dispatch_modeling_action(
     if action == "at2_qpwave":
         await show_qpwave_admixtools2_dataset_menu(query.message, context, edit_existing=True, lang=lang)
         return
-    if action == "at2_qpgraph":
-        await show_admixtools2_pending(query.message, context, action, edit_existing=True, lang=lang)
-        return
-    if action == "at2_fstats" or action == "at2_f2_cache" or action.startswith("at2_fstats_"):
+    if (
+        action == "at2_qpgraph"
+        or action == "at2_fstats"
+        or action == "at2_f2_cache"
+        or action.startswith("at2_qpgraph_")
+        or action.startswith("at2_fstats_")
+    ):
         handled = await admixtools2_callback_handler(update, context, action, parts, lang=lang)
         if handled:
             return

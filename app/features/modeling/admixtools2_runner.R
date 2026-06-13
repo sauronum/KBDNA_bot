@@ -167,6 +167,20 @@ rows_from_frame <- function(frame) {
   lapply(seq_len(nrow(frame)), function(index) as.list(frame[index, , drop = FALSE]))
 }
 
+simple_graph_edges <- function(graph_text) {
+  lines <- trimws(unlist(strsplit(graph_text, "\n", fixed = TRUE), use.names = FALSE))
+  lines <- lines[nzchar(lines) & !startsWith(lines, "#")]
+  if (length(lines) < 1) return(NULL)
+  tokens <- strsplit(lines, "\\s+")
+  is_simple_edge <- vapply(tokens, function(parts) length(parts) == 3 && parts[[1]] %in% c("edge", "ledge", "redge"), logical(1))
+  if (!all(is_simple_edge)) return(NULL)
+  data.frame(
+    from = vapply(tokens, function(parts) parts[[2]], character(1)),
+    to = vapply(tokens, function(parts) parts[[3]], character(1)),
+    stringsAsFactors = FALSE
+  )
+}
+
 normalize_qpwave <- function(value) {
   frame <- as.data.frame(value)
   names_lower <- tolower(names(frame))
@@ -189,6 +203,56 @@ normalize_qpwave <- function(value) {
     )
   }
   rows
+}
+
+graph_edges_from_request <- function(request) {
+  graph_text <- scalar(request$graph_text, NULL)
+  graph_file <- scalar(request$graph_file, NULL)
+  if (!is.null(graph_text)) {
+    simple_edges <- simple_graph_edges(graph_text)
+    if (!is.null(simple_edges)) return(simple_edges)
+    graph_file <- tempfile(pattern = "kbdna_qpgraph_", fileext = ".graph")
+    writeLines(graph_text, graph_file, useBytes = TRUE)
+  }
+  if (!is.null(graph_file)) {
+    return(admixtools::parse_qpgraph_graphfile(graph_file))
+  }
+  edges <- field(request, "graph_edges")
+  if (!is.null(edges)) {
+    if (is.list(edges) && length(edges) > 0 && all(vapply(edges, is.list, logical(1)))) {
+      frame <- do.call(rbind, lapply(edges, function(row) as.data.frame(row, stringsAsFactors = FALSE)))
+    } else {
+      frame <- as.data.frame(edges, stringsAsFactors = FALSE)
+    }
+    if (!all(c("from", "to") %in% names(frame)) && ncol(frame) >= 2) {
+      names(frame)[1:2] <- c("from", "to")
+    }
+    if (all(c("from", "to") %in% names(frame))) return(frame)
+  }
+  stop("qpGraph request must provide graph_text, graph_file, or graph_edges", call. = FALSE)
+}
+
+graph_leaf_pops <- function(edges) {
+  frame <- as.data.frame(edges, stringsAsFactors = FALSE)
+  if (!all(c("from", "to") %in% names(frame)) && ncol(frame) >= 2) {
+    names(frame)[1:2] <- c("from", "to")
+  }
+  if (!all(c("from", "to") %in% names(frame))) {
+    stop("qpGraph edges must have from/to columns", call. = FALSE)
+  }
+  leaves <- setdiff(as.character(frame$to), as.character(frame$from))
+  unique(leaves[nzchar(leaves)])
+}
+
+normalize_qpgraph <- function(value) {
+  result <- list(
+    score = field(value, "score"),
+    worst_residual = field(value, "worst_residual"),
+    p_value = field(value, "p.value"),
+    edges = rows_from_frame(field(value, "edges", data.frame())),
+    f3 = rows_from_frame(field(value, "f3", data.frame()))
+  )
+  result
 }
 
 run_qpwave <- function(request) {
@@ -225,6 +289,47 @@ run_qpwave <- function(request) {
   list(status = "completed", warnings = as.list(captured), result = list(ranks = normalize_qpwave(result), rows = rows_from_frame(result), data_source = source$source))
 }
 
+run_qpgraph <- function(request) {
+  edges <- graph_edges_from_request(request)
+  pops <- graph_leaf_pops(edges)
+  if (length(pops) < 3) stop("qpGraph requires at least 3 sampled leaf populations", call. = FALSE)
+  options <- request$options
+  if (is.null(options)) options <- list()
+  options$afprod <- FALSE
+  source <- data_source(request, pops)
+  return_fstats <- scalar(field(options, "return_fstats"), "f3")
+  if (tolower(return_fstats) %in% c("0", "false", "no", "none")) return_fstats <- FALSE
+  captured <- character()
+  result <- withCallingHandlers(
+    admixtools::qpgraph(
+      source$data,
+      graph = edges,
+      lambdascale = num(field(options, "lambdascale"), 1),
+      boot = bool(field(options, "boot"), FALSE),
+      diag = num(field(options, "diag"), 1e-04),
+      diag_f3 = num(field(options, "diag_f3"), 1e-05),
+      lsqmode = bool(field(options, "lsqmode"), FALSE),
+      numstart = as.integer(num(field(options, "numstart"), 10)),
+      seed = num(field(options, "seed"), NULL),
+      cpp = bool(field(options, "cpp"), TRUE),
+      return_fstats = return_fstats,
+      return_pvalue = bool(field(options, "return_pvalue"), FALSE),
+      constrained = bool(field(options, "constrained"), TRUE),
+      allsnps = bool(field(options, "allsnps"), FALSE),
+      verbose = FALSE
+    ),
+    message = function(message) {
+      captured <<- c(captured, conditionMessage(message))
+      invokeRestart("muffleMessage")
+    },
+    warning = function(warning) {
+      captured <<- c(captured, conditionMessage(warning))
+      invokeRestart("muffleWarning")
+    }
+  )
+  list(status = "completed", warnings = as.list(captured), result = c(normalize_qpgraph(result), list(leaf_populations = as.list(pops), data_source = source$source)))
+}
+
 run_fstats <- function(request) {
   stat <- scalar(request$statistic, "f4")
   pops <- as_chars(request$populations)
@@ -253,6 +358,7 @@ main <- function() {
   payload <- tryCatch(
     {
       if (identical(command, "qpwave")) run_qpwave(request)
+      else if (identical(command, "qpgraph")) run_qpgraph(request)
       else if (identical(command, "fstats")) run_fstats(request)
       else json_error(paste("Unsupported command:", command), "unsupported_command")
     },

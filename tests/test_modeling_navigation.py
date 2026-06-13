@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from app.features.modeling import saved_models
-from app.features.modeling.admixtools2 import show_f2_cache_status, show_fstats_dataset_menu
+from app.features.modeling.admixtools2 import show_f2_cache_status, show_fstats_dataset_menu, show_qpgraph_dataset_menu
 from app.features.modeling.menu import show_admixtools2_pending
 from app.features.modeling.navigation import (
     NAV_CURRENT_KEY,
@@ -179,6 +179,19 @@ class ModelingNavigationTests(unittest.TestCase):
         )
 
         self.assertEqual(context.user_data[NAV_CURRENT_KEY], "modeling:at2_qpgraph")
+        self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:root", "modeling:at2"])
+        self.assertEqual(_footer_back_callback(message), nav_back_callback())
+        self.assertEqual(nav_pop(context), "modeling:at2")
+
+    def test_admixtools2_qpgraph_dataset_back_returns_to_admixtools2_menu(self) -> None:
+        message = Message()
+        context = SimpleNamespace(user_data={})
+        nav_enter(context, "modeling:root")
+        nav_enter(context, "modeling:at2")
+
+        asyncio.run(show_qpgraph_dataset_menu(message, context, edit_existing=True, lang="ru"))
+
+        self.assertEqual(context.user_data[NAV_CURRENT_KEY], "modeling:at2_qpgraph_ds")
         self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:root", "modeling:at2"])
         self.assertEqual(_footer_back_callback(message), nav_back_callback())
         self.assertEqual(nav_pop(context), "modeling:at2")

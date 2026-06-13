@@ -10,14 +10,19 @@ from types import SimpleNamespace
 from app.features.modeling import admixtools2
 from app.features.modeling.admixtools2 import (
     AT2_FSTATS_FLOW_KEY,
+    AT2_QPGRAPH_FLOW_KEY,
     _cache_entry_ready,
     _cache_rows,
     _format_cache_status,
     _format_fstats_error,
     _format_fstats_result,
+    _format_qpgraph_result,
     _new_fstats_flow,
+    _new_qpgraph_flow,
     _parse_populations,
+    _parse_qpgraph_graph_text,
     _show_fstats_builder,
+    _show_qpgraph_builder,
     admixtools2_callback_handler,
 )
 from app.features.modeling.navigation import NAV_CURRENT_KEY, NAV_STACK_KEY, nav_enter, nav_pop
@@ -90,6 +95,64 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
             ["Mbuti.DG", "Han.DG", "Papuan.DG", "Russia_MA1_UP.SG"],
         )
         self.assertEqual(_parse_populations("Mbuti.DG, Han.DG; Papuan.DG", 3), ["Mbuti.DG", "Han.DG", "Papuan.DG"])
+
+    def test_qpgraph_graph_text_parser_drops_blank_and_comment_lines(self) -> None:
+        text = _parse_qpgraph_graph_text(
+            "\n".join(
+                [
+                    "# qpGraph",
+                    "",
+                    "edge R Mbuti.DG",
+                    " edge R N1 ",
+                    "edge N1 Han.DG",
+                ]
+            )
+        )
+
+        self.assertEqual(text.splitlines(), ["edge R Mbuti.DG", "edge R N1", "edge N1 Han.DG"])
+
+    def test_qpgraph_result_formats_score_edges_and_residuals(self) -> None:
+        text = _format_qpgraph_result(
+            {
+                "status": "completed",
+                "result": {
+                    "score": [0.000149],
+                    "worst_residual": [0.0118],
+                    "leaf_populations": ["Mbuti.DG", "Han.DG", "Papuan.DG"],
+                    "edges": [
+                        {"from": "R", "to": "Mbuti.DG", "type": "edge", "weight": [0.0346]},
+                        {"from": "R", "to": "N1", "type": "edge", "weight": [0.0346]},
+                    ],
+                    "f3": [
+                        {"pop1": "Mbuti.DG", "pop2": "Han.DG", "pop3": "Papuan.DG", "z": [0.991]},
+                    ],
+                    "data_source": {"type": "precomputed_f2_cache", "path": "/cache/f2_x"},
+                },
+            },
+            flow={"dataset": "human_origins", "graph_text": "edge R Mbuti.DG"},
+            elapsed_seconds=3.2,
+        )
+
+        self.assertIn("qpGraph 2", text)
+        self.assertIn("Score", text)
+        self.assertIn("Mbuti.DG", text)
+        self.assertIn("Worst residual", text)
+        self.assertIn("precomputed_f2_cache", text)
+
+    def test_qpgraph_builder_enables_run_after_graph_text(self) -> None:
+        class Message:
+            async def edit_text(self, text, reply_markup=None, parse_mode=None):
+                self.text = text
+                self.reply_markup = reply_markup
+
+        context = SimpleNamespace(user_data={AT2_QPGRAPH_FLOW_KEY: _new_qpgraph_flow("human_origins")})
+        context.user_data[AT2_QPGRAPH_FLOW_KEY]["graph_text"] = "edge R Mbuti.DG\nedge R N1\nedge N1 Han.DG"
+        message = Message()
+
+        asyncio.run(_show_qpgraph_builder(message, context, edit_existing=True, lang="ru"))
+
+        callbacks = [button.callback_data for row in message.reply_markup.inline_keyboard for button in row]
+        self.assertIn("modeling:at2_qpgraph_run", callbacks)
 
     def test_fstats_result_formats_scalar_lists_from_r(self) -> None:
         text = _format_fstats_result(
