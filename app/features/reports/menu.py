@@ -132,7 +132,29 @@ def _sample_page_bounds(samples: list[object], page: int) -> tuple[int, int, int
     return safe_page, start, end, page_count
 
 
-def reports_text(*, lang: str = "ru") -> str:
+def _is_report_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    access_store = context.application.bot_data.get("g25_access_store")
+    if access_store is None or not hasattr(access_store, "is_admin"):
+        return False
+    try:
+        return bool(access_store.is_admin(update))
+    except Exception:
+        return False
+
+
+def reports_text(*, lang: str = "ru", show_products: bool = True) -> str:
+    if not show_products:
+        if lang == "en":
+            return (
+                "📊 Reports\n\n"
+                "Ready-made DNA reports are being prepared.\n\n"
+                "Saved DNA Lab results remain available inside each sample card."
+            )
+        return (
+            "📊 Отчёты\n\n"
+            "Готовые комплексные отчёты пока готовятся.\n\n"
+            "Сохранённые результаты DNA Lab доступны внутри карточек образцов."
+        )
     if lang == "en":
         return (
             "📊 Reports\n\n"
@@ -146,11 +168,18 @@ def reports_text(*, lang: str = "ru") -> str:
     )
 
 
-def build_reports_keyboard(*, lang: str = "ru", back_callback: str = "mydna:root") -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(product.button_label(lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:s:{product.product_id}")]
-        for product in REPORT_PRODUCTS
-    ]
+def build_reports_keyboard(
+    *,
+    lang: str = "ru",
+    back_callback: str = "mydna:root",
+    show_products: bool = True,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if show_products:
+        rows.extend(
+            [InlineKeyboardButton(product.button_label(lang), callback_data=f"{REPORTS_CALLBACK_PREFIX}:s:{product.product_id}")]
+            for product in REPORT_PRODUCTS
+        )
     rows.append(
         [
             InlineKeyboardButton(t("nav.back", lang), callback_data=back_callback),
@@ -339,10 +368,11 @@ async def show_reports_menu(
     edit_existing: bool = False,
     lang: str = "ru",
     back_callback: str | None = None,
+    show_products: bool = True,
     **_ignored,
 ) -> None:
-    text = reports_text(lang=lang)
-    markup = build_reports_keyboard(lang=lang, back_callback=back_callback or "mydna:root")
+    text = reports_text(lang=lang, show_products=show_products)
+    markup = build_reports_keyboard(lang=lang, back_callback=back_callback or "mydna:root", show_products=show_products)
     if edit_existing:
         await message.edit_text(text, reply_markup=markup)
     else:
@@ -423,17 +453,21 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
         return
     user_id = int(user.id)
     lang = get_user_language(context, user_id)
+    is_admin = _is_report_admin(update, context)
 
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else "root"
+    if not is_admin:
+        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=False)
+        return
     if action in {"root", "p"}:
-        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=True)
         return
     if action in {"s", "sp"}:
         product_id = parts[2] if len(parts) > 2 else ""
         product = _product(product_id)
         if product is None:
-            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=True)
             return
         page = int(parts[3]) if action == "sp" and len(parts) > 3 and parts[3].isdigit() else 0
         await _show_report_detail(query.message, context, user_id, product, page=page, lang=lang)
@@ -443,7 +477,7 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
         sample_id = parts[3] if len(parts) > 3 else ""
         product = _product(product_id)
         if product is None:
-            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=True)
             return
         if action == "c":
             await _show_report_confirmation(query.message, context, user_id, product, sample_id, lang=lang)

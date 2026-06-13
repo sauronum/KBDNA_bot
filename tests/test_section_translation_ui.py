@@ -126,6 +126,16 @@ class SectionTranslationUiTests(unittest.TestCase):
         self.assertIn("Back", labels)
         self.assertIn("Cancel", labels)
 
+    def test_reports_can_hide_product_catalog(self) -> None:
+        text = reports_text(show_products=False)
+        keyboard = build_reports_keyboard(show_products=False)
+        rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
+        labels = [button.text for row in keyboard.inline_keyboard for button in row]
+
+        self.assertIn("Готовые комплексные отчёты пока готовятся.", text)
+        self.assertNotIn("🧬 Комплексный обзор · Бесплатно", labels)
+        self.assertEqual(rows, [["mydna:root", "main:cancel"]])
+
     def test_reports_can_return_to_product_my_dna_entry(self) -> None:
         keyboard = build_reports_keyboard(back_callback="mydna:root")
         rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
