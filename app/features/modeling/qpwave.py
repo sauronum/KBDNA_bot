@@ -18,6 +18,7 @@ from app.features.modeling.navigation import (
     nav_enter,
     nav_reset,
 )
+from app.features.modeling.datasets import DATASET_LABELS, dataset_choices, dataset_label
 from app.features.modeling.admixtools2 import _dataset_files as _at2_dataset_files
 from app.features.modeling.admixtools2 import run_admixtools2_runner
 from app.features.modeling.saved_models import register_pending_save
@@ -50,10 +51,6 @@ QPWAVE_SEARCH_TIMEOUT_SECONDS = int(os.getenv("KBDNA_QPWAVE_SEARCH_TIMEOUT_SECON
 QPWAVE_MAX_CONCURRENT_JOBS = int(os.getenv("KBDNA_QPWAVE_MAX_CONCURRENT_JOBS", "3"))
 QPWAVE_SOURCE_SET_PAGE_SIZE = 8
 
-DATASET_LABELS = {
-    "v62_1240k_public": "v62 1240k public",
-    "human_origins": "Human Origins",
-}
 DATASET_FILES = {
     "v62_1240k_public": {
         "geno": "/data/admixlab/v62.0_1240k_public/v62.0_1240k_public.geno",
@@ -64,6 +61,16 @@ DATASET_FILES = {
         "geno": "/data/admixlab/human_origins/human_origins.geno",
         "snp": "/data/admixlab/human_origins/human_origins.snp",
         "ind": "/data/admixlab/human_origins/human_origins.ind",
+    },
+    "v66p1_1240k_public": {
+        "geno": "/data/admixlab/v66.p1_1240k_public/v66.p1_1240K.aadr.patch.PUB.geno",
+        "snp": "/data/admixlab/v66.p1_1240k_public/v66.p1_1240K.aadr.patch.PUB.snp",
+        "ind": "/data/admixlab/v66.p1_1240k_public/v66.p1_1240K.aadr.patch.PUB.ind",
+    },
+    "v66p1_human_origins": {
+        "geno": "/data/admixlab/v66.p1_human_origins/v66.p1_HO.aadr.patch.PUB.geno",
+        "snp": "/data/admixlab/v66.p1_human_origins/v66.p1_HO.aadr.patch.PUB.snp",
+        "ind": "/data/admixlab/v66.p1_human_origins/v66.p1_HO.aadr.patch.PUB.ind",
     },
 }
 ROLE_LABELS_RU = {
@@ -79,8 +86,7 @@ RANK_PATTERN = re.compile(
 )
 
 def _dataset_label(dataset: object) -> str:
-    value = str(dataset or "")
-    return DATASET_LABELS.get(value, value or "not selected")
+    return dataset_label(dataset)
 
 
 def _get_flow(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any] | None:
@@ -314,8 +320,10 @@ async def show_qpwave_dataset_menu(
     )
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("v62 / 1240k public", callback_data=_cb("qpwave_ds", selected_engine, "v62_1240k_public"))],
-            [InlineKeyboardButton("Human Origins", callback_data=_cb("qpwave_ds", selected_engine, "human_origins"))],
+            *[
+                [InlineKeyboardButton(label, callback_data=_cb("qpwave_ds", selected_engine, dataset))]
+                for dataset, label in dataset_choices()
+            ],
             _footer_row(nav_back_callback(), lang),
         ]
     )

@@ -10,11 +10,8 @@ from uuid import uuid4
 
 from PIL import Image, ImageDraw, ImageFont
 
+from app.features.modeling.datasets import DATASET_LABELS, dataset_label
 
-DATASET_LABELS = {
-    "v62_1240k_public": "v62 1240k public",
-    "human_origins": "Human Origins",
-}
 PALETTE = [
     "#4cc9f0",
     "#80ed99",
@@ -52,8 +49,7 @@ QPADM_ADMIXTOOLS2_VISUAL = {
 
 
 def _dataset_label(dataset: object) -> str:
-    value = str(dataset or "")
-    return DATASET_LABELS.get(value, value or "not selected")
+    return dataset_label(dataset)
 
 
 def _qpadm_engine(value: object) -> str:

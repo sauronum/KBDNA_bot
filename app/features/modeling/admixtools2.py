@@ -12,6 +12,7 @@ from typing import Any
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from app.features.modeling.datasets import DATASET_LABELS, dataset_choices, dataset_label
 from app.features.modeling.navigation import nav_back_callback, nav_enter, nav_reset
 from app.features.modeling.saved_models import register_pending_save
 from app.features.modeling.ui import footer_row as _footer_row
@@ -40,10 +41,6 @@ AT2_QPGRAPH_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_QPGRAPH_TIMEOUT_SECONDS",
 AT2_RAW_MATERIALIZE_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_RAW_MATERIALIZE_TIMEOUT_SECONDS", "1800"))
 AT2_QPGRAPH_SAMPLE_PAGE_SIZE = 8
 
-DATASET_LABELS = {
-    "v62_1240k_public": "v62 1240k public",
-    "human_origins": "Human Origins",
-}
 FSTAT_ARITIES = {"f2": 2, "f3": 3, "f4": 4}
 F2_CACHE_READY_MARKERS = (
     "block_lengths",
@@ -54,8 +51,7 @@ F2_CACHE_READY_MARKERS = (
 
 
 def _dataset_label(dataset: object) -> str:
-    value = str(dataset or "")
-    return DATASET_LABELS.get(value, value or "not selected")
+    return dataset_label(dataset)
 
 
 def _safe_name(value: object) -> str:
@@ -392,8 +388,10 @@ async def show_fstats_dataset_menu(
         nav_enter(context, _cb("at2_fstats_ds"))
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("v62 / 1240k public", callback_data=_cb("at2_fstats_ds_pick", "v62_1240k_public"))],
-            [InlineKeyboardButton("Human Origins", callback_data=_cb("at2_fstats_ds_pick", "human_origins"))],
+            *[
+                [InlineKeyboardButton(label, callback_data=_cb("at2_fstats_ds_pick", dataset))]
+                for dataset, label in dataset_choices()
+            ],
             _footer_row(nav_back_callback(), lang),
         ]
     )
@@ -737,8 +735,10 @@ async def show_qpgraph_dataset_menu(
         nav_enter(context, _cb("at2_qpgraph_ds"))
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("v62 / 1240k public", callback_data=_cb("at2_qpgraph_ds_pick", "v62_1240k_public"))],
-            [InlineKeyboardButton("Human Origins", callback_data=_cb("at2_qpgraph_ds_pick", "human_origins"))],
+            *[
+                [InlineKeyboardButton(label, callback_data=_cb("at2_qpgraph_ds_pick", dataset))]
+                for dataset, label in dataset_choices()
+            ],
             _footer_row(nav_back_callback(), lang),
         ]
     )

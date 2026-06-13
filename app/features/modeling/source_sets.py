@@ -12,6 +12,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
+from app.features.modeling.datasets import DATASET_LABELS, dataset_choices, dataset_label
 from app.features.modeling.navigation import nav_back_callback, nav_enter
 from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
@@ -28,17 +29,12 @@ SOURCE_SET_FLOW_KEY = "source_set_flow"
 SOURCE_SETS_PATH = Path(os.getenv("KBDNA_SOURCE_SETS_PATH", "/opt/kbdnabot/storage/modeling/source_sets.json"))
 SOURCE_SET_PAGE_SIZE = 8
 
-DATASET_LABELS = {
-    "v62_1240k_public": "v62 1240k public",
-    "human_origins": "Human Origins",
-}
 SOURCE_SET_PATTERN = re.compile(
     r"(?is)\b(name|title|left|sources?|right|references?|target)\s*[:=]\s*(.*?)(?=\b(?:name|title|left|sources?|right|references?|target)\s*[:=]|$)"
 )
 
 def _dataset_label(dataset: object) -> str:
-    value = str(dataset or "")
-    return DATASET_LABELS.get(value, value or "not selected")
+    return dataset_label(dataset)
 
 
 def _clean_item(value: str) -> str:
@@ -323,8 +319,10 @@ async def _show_dataset_picker(message, context: ContextTypes.DEFAULT_TYPE, *, l
     )
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("v62 / 1240k public", callback_data=_cb("ss_new_ds", "v62_1240k_public"))],
-            [InlineKeyboardButton("Human Origins", callback_data=_cb("ss_new_ds", "human_origins"))],
+            *[
+                [InlineKeyboardButton(label, callback_data=_cb("ss_new_ds", dataset))]
+                for dataset, label in dataset_choices()
+            ],
             _footer_row(nav_back_callback(), lang),
         ]
     )

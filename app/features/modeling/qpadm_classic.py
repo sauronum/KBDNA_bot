@@ -13,6 +13,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
+from app.features.modeling.datasets import DATASET_LABELS, dataset_choices, dataset_label
 from app.features.modeling.navigation import (
     nav_back_callback,
     nav_enter,
@@ -49,10 +50,6 @@ QPADM_SEARCH_TIMEOUT_SECONDS = int(os.getenv("KBDNA_QPADM_SEARCH_TIMEOUT_SECONDS
 QPADM_MAX_CONCURRENT_JOBS = int(os.getenv("KBDNA_QPADM_MAX_CONCURRENT_JOBS", "3"))
 QPADM_SAMPLE_PAGE_SIZE = 10
 
-DATASET_LABELS = {
-    "v62_1240k_public": "v62 1240k public",
-    "human_origins": "Human Origins",
-}
 QPADM_ENGINE_CLASSIC = "classic_qpadm"
 QPADM_ENGINE_ADMIXTOOLS2 = "admixtools2_qpadm"
 QPADM_ENGINE_LABELS = {
@@ -87,8 +84,7 @@ MODEL_IMPORT_PATTERN = re.compile(
 )
 
 def _dataset_label(dataset: object) -> str:
-    value = str(dataset or "")
-    return DATASET_LABELS.get(value, value or "not selected")
+    return dataset_label(dataset)
 
 
 def _qpadm_engine(value: object) -> str:
@@ -609,13 +605,10 @@ async def _show_qpadm_dataset_menu(
     )
     markup = InlineKeyboardMarkup(
         [
-            [
-                InlineKeyboardButton(
-                    "v62 / 1240k public",
-                    callback_data=_cb("qpadm_ds", selected_engine, "v62_1240k_public"),
-                )
+            *[
+                [InlineKeyboardButton(label, callback_data=_cb("qpadm_ds", selected_engine, dataset))]
+                for dataset, label in dataset_choices()
             ],
-            [InlineKeyboardButton("Human Origins", callback_data=_cb("qpadm_ds", selected_engine, "human_origins"))],
             _footer_row(nav_back_callback(), lang),
         ]
     )

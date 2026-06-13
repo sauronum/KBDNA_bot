@@ -11,6 +11,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
+from app.features.modeling.datasets import DATASET_LABELS, dataset_label
 from app.features.modeling.navigation import nav_back_callback, nav_enter
 from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
@@ -24,14 +25,8 @@ SAVED_MODELS_PATH = Path(os.getenv("KBDNA_SAVED_MODELS_PATH", "/opt/kbdnabot/sto
 PENDING_SAVES_KEY = "admixlab_pending_model_saves"
 SAVED_MODELS_PAGE_SIZE = 8
 
-DATASET_LABELS = {
-    "v62_1240k_public": "v62 1240k public",
-    "human_origins": "Human Origins",
-}
-
 def _dataset_label(dataset: object) -> str:
-    value = str(dataset or "")
-    return DATASET_LABELS.get(value, value or "not selected")
+    return dataset_label(dataset)
 
 
 def _safe_page(value: object) -> int:
