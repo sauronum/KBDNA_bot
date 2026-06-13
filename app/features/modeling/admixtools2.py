@@ -16,6 +16,7 @@ from app.features.modeling.saved_models import register_pending_save
 from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
 from app.features.modeling.ui import show_message as _show_message
+from app.features.modeling.visuals import render_admixtools2_qpgraph_result
 from app.heavy_runtime import heavy_command
 from app.i18n import get_user_language
 from app.main_menu import set_active_main_menu_message
@@ -764,7 +765,60 @@ def _format_qpgraph_result(payload: dict[str, Any], *, flow: dict[str, Any], ela
     return "\n".join(lines)
 
 
-def _qpgraph_save_payload(payload: dict[str, Any], *, flow: dict[str, Any], text: str) -> dict[str, Any]:
+def _format_qpgraph_caption(payload: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float) -> str:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    return "\n".join(
+        [
+            "<b>🕸 ADMIXTOOLS2 qpGraph 2</b>",
+            f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
+            f"Score: <code>{html.escape(_num(result.get('score')))}</code>",
+            f"Worst |z|: <code>{html.escape(_num(result.get('worst_residual')))}</code>",
+            f"Time: <code>{elapsed_seconds:.1f}s</code>",
+        ]
+    )
+
+
+async def _send_qpgraph_result(
+    message,
+    update: Update | None,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    text: str,
+    markup: InlineKeyboardMarkup,
+    caption: str | None = None,
+    visual_path: Path | None = None,
+) -> None:
+    if visual_path is None or not visual_path.exists():
+        await _show_message(message, text, markup, edit_existing=True)
+        return
+    try:
+        with visual_path.open("rb") as image_file:
+            sent = await message.reply_photo(
+                photo=image_file,
+                caption=caption or text[:900],
+                reply_markup=markup,
+                parse_mode="HTML",
+                do_quote=False,
+            )
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        if update is not None and update.effective_user is not None:
+            set_active_main_menu_message(context, sent.chat_id, update.effective_user.id, sent.message_id)
+    except Exception:
+        await _show_message(message, text, markup, edit_existing=True)
+
+
+def _qpgraph_save_payload(
+    payload: dict[str, Any],
+    *,
+    flow: dict[str, Any],
+    text: str,
+    caption: str = "",
+    visual_path: Path | None = None,
+    visual_error: str | None = None,
+) -> dict[str, Any]:
     result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
     graph_text = str(flow.get("graph_text") or "").strip()
     leaves = result.get("leaf_populations") if isinstance(result.get("leaf_populations"), list) else []
@@ -785,6 +839,9 @@ def _qpgraph_save_payload(payload: dict[str, Any], *, flow: dict[str, Any], text
         "f3": result.get("f3") if isinstance(result.get("f3"), list) else [],
         "result_payload": payload,
         "result_text": text,
+        "caption_text": caption,
+        "visual_path": str(visual_path or ""),
+        "visual_error": visual_error,
     }
 
 
@@ -823,11 +880,31 @@ async def _run_qpgraph(message, update: Update | None, context: ContextTypes.DEF
         text = _format_qpgraph_error(exc, flow=flow, elapsed_seconds=time.monotonic() - started)
         await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
         return
-    text = _format_qpgraph_result(payload, flow=flow, elapsed_seconds=time.monotonic() - started)
+    elapsed = time.monotonic() - started
+    text = _format_qpgraph_result(payload, flow=flow, elapsed_seconds=elapsed)
+    caption = _format_qpgraph_caption(payload, flow=flow, elapsed_seconds=elapsed)
+    visual_path: Path | None = None
+    visual_error: str | None = None
+    try:
+        visual_path = render_admixtools2_qpgraph_result(payload, flow=flow, elapsed_seconds=elapsed, output_dir=BOT_AT2_OUTPUT_DIR)
+    except Exception as exc:
+        visual_error = str(exc)
     pending_save_id: str | None = None
     if update is not None and update.effective_user is not None:
-        pending_save_id = register_pending_save(context, int(update.effective_user.id), _qpgraph_save_payload(payload, flow=flow, text=text))
-    await _show_message(message, text, _qpgraph_result_markup(lang, pending_save_id), edit_existing=True)
+        pending_save_id = register_pending_save(
+            context,
+            int(update.effective_user.id),
+            _qpgraph_save_payload(payload, flow=flow, text=text, caption=caption, visual_path=visual_path, visual_error=visual_error),
+        )
+    await _send_qpgraph_result(
+        message,
+        update,
+        context,
+        text=text,
+        markup=_qpgraph_result_markup(lang, pending_save_id),
+        caption=caption,
+        visual_path=visual_path,
+    )
 
 
 async def admixtools2_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:

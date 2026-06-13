@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from app.features.modeling.visuals import render_admixtools2_qpadm_batch_result, render_qpadm_result
+from app.features.modeling.visuals import render_admixtools2_qpadm_batch_result, render_admixtools2_qpgraph_result, render_qpadm_result
 from app.features.vahaduo.ready_models_rendering import CANVAS_WIDTH, MIN_CANVAS_HEIGHT, build_rendered_source_fit_card, render_source_fit_card, source_fit_caption
 from app.features.vahaduo.ready_models_runtime import SourceFitComponent, SourceFitResult
 
@@ -162,6 +162,36 @@ class ModelingRenderingTests(unittest.TestCase):
             self.assertTrue(path.name.startswith("qpadm_admixtools2_batch_"))
             with Image.open(path) as image:
                 self.assertEqual(image.width, 1440)
+                self.assertGreaterEqual(image.height, 820)
+
+    def test_admixtools2_qpgraph_renderer_returns_png(self) -> None:
+        payload = {
+            "status": "completed",
+            "result": {
+                "score": [0.000143],
+                "worst_residual": [0.0115],
+                "leaf_populations": ["Mbuti.DG", "Han.DG", "Papuan.DG"],
+                "edges": [
+                    {"from": "R", "to": "Mbuti.DG", "weight": [0.035]},
+                    {"from": "R", "to": "N1", "weight": [0.035]},
+                    {"from": "N1", "to": "Han.DG", "weight": [0.018]},
+                    {"from": "N1", "to": "Papuan.DG", "weight": [0.039]},
+                ],
+                "f3": [{"pop1": "Mbuti.DG", "pop2": "Han.DG", "pop3": "Papuan.DG", "z": [0.99]}],
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = render_admixtools2_qpgraph_result(
+                payload,
+                flow={"dataset": "v62_1240k_public", "graph_text": "edge R Mbuti.DG"},
+                elapsed_seconds=2.4,
+                output_dir=Path(temp_dir),
+            )
+
+            self.assertTrue(path.name.startswith("qpgraph_admixtools2_result_"))
+            with Image.open(path) as image:
+                self.assertEqual(image.width, 1180)
                 self.assertGreaterEqual(image.height, 820)
 
 

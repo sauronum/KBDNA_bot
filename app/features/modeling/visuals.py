@@ -130,6 +130,8 @@ def _fit_text(draw: ImageDraw.ImageDraw, text: object, font: ImageFont.ImageFont
 
 
 def _number(value: object) -> float | None:
+    if isinstance(value, (list, tuple)) and value:
+        value = value[0]
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -758,6 +760,171 @@ def _batch_weight_diagnostics(item: dict[str, Any] | None) -> tuple[float | None
     min_abs_z = min(z_values) if z_values else None
     max_se = max(se_values) if se_values else None
     return min_abs_z, max_se
+
+
+def render_admixtools2_qpgraph_result(
+    payload: dict[str, Any],
+    *,
+    flow: dict[str, Any],
+    elapsed_seconds: float,
+    output_dir: Path,
+) -> Path:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    edges = [item for item in result.get("edges", []) if isinstance(item, dict)]
+    leaves = [str(item) for item in result.get("leaf_populations", []) if str(item)]
+    f3_rows = [item for item in result.get("f3", []) if isinstance(item, dict)]
+    nodes: list[str] = []
+    for row in edges:
+        for key in ("from", "to"):
+            value = str(row.get(key) or "").strip()
+            if value and value not in nodes:
+                nodes.append(value)
+    if not nodes:
+        nodes = leaves or ["graph"]
+
+    children: dict[str, list[str]] = {node: [] for node in nodes}
+    incoming: set[str] = set()
+    for row in edges:
+        source = str(row.get("from") or "").strip()
+        target = str(row.get("to") or "").strip()
+        if source and target:
+            children.setdefault(source, []).append(target)
+            children.setdefault(target, [])
+            incoming.add(target)
+    roots = [node for node in nodes if node not in incoming] or nodes[:1]
+    levels: dict[str, int] = {root: 0 for root in roots}
+    queue = list(roots)
+    while queue:
+        node = queue.pop(0)
+        for child in children.get(node, []):
+            level = levels[node] + 1
+            if child not in levels or level > levels[child]:
+                levels[child] = level
+                queue.append(child)
+    for node in nodes:
+        levels.setdefault(node, 0)
+    max_level = max(levels.values()) if levels else 0
+    by_level = [[node for node in nodes if levels.get(node) == level] for level in range(max_level + 1)]
+
+    width = 1180
+    graph_h = max(360, max((len(items) for items in by_level), default=1) * 90 + 90)
+    residual_h = 44 + min(5, len(f3_rows)) * 30 if f3_rows else 0
+    leaves_h = 76 if leaves else 0
+    height = 540 + graph_h + residual_h + leaves_h
+    image, draw = _canvas(height, width=width, background="#071019", panel="#111820")
+    content_left = 58
+    content_right = width - 58
+    outline = "#263543"
+    accent = "#a78bfa"
+    title_font = _font(46, bold=True)
+    subtitle_font = _font(23)
+    metric_label_font = _font(16, bold=True)
+    metric_value_font = _font(23, bold=True)
+    node_font = _font(17, bold=True)
+    small_font = _font(15)
+    h_font = _font(25, bold=True)
+
+    y = 54
+    draw.text((content_left, y), "ADMIXTOOLS2 qpGraph 2", font=title_font, fill="#f8fafc")
+    draw.text((content_left, y + 58), "graph topology / drift weights / residual check", font=subtitle_font, fill="#9aa8bb")
+    status = str(payload.get("status") or "completed").upper()
+    status_color = "#22c55e" if status == "COMPLETED" else "#f59e0b"
+    badge_bbox = draw.textbbox((0, 0), status, font=metric_label_font)
+    badge_w = badge_bbox[2] - badge_bbox[0] + 30
+    draw.rounded_rectangle((content_right - badge_w, y + 16, content_right, y + 50), radius=9, fill="#0f1d27", outline=status_color, width=1)
+    draw.text((content_right - badge_w + 15, y + 24), status, font=metric_label_font, fill=status_color)
+
+    y += 122
+    draw.rounded_rectangle((content_left, y, content_right, y + 58), radius=10, fill="#0d151c", outline=outline, width=1)
+    draw.text((content_left + 24, y + 18), "Dataset", font=metric_label_font, fill="#90a0b3")
+    draw.text((content_left + 128, y + 14), _fit_text(draw, _dataset_label(flow.get("dataset")), metric_value_font, 360), font=metric_value_font, fill="#e5edf5")
+    draw.text((content_left + 620, y + 18), "Leaves", font=metric_label_font, fill="#90a0b3")
+    draw.text((content_left + 704, y + 14), str(len(leaves)), font=metric_value_font, fill="#f5b942")
+    draw.text((content_left + 810, y + 18), "Edges", font=metric_label_font, fill="#90a0b3")
+    draw.text((content_left + 890, y + 14), str(len(edges)), font=metric_value_font, fill="#f5b942")
+
+    y += 84
+    metrics = [
+        ("fit score", _format_number(_number(result.get("score")))),
+        ("worst |z|", _format_number(_number(result.get("worst_residual")))),
+        ("p-value", _format_number(_number(result.get("p_value")))),
+        ("time", f"{elapsed_seconds:.1f}s"),
+    ]
+    gap = 14
+    tile_w = (content_right - content_left - gap * (len(metrics) - 1)) // len(metrics)
+    for index, (label, value) in enumerate(metrics):
+        x = content_left + index * (tile_w + gap)
+        draw.rounded_rectangle((x, y, x + tile_w, y + 78), radius=10, fill="#17212b", outline="#33424e", width=1)
+        draw.text((x + 16, y + 13), label.upper(), font=metric_label_font, fill="#90a0b3")
+        draw.text((x + 16, y + 38), _fit_text(draw, value, metric_value_font, tile_w - 32), font=metric_value_font, fill="#f5b942")
+
+    y += 112
+    draw.text((content_left, y), "Graph", font=h_font, fill="#f8fafc")
+    y += 42
+    graph_top = y
+    graph_bottom = graph_top + graph_h
+    draw.rounded_rectangle((content_left, graph_top, content_right, graph_bottom), radius=12, fill="#0d151c", outline=outline, width=1)
+    node_w = 190
+    node_h = 42
+    col_gap = (content_right - content_left - node_w - 72) / max(1, max_level)
+    positions: dict[str, tuple[int, int]] = {}
+    for level, level_nodes in enumerate(by_level):
+        x = int(content_left + 36 + level * col_gap)
+        usable_h = graph_h - 70
+        step = usable_h / max(1, len(level_nodes))
+        for index, node in enumerate(level_nodes):
+            yy = int(graph_top + 42 + step * index + step / 2 - node_h / 2)
+            positions[node] = (min(x, content_right - node_w - 36), yy)
+
+    for row in edges:
+        source = str(row.get("from") or "").strip()
+        target = str(row.get("to") or "").strip()
+        if source not in positions or target not in positions:
+            continue
+        sx, sy = positions[source]
+        tx, ty = positions[target]
+        start = (sx + node_w, sy + node_h // 2)
+        end = (tx, ty + node_h // 2)
+        draw.line((start[0], start[1], end[0], end[1]), fill="#64748b", width=2)
+        draw.polygon([(end[0], end[1]), (end[0] - 8, end[1] - 5), (end[0] - 8, end[1] + 5)], fill="#64748b")
+        weight = _number(row.get("weight"))
+        if weight is not None:
+            label = f"w={_format_number(weight)}"
+            lx = (start[0] + end[0]) // 2 - 28
+            ly = (start[1] + end[1]) // 2 - 18
+            draw.rounded_rectangle((lx - 6, ly - 2, lx + 70, ly + 22), radius=6, fill="#111820", outline="#263543", width=1)
+            draw.text((lx, ly), label, font=small_font, fill="#cbd5e1")
+
+    for node, (x, yy) in positions.items():
+        is_leaf = node in leaves
+        draw.rounded_rectangle(
+            (x, yy, x + node_w, yy + node_h),
+            radius=10,
+            fill="#1e293b" if is_leaf else "#17212b",
+            outline="#a78bfa" if is_leaf else "#33424e",
+            width=2 if is_leaf else 1,
+        )
+        draw.text((x + 12, yy + 11), _fit_text(draw, node, node_font, node_w - 24), font=node_font, fill="#f8fafc" if is_leaf else "#cbd5e1")
+
+    y = graph_bottom + 34
+    if f3_rows:
+        draw.text((content_left, y), "Worst f3 residuals", font=h_font, fill="#f8fafc")
+        y += 38
+        sorted_f3 = sorted(f3_rows, key=lambda row: abs(_number(row.get("z")) or 0.0), reverse=True)
+        for row in sorted_f3[:5]:
+            pops = "/".join(str(row.get(key) or "") for key in ("pop1", "pop2", "pop3"))
+            draw.text((content_left, y), _fit_text(draw, pops, small_font, 760), font=small_font, fill="#cbd5e1")
+            draw.text((content_right - 180, y), f"z={_format_number(_number(row.get('z')))}", font=small_font, fill="#f5b942")
+            y += 30
+
+    if leaves:
+        y += 10
+        draw.text((content_left, y), "Leaves", font=h_font, fill="#f8fafc")
+        y += 36
+        draw.text((content_left, y), _fit_text(draw, ", ".join(leaves), small_font, content_right - content_left), font=small_font, fill="#cbd5e1")
+
+    _draw_footer(image, draw, product="ADMIXTOOLS2 qpGraph", version="AT2", accent=accent, outline=outline)
+    return _save(image, output_dir, "qpgraph_admixtools2_result")
 
 
 def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float, output_dir: Path) -> Path:
