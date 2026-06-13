@@ -14,8 +14,8 @@ from app.features.reports.g25_platform import (
     G25PlatformReportError,
     choose_sample_g25_coordinate,
     generate_g25_platform_report,
-    safe_artifact_filename,
 )
+from app.features.reports.visualization import build_g25_report_visuals
 
 
 REPORTS_CALLBACK_PREFIX = "reports"
@@ -438,11 +438,12 @@ def platform_report_error_text(error: Exception, *, lang: str = "ru") -> str:
     )
 
 
-def platform_report_result_text(report: G25PlatformReport, *, lang: str = "ru") -> str:
+def platform_report_result_text(report: G25PlatformReport, *, visual_count: int | None = None, lang: str = "ru") -> str:
     title = "🧬 Complete overview" if lang == "en" else "🧬 Комплексный обзор"
     sample_label = "Sample" if lang == "en" else "Образец"
     g25_label = "G25 profile" if lang == "en" else "G25-профиль"
-    artifact_label = "Artifacts" if lang == "en" else "Артефакты"
+    visual_label = "Visual cards" if lang == "en" else "PNG-карточки"
+    count = len(report.artifact_paths) if visual_count is None else visual_count
     lines = [
         title,
         "",
@@ -455,10 +456,20 @@ def platform_report_result_text(report: G25PlatformReport, *, lang: str = "ru") 
     lines.extend(
         [
             "",
-            f"{artifact_label}: {len(report.artifact_paths)} SVG + analysis.json",
+            f"{visual_label}: {count}",
         ]
     )
     return "\n".join(lines)
+
+
+def platform_visual_caption(path: Path, *, lang: str = "ru") -> str:
+    labels = {
+        "g25_overview": ("Complex G25 overview", "Комплексный G25-обзор"),
+        "g25_distance_modern": ("Modern distances", "Современные совпадения"),
+        "g25_distance_ancient": ("Ancient distances", "Древние совпадения"),
+    }
+    en, ru = labels.get(path.stem, (path.stem.replace("_", " ").title(), path.stem.replace("_", " ")))
+    return en if lang == "en" else ru
 
 
 def _reports_storage_root(context: ContextTypes.DEFAULT_TYPE) -> Path:
@@ -586,29 +597,27 @@ async def _show_platform_report(
         await message.edit_text(platform_report_error_text(exc, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
         return
 
-    await message.edit_text(platform_report_result_text(report, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
+    try:
+        visuals = build_g25_report_visuals(report)
+    except Exception as exc:
+        logger.exception("Could not render G25 platform report visuals")
+        await message.edit_text(platform_report_error_text(exc, lang=lang), reply_markup=build_stub_keyboard(lang=lang))
+        return
+
+    await message.edit_text(platform_report_result_text(report, visual_count=len(visuals.paths), lang=lang), reply_markup=build_stub_keyboard(lang=lang))
     chat_id = getattr(message, "chat_id", None)
     if chat_id is None:
         return
-    for artifact_path in report.artifact_paths:
+    for visual_path in visuals.paths:
         try:
-            with artifact_path.open("rb") as handle:
-                await context.bot.send_document(
+            with visual_path.open("rb") as handle:
+                await context.bot.send_photo(
                     chat_id=chat_id,
-                    document=InputFile(handle, filename=safe_artifact_filename(artifact_path)),
-                    caption=artifact_path.stem,
+                    photo=InputFile(handle, filename=visual_path.name),
+                    caption=platform_visual_caption(visual_path, lang=lang),
                 )
         except Exception:
-            logger.exception("Could not send G25 platform report artifact: %s", artifact_path)
-    try:
-        with report.analysis_path.open("rb") as handle:
-            await context.bot.send_document(
-                chat_id=chat_id,
-                document=InputFile(handle, filename="analysis.json"),
-                caption="analysis.json",
-            )
-    except Exception:
-        logger.exception("Could not send G25 platform analysis artifact: %s", report.analysis_path)
+            logger.exception("Could not send G25 platform report visual: %s", visual_path)
 
 
 async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
