@@ -34,6 +34,12 @@ DATASET_LABELS = {
     "human_origins": "Human Origins",
 }
 FSTAT_ARITIES = {"f2": 2, "f3": 3, "f4": 4}
+F2_CACHE_READY_MARKERS = (
+    "block_lengths",
+    "block_lengths_f2.rds",
+    "block_lengths_ap.rds",
+    "block_lengths_fst.rds",
+)
 
 
 def _dataset_label(dataset: object) -> str:
@@ -93,6 +99,10 @@ def _dir_size(path: Path, *, max_files: int = 4000) -> tuple[int, int]:
     return total, count
 
 
+def _cache_entry_ready(path: Path) -> bool:
+    return path.is_dir() and any((path / marker).exists() for marker in F2_CACHE_READY_MARKERS)
+
+
 def _cache_rows() -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     config = _load_at2_config()
@@ -107,16 +117,27 @@ def _cache_rows() -> list[dict[str, Any]]:
             continue
         cache_dir = Path(str(files.get("f2_cache_dir") or files.get("f2_cache") or ""))
         entries = []
+        building_entries = 0
         ready_entries = 0
         stale_entries = 0
         latest_mtime = None
         if cache_dir.exists():
             try:
-                entries = [item for item in cache_dir.iterdir() if item.is_dir() and item.name.startswith("f2_")]
+                children = [item for item in cache_dir.iterdir() if item.is_dir()]
             except OSError:
-                entries = []
+                children = []
+            entries = [
+                item
+                for item in children
+                if item.name.startswith("f2_") and ".tmp." not in item.name and not item.name.endswith(".lock")
+            ]
+            building_entries = sum(
+                1
+                for item in children
+                if item.name.startswith("f2_") and (".tmp." in item.name or item.name.endswith(".lock"))
+            )
             for entry in entries:
-                if (entry / "block_lengths").exists():
+                if _cache_entry_ready(entry):
                     ready_entries += 1
                 else:
                     stale_entries += 1
@@ -134,6 +155,7 @@ def _cache_rows() -> list[dict[str, Any]]:
                 "entries": len(entries),
                 "ready_entries": ready_entries,
                 "stale_entries": stale_entries,
+                "building_entries": building_entries,
                 "size": size,
                 "file_count": file_count,
                 "latest_mtime": latest_mtime,
@@ -157,6 +179,8 @@ def _format_cache_status(lang: str = "ru") -> str:
             status = "missing"
         elif int(row.get("ready_entries") or 0) > 0:
             status = "ready"
+        elif int(row.get("building_entries") or 0) > 0:
+            status = "building"
         elif int(row.get("stale_entries") or 0) > 0:
             status = "stale"
         else:
@@ -164,7 +188,7 @@ def _format_cache_status(lang: str = "ru") -> str:
         lines.extend(
             [
                 f"• <b>{html.escape(_dataset_label(row.get('dataset')))}</b> · <code>{status}</code>",
-                f"  caches: <code>{int(row.get('ready_entries') or 0)} ready</code>, <code>{int(row.get('stale_entries') or 0)} stale</code>, total: <code>{int(row.get('entries') or 0)}</code>",
+                f"  caches: <code>{int(row.get('ready_entries') or 0)} ready</code>, <code>{int(row.get('building_entries') or 0)} building</code>, <code>{int(row.get('stale_entries') or 0)} stale</code>, total: <code>{int(row.get('entries') or 0)}</code>",
                 f"  size: <code>{_format_bytes(int(row.get('size') or 0))}</code>, files: <code>{int(row.get('file_count') or 0)}</code>",
                 f"  latest: <code>{html.escape(latest)}</code>",
             ]

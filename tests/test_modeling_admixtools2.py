@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
+from app.features.modeling import admixtools2
 from app.features.modeling.admixtools2 import (
     AT2_FSTATS_FLOW_KEY,
+    _cache_entry_ready,
+    _cache_rows,
+    _format_cache_status,
     _format_fstats_error,
     _format_fstats_result,
     _new_fstats_flow,
@@ -24,6 +31,59 @@ from app.features.modeling.qpwave import (
 
 
 class ModelingAdmixtools2Tests(unittest.TestCase):
+    def test_f2_cache_ready_accepts_admixtools2_rds_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir)
+
+            self.assertFalse(_cache_entry_ready(path))
+            (path / "block_lengths_ap.rds").touch()
+
+            self.assertTrue(_cache_entry_ready(path))
+
+    def test_f2_cache_status_counts_rds_marker_entries_as_ready(self) -> None:
+        old_config = admixtools2.AT2_QPADM_CONFIG
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            cache_dir = root / "cache"
+            ready_entry = cache_dir / "f2_ready"
+            stale_entry = cache_dir / "f2_stale"
+            building_entry = cache_dir / "f2_ready.lock"
+            ready_entry.mkdir(parents=True)
+            stale_entry.mkdir(parents=True)
+            building_entry.mkdir(parents=True)
+            (ready_entry / "block_lengths_fst.rds").touch()
+
+            config_path = root / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "datasets": {
+                            "human_origins": {
+                                "required_files": {
+                                    "geno_prefix": "/data/admixlab/human_origins/human_origins",
+                                    "f2_cache_dir": str(cache_dir),
+                                }
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            admixtools2.AT2_QPADM_CONFIG = config_path
+            try:
+                rows = _cache_rows()
+                text = _format_cache_status("ru")
+            finally:
+                admixtools2.AT2_QPADM_CONFIG = old_config
+
+        self.assertEqual(rows[0]["ready_entries"], 1)
+        self.assertEqual(rows[0]["building_entries"], 1)
+        self.assertEqual(rows[0]["stale_entries"], 1)
+        self.assertEqual(rows[0]["entries"], 2)
+        self.assertIn("<code>ready</code>", text)
+        self.assertIn("<code>1 ready</code>", text)
+        self.assertIn("<code>1 building</code>", text)
+
     def test_fstats_population_parser_accepts_keyed_and_plain_lists(self) -> None:
         self.assertEqual(
             _parse_populations("pop1=Mbuti.DG\npop2=Han.DG\npop3=Papuan.DG\npop4=Russia_MA1_UP.SG", 4),
