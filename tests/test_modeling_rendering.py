@@ -191,8 +191,40 @@ class ModelingRenderingTests(unittest.TestCase):
 
             self.assertTrue(path.name.startswith("qpgraph_admixtools2_result_"))
             with Image.open(path) as image:
-                self.assertEqual(image.width, 1180)
+                self.assertGreaterEqual(image.width, 1180)
                 self.assertGreaterEqual(image.height, 820)
+
+    def test_admixtools2_qpgraph_renderer_expands_for_deep_graphs(self) -> None:
+        edges = [{"from": "R", "to": "N0", "weight": [0.01]}]
+        for index in range(8):
+            edges.append({"from": f"N{index}", "to": f"N{index + 1}", "weight": [0.01]})
+        edges.extend(
+            [
+                {"from": "N8", "to": "Mbuti.DG", "weight": [0.01]},
+                {"from": "N8", "to": "Han.DG", "weight": [0.01]},
+                {"from": "N8", "to": "Papuan.DG", "weight": [0.01]},
+            ]
+        )
+        payload = {
+            "status": "completed",
+            "result": {
+                "score": [0.1],
+                "worst_residual": [0.2],
+                "leaf_populations": ["Mbuti.DG", "Han.DG", "Papuan.DG"],
+                "edges": edges,
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = render_admixtools2_qpgraph_result(
+                payload,
+                flow={"dataset": "human_origins", "graph_text": "edge R N0"},
+                elapsed_seconds=1.0,
+                output_dir=Path(temp_dir),
+            )
+
+            with Image.open(path) as image:
+                self.assertGreater(image.width, 1180)
 
 
 if __name__ == "__main__":

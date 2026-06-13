@@ -806,8 +806,13 @@ def render_admixtools2_qpgraph_result(
     max_level = max(levels.values()) if levels else 0
     by_level = [[node for node in nodes if levels.get(node) == level] for level in range(max_level + 1)]
 
-    width = 1180
-    graph_h = max(360, max((len(items) for items in by_level), default=1) * 90 + 90)
+    node_w = 224
+    node_h = 44
+    level_gap = 90 if max_level <= 6 else 78
+    graph_pad_x = 42
+    graph_h = max(360, max((len(items) for items in by_level), default=1) * 96 + 100)
+    graph_w = graph_pad_x * 2 + (max_level + 1) * node_w + max_level * level_gap
+    width = max(1180, graph_w + 116)
     residual_h = 44 + min(5, len(f3_rows)) * 30 if f3_rows else 0
     leaves_h = 76 if leaves else 0
     height = 540 + graph_h + residual_h + leaves_h
@@ -864,18 +869,18 @@ def render_admixtools2_qpgraph_result(
     graph_top = y
     graph_bottom = graph_top + graph_h
     draw.rounded_rectangle((content_left, graph_top, content_right, graph_bottom), radius=12, fill="#0d151c", outline=outline, width=1)
-    node_w = 190
-    node_h = 42
-    col_gap = (content_right - content_left - node_w - 72) / max(1, max_level)
     positions: dict[str, tuple[int, int]] = {}
     for level, level_nodes in enumerate(by_level):
-        x = int(content_left + 36 + level * col_gap)
-        usable_h = graph_h - 70
-        step = usable_h / max(1, len(level_nodes))
+        x = int(content_left + graph_pad_x + level * (node_w + level_gap))
+        usable_h = max(1, graph_h - 104 - node_h)
         for index, node in enumerate(level_nodes):
-            yy = int(graph_top + 42 + step * index + step / 2 - node_h / 2)
-            positions[node] = (min(x, content_right - node_w - 36), yy)
+            if len(level_nodes) == 1:
+                yy = int(graph_top + graph_h / 2 - node_h / 2)
+            else:
+                yy = int(graph_top + 52 + (usable_h * index / max(1, len(level_nodes) - 1)))
+            positions[node] = (min(x, content_right - node_w - graph_pad_x), yy)
 
+    show_edge_labels = len(edges) <= 10
     for row in edges:
         source = str(row.get("from") or "").strip()
         target = str(row.get("to") or "").strip()
@@ -885,13 +890,14 @@ def render_admixtools2_qpgraph_result(
         tx, ty = positions[target]
         start = (sx + node_w, sy + node_h // 2)
         end = (tx, ty + node_h // 2)
-        draw.line((start[0], start[1], end[0], end[1]), fill="#64748b", width=2)
+        mid_x = (start[0] + end[0]) // 2
+        draw.line((start[0], start[1], mid_x, start[1], mid_x, end[1], end[0], end[1]), fill="#64748b", width=2)
         draw.polygon([(end[0], end[1]), (end[0] - 8, end[1] - 5), (end[0] - 8, end[1] + 5)], fill="#64748b")
         weight = _number(row.get("weight"))
-        if weight is not None:
+        if show_edge_labels and weight is not None:
             label = f"w={_format_number(weight)}"
-            lx = (start[0] + end[0]) // 2 - 28
-            ly = (start[1] + end[1]) // 2 - 18
+            lx = mid_x - 32
+            ly = (start[1] + end[1]) // 2 - 14
             draw.rounded_rectangle((lx - 6, ly - 2, lx + 70, ly + 22), radius=6, fill="#111820", outline="#263543", width=1)
             draw.text((lx, ly), label, font=small_font, fill="#cbd5e1")
 

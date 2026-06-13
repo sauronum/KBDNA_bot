@@ -23,8 +23,10 @@ from app.features.modeling.admixtools2 import (
     _parse_qpgraph_graph_text,
     _qpgraph_leaf_populations,
     _qpgraph_preflight,
+    _qpgraph_raw_token,
     _qpgraph_result_markup,
     _qpgraph_save_payload,
+    _replace_qpgraph_token,
     _format_qpgraph_preflight,
     _show_fstats_builder,
     _show_qpgraph_builder,
@@ -187,6 +189,57 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
 
         self.assertTrue(payload["can_run"])
         self.assertEqual(payload["status"], "ok")
+
+    def test_qpgraph_preflight_allows_selected_raw_leaf_token(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir) / "dataset"
+            prefix.with_suffix(".ind").write_text(
+                "\n".join(
+                    [
+                        "sample1 U Mbuti.DG",
+                        "sample2 U Han.DG",
+                        "sample3 U Papuan.DG",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            token = _qpgraph_raw_token("sample-a", "Sample A")
+            flow = {
+                "dataset": "human_origins",
+                "raw_sample": {"sample_id": "sample-a", "label": "Sample A", "path": "/tmp/sample.txt", "token": token},
+                "graph_text": f"edge R Mbuti.DG\nedge R N1\nedge N1 {token}\nedge N1 Papuan.DG",
+            }
+
+            payload = _qpgraph_preflight(flow, {"geno_prefix": str(prefix)})
+
+        self.assertTrue(payload["can_run"])
+        self.assertEqual(payload["details"]["raw_graph_label"], token)
+
+    def test_qpgraph_preflight_blocks_selected_raw_when_token_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir) / "dataset"
+            prefix.with_suffix(".ind").write_text("sample1 U Mbuti.DG\nsample2 U Han.DG\nsample3 U Papuan.DG\n", encoding="utf-8")
+            token = _qpgraph_raw_token("sample-a", "Sample A")
+            flow = {
+                "dataset": "human_origins",
+                "raw_sample": {"sample_id": "sample-a", "label": "Sample A", "path": "/tmp/sample.txt", "token": token},
+                "graph_text": "edge R Mbuti.DG\nedge R N1\nedge N1 Han.DG\nedge N1 Papuan.DG",
+            }
+
+            payload = _qpgraph_preflight(flow, {"geno_prefix": str(prefix)})
+            text = _format_qpgraph_preflight(payload, flow=flow)
+
+        self.assertFalse(payload["can_run"])
+        self.assertEqual(payload["status"], "raw_leaf_not_found")
+        self.assertIn(token, text)
+
+    def test_replace_qpgraph_token_rewrites_graph_labels_only(self) -> None:
+        graph_text = "edge R raw_sample_a\nedge R N1\nedge N1 Han.DG"
+
+        replaced = _replace_qpgraph_token(graph_text, "raw_sample_a", "prepared::human_origins::sample_a")
+
+        self.assertEqual(replaced.splitlines()[0], "edge R prepared::human_origins::sample_a")
+        self.assertEqual(replaced.splitlines()[2], "edge N1 Han.DG")
 
     def test_qpgraph_result_formats_score_edges_and_residuals(self) -> None:
         text = _format_qpgraph_result(

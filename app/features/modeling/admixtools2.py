@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import html
 import json
 import os
@@ -15,6 +16,7 @@ from app.features.modeling.navigation import nav_back_callback, nav_enter, nav_r
 from app.features.modeling.saved_models import register_pending_save
 from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
+from app.features.modeling.ui import page_nav_row
 from app.features.modeling.ui import show_message as _show_message
 from app.features.modeling.visuals import render_admixtools2_qpgraph_result
 from app.heavy_runtime import heavy_command
@@ -26,12 +28,17 @@ AT2_FSTATS_FLOW_KEY = "admixtools2_fstats_flow"
 AT2_QPGRAPH_FLOW_KEY = "admixtools2_qpgraph_flow"
 
 DNA_PLATFORM_ROOT = Path(os.getenv("DNA_PLATFORM_ROOT", "/srv/dna_platform"))
+DNA_PLATFORM_PYTHON = os.getenv("DNA_PLATFORM_PYTHON", "python3")
+ADMIXLAB_BIN_DIR = Path(os.getenv("ADMIXLAB_BIN_DIR", "/srv/dna_platform/tools/admixtools/bin"))
+ADMIXLAB_RAW_MERGE_CONFIG = os.getenv("ADMIXLAB_RAW_MERGE_CONFIG", "/etc/admixlab/raw_merge_config.json")
 BOT_AT2_OUTPUT_DIR = Path(os.getenv("KBDNA_AT2_OUTPUT_DIR", str(DNA_PLATFORM_ROOT / "output" / "admixlab" / "bot" / "at2")))
 AT2_QPADM_CONFIG = Path(os.getenv("ADMIXLAB_QPADM_ADMIXTOOLS2_BACKEND_CONFIG", "/etc/admixlab/qpadm_backend_config.admixtools2.json"))
 AT2_RUNNER = Path(__file__).with_name("admixtools2_runner.R")
 AT2_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_TIMEOUT_SECONDS", "7200"))
 AT2_FSTATS_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_FSTATS_TIMEOUT_SECONDS", "1800"))
 AT2_QPGRAPH_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_QPGRAPH_TIMEOUT_SECONDS", "7200"))
+AT2_RAW_MATERIALIZE_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_RAW_MATERIALIZE_TIMEOUT_SECONDS", "1800"))
+AT2_QPGRAPH_SAMPLE_PAGE_SIZE = 8
 
 DATASET_LABELS = {
     "v62_1240k_public": "v62 1240k public",
@@ -278,6 +285,40 @@ async def run_admixtools2_runner(payload: dict[str, Any], *, timeout_seconds: in
     return result
 
 
+def _platform_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["PATH"] = f"{ADMIXLAB_BIN_DIR}:{env.get('PATH', '')}"
+    env["ADMIXLAB_QPADM_BACKEND_CONFIG"] = str(AT2_QPADM_CONFIG)
+    env["ADMIXLAB_RAW_MERGE_CONFIG"] = ADMIXLAB_RAW_MERGE_CONFIG
+    return env
+
+
+async def run_dna_platform_json(args: list[str], *, timeout_seconds: int) -> tuple[int, dict[str, Any], str]:
+    proc = await asyncio.create_subprocess_exec(
+        *heavy_command([DNA_PLATFORM_PYTHON, "dna_platform.py", *args]),
+        cwd=str(DNA_PLATFORM_ROOT),
+        env=_platform_env(),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        raise RuntimeError("dna_platform command timed out")
+    stdout = stdout_bytes.decode("utf-8", errors="replace")
+    stderr = stderr_bytes.decode("utf-8", errors="replace")
+    try:
+        payload = json.loads(stdout)
+    except Exception as exc:
+        detail = (stderr or stdout).strip().splitlines()[-12:]
+        raise RuntimeError("\n".join(detail) or f"dna_platform emitted invalid JSON: {exc}")
+    if not isinstance(payload, dict):
+        raise RuntimeError("dna_platform emitted a non-object JSON response")
+    return int(proc.returncode or 0), payload, stderr
+
+
 def _new_fstats_flow(dataset: str) -> dict[str, Any]:
     return {"dataset": dataset, "statistic": "f4", "populations": [], "awaiting": None}
 
@@ -504,12 +545,39 @@ async def _run_fstats(message, context: ContextTypes.DEFAULT_TYPE, *, lang: str)
 
 
 def _new_qpgraph_flow(dataset: str) -> dict[str, Any]:
-    return {"dataset": dataset, "graph_text": "", "awaiting": None}
+    return {"dataset": dataset, "graph_text": "", "awaiting": None, "raw_sample": None}
 
 
 def _get_qpgraph_flow(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any] | None:
     flow = context.user_data.get(AT2_QPGRAPH_FLOW_KEY)
     return flow if isinstance(flow, dict) else None
+
+
+def _qpgraph_raw_sample(flow: dict[str, Any]) -> dict[str, Any] | None:
+    raw_sample = flow.get("raw_sample")
+    return raw_sample if isinstance(raw_sample, dict) else None
+
+
+def _qpgraph_raw_token(sample_id: object, label: object = "") -> str:
+    base = _safe_name(sample_id or label or "sample").replace("-", "_")
+    return f"raw_{base}"
+
+
+def _qpgraph_raw_aliases(flow: dict[str, Any]) -> list[str]:
+    raw_sample = _qpgraph_raw_sample(flow)
+    if raw_sample is None:
+        return []
+    aliases = [str(raw_sample.get("token") or "").strip()]
+    label = str(raw_sample.get("label") or "").strip()
+    if label and not any(char.isspace() for char in label):
+        aliases.append(label)
+    result: list[str] = []
+    seen: set[str] = set()
+    for alias in aliases:
+        if alias and alias not in seen:
+            result.append(alias)
+            seen.add(alias)
+    return result
 
 
 def _parse_qpgraph_graph_text(text: str) -> str:
@@ -560,12 +628,38 @@ def _qpgraph_preflight(flow: dict[str, Any], dataset_files: dict[str, Any]) -> d
                 }
             ],
         }
+    raw_aliases = _qpgraph_raw_aliases(flow)
+    raw_graph_label = next((leaf for leaf in leaves if leaf in raw_aliases), "")
+    if raw_aliases and not raw_graph_label:
+        return {
+            "can_run": False,
+            "status": "raw_leaf_not_found",
+            "errors": [
+                {
+                    "code": "raw_leaf_not_found",
+                    "message": "Selected raw sample is not used as a qpGraph leaf.",
+                    "details": {"raw_token": raw_aliases[0], "raw_aliases": raw_aliases, "leaves": leaves},
+                }
+            ],
+        }
     population_ids = _load_population_ids(dataset_files)
     if population_ids is None:
-        return {"can_run": True, "status": "population_index_unavailable", "warnings": [], "errors": []}
-    missing = [item for item in leaves if item not in population_ids]
+        return {
+            "can_run": True,
+            "status": "population_index_unavailable",
+            "warnings": [],
+            "errors": [],
+            "details": {"leaves": leaves, "raw_graph_label": raw_graph_label},
+        }
+    missing = [item for item in leaves if item != raw_graph_label and item not in population_ids]
     if not missing:
-        return {"can_run": True, "status": "ok", "warnings": [], "errors": [], "details": {"leaves": leaves}}
+        return {
+            "can_run": True,
+            "status": "ok",
+            "warnings": [],
+            "errors": [],
+            "details": {"leaves": leaves, "raw_graph_label": raw_graph_label},
+        }
     return {
         "can_run": False,
         "status": "population_not_found",
@@ -577,6 +671,7 @@ def _qpgraph_preflight(flow: dict[str, Any], dataset_files: dict[str, Any]) -> d
                     "dataset": str(flow.get("dataset") or ""),
                     "missing": missing,
                     "leaves": leaves,
+                    "raw_graph_label": raw_graph_label,
                 },
             }
         ],
@@ -598,6 +693,9 @@ def _format_qpgraph_preflight(payload: dict[str, Any], *, flow: dict[str, Any]) 
         if message:
             lines.extend(["", "<b>Ошибка</b>", html.escape(message)])
         details = error.get("details") if isinstance(error.get("details"), dict) else {}
+        raw_token = str(details.get("raw_token") or "").strip()
+        if raw_token:
+            lines.extend(["", "<b>Raw token</b>", f"<code>{html.escape(raw_token)}</code>"])
         missing = details.get("missing") if isinstance(details.get("missing"), list) else []
         if missing:
             lines.append("")
@@ -616,10 +714,15 @@ def _format_qpgraph_preflight(payload: dict[str, Any], *, flow: dict[str, Any]) 
 def _qpgraph_state_lines(flow: dict[str, Any]) -> list[str]:
     graph_text = str(flow.get("graph_text") or "").strip()
     graph_lines = [line for line in graph_text.splitlines() if line.strip()]
-    return [
+    lines = [
         f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
         f"Graph lines: <code>{len(graph_lines)}</code>",
     ]
+    raw_sample = _qpgraph_raw_sample(flow)
+    if raw_sample is not None:
+        lines.append(f"Raw sample: <code>{html.escape(str(raw_sample.get('label') or 'selected'))}</code>")
+        lines.append(f"Raw graph token: <code>{html.escape(str(raw_sample.get('token') or ''))}</code>")
+    return lines
 
 
 async def show_qpgraph_dataset_menu(
@@ -649,7 +752,12 @@ async def _show_qpgraph_builder(message, context: ContextTypes.DEFAULT_TYPE, *, 
         return
     nav_enter(context, _cb("at2_qpgraph_builder"))
     graph_text = str(flow.get("graph_text") or "").strip()
+    raw_sample = _qpgraph_raw_sample(flow)
+    raw_button = "My raw sample"
+    if raw_sample is not None:
+        raw_button = f"Raw: {str(raw_sample.get('label') or 'selected')[:28]}"
     rows: list[list[InlineKeyboardButton]] = [
+        [InlineKeyboardButton(raw_button, callback_data=_cb("at2_qpgraph_raw"))],
         [InlineKeyboardButton("📝 Graphfile", callback_data=_cb("at2_qpgraph_graph"))],
     ]
     if graph_text:
@@ -662,6 +770,8 @@ async def _show_qpgraph_builder(message, context: ContextTypes.DEFAULT_TYPE, *, 
         "",
         "Вставьте graphfile в формате ADMIXTOOLS: <code>edge</code>, <code>admix</code>, <code>lock</code>, <code>label</code>.",
     ]
+    if raw_sample is not None:
+        lines.extend(["", "Raw leaf token for graphfile:", f"<code>{html.escape(str(raw_sample.get('token') or ''))}</code>"])
     if graph_text:
         preview = "\n".join(graph_text.splitlines()[:6])
         lines.extend(["", "<b>Graph preview</b>", f"<code>{html.escape(preview)}</code>"])
@@ -687,6 +797,106 @@ async def _prompt_qpgraph_graph(message, context: ContextTypes.DEFAULT_TYPE, *, 
         ]
     )
     await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
+
+
+def _clip_text(value: object, limit: int = 38) -> str:
+    text = str(value or "")
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)] + "…"
+
+
+async def _show_qpgraph_raw_menu(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    lang: str,
+    page: int = 0,
+) -> None:
+    flow = _get_qpgraph_flow(context)
+    if flow is None:
+        await show_qpgraph_dataset_menu(message, context, edit_existing=True, lang=lang)
+        return
+    user_id = int(update.effective_user.id) if update.effective_user is not None else 0
+    store = context.application.bot_data.get("my_data_store")
+    samples = []
+    if store is not None:
+        samples = [sample for sample in store.list_samples(user_id) if getattr(sample, "raw_file_id", "")]
+
+    nav_enter(context, _cb("at2_qpgraph_raw_page", page))
+    if not samples:
+        text = "\n".join(
+            [
+                "<b>qpGraph 2 · raw sample</b>",
+                "",
+                "В My DNA пока нет sample с raw-файлом.",
+                "Добавьте raw в My DNA или запустите qpGraph только на dataset populations.",
+            ]
+        )
+        await _show_message(message, text, InlineKeyboardMarkup([_footer_row(nav_back_callback(), lang)]), edit_existing=True)
+        return
+
+    page_count = max(1, (len(samples) + AT2_QPGRAPH_SAMPLE_PAGE_SIZE - 1) // AT2_QPGRAPH_SAMPLE_PAGE_SIZE)
+    page = min(max(0, page), page_count - 1)
+    start = page * AT2_QPGRAPH_SAMPLE_PAGE_SIZE
+    end = min(len(samples), start + AT2_QPGRAPH_SAMPLE_PAGE_SIZE)
+    rows = [
+        [
+            InlineKeyboardButton(
+                _clip_text(getattr(sample, "display_name", sample.asset_id), 38),
+                callback_data=_cb("at2_qpgraph_raw_pick", sample.asset_id),
+            )
+        ]
+        for sample in samples[start:end]
+    ]
+    if page_count > 1:
+        rows.append(page_nav_row(page, page_count, lambda value: _cb("at2_qpgraph_raw_page", value)))
+    rows.append(_footer_row(nav_back_callback(), lang))
+    text = "\n".join(
+        [
+            "<b>qpGraph 2 · raw sample</b>",
+            "",
+            f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
+            f"Shown: <code>{start + 1}-{end}</code> / <code>{len(samples)}</code>",
+            "Выберите raw sample, затем используйте его token в graphfile как leaf population.",
+        ]
+    )
+    await _show_message(message, text, InlineKeyboardMarkup(rows), edit_existing=True)
+
+
+async def _select_qpgraph_raw_sample(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    sample_id: str,
+    *,
+    lang: str,
+) -> None:
+    flow = _get_qpgraph_flow(context)
+    user_id = int(update.effective_user.id) if update.effective_user is not None else 0
+    store = context.application.bot_data.get("my_data_store")
+    if flow is None or store is None:
+        await show_qpgraph_dataset_menu(message, context, edit_existing=True, lang=lang)
+        return
+    sample = store.get_sample(user_id, sample_id)
+    if sample is None or not getattr(sample, "raw_file_id", ""):
+        await _show_qpgraph_raw_menu(message, update, context, lang=lang)
+        return
+    raw_file = store.get_raw_file(user_id, sample.raw_file_id)
+    if raw_file is None:
+        await _show_qpgraph_raw_menu(message, update, context, lang=lang)
+        return
+    raw_path = store.resolve_raw_file_path(raw_file)
+    label = str(getattr(sample, "display_name", "") or sample_id)
+    flow["raw_sample"] = {
+        "sample_id": sample_id,
+        "raw_file_id": sample.raw_file_id,
+        "path": str(raw_path),
+        "label": label,
+        "token": _qpgraph_raw_token(sample_id, label),
+    }
+    await _show_qpgraph_builder(message, context, edit_existing=True, lang=lang)
 
 
 def _format_qpgraph_error(exc: Exception, *, flow: dict[str, Any] | None, elapsed_seconds: float) -> str:
@@ -845,6 +1055,106 @@ def _qpgraph_save_payload(
     }
 
 
+def _replace_qpgraph_token(graph_text: str, old: str, new: str) -> str:
+    lines: list[str] = []
+    for line in str(graph_text or "").splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        replaced = [new if part == old else part for part in parts]
+        lines.append(" ".join(replaced))
+    return "\n".join(lines)
+
+
+def _alias_qpgraph_payload(payload: dict[str, Any], aliases: dict[str, str]) -> dict[str, Any]:
+    if not aliases:
+        return payload
+    cloned = copy.deepcopy(payload)
+    result = cloned.get("result") if isinstance(cloned.get("result"), dict) else {}
+
+    def alias(value: object) -> object:
+        text = str(value)
+        return aliases.get(text, value)
+
+    leaves = result.get("leaf_populations")
+    if isinstance(leaves, list):
+        result["leaf_populations"] = [alias(item) for item in leaves]
+    edges = result.get("edges")
+    if isinstance(edges, list):
+        for row in edges:
+            if not isinstance(row, dict):
+                continue
+            for key in ("from", "to"):
+                if key in row:
+                    row[key] = alias(row.get(key))
+    f3_rows = result.get("f3")
+    if isinstance(f3_rows, list):
+        for row in f3_rows:
+            if not isinstance(row, dict):
+                continue
+            for key in ("pop1", "pop2", "pop3"):
+                if key in row:
+                    row[key] = alias(row.get(key))
+    return cloned
+
+
+def _materialization_error(payload: dict[str, Any], stderr: str = "") -> str:
+    errors = payload.get("errors") if isinstance(payload.get("errors"), list) else []
+    messages = [str(item.get("message")) for item in errors if isinstance(item, dict) and item.get("message")]
+    if messages:
+        return "\n".join(messages)
+    status = str(payload.get("status") or "").strip()
+    if status:
+        return f"raw materialization failed: {status}"
+    return (stderr or "raw materialization failed").strip()
+
+
+async def _prepare_qpgraph_runtime(
+    flow: dict[str, Any],
+    *,
+    graph_text: str,
+    dataset_files: dict[str, Any],
+    preflight: dict[str, Any],
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    raw_sample = _qpgraph_raw_sample(flow)
+    if raw_sample is None:
+        return graph_text, dataset_files, {}
+    details = preflight.get("details") if isinstance(preflight.get("details"), dict) else {}
+    raw_graph_label = str(details.get("raw_graph_label") or "").strip()
+    if not raw_graph_label:
+        raise RuntimeError("Selected raw sample is not used in graphfile.")
+    leaves = details.get("leaves") if isinstance(details.get("leaves"), list) else _qpgraph_leaf_populations(graph_text)
+    dataset_leaves = [str(item) for item in leaves if str(item) != raw_graph_label]
+    output_path = BOT_AT2_OUTPUT_DIR / f"qpgraph_raw_materialized_{_safe_name(raw_sample.get('sample_id'))}_{int(time.time() * 1000)}.json"
+    args = [
+        "admixlab-materialize-raw-eigenstrat",
+        "--dataset",
+        str(flow.get("dataset") or ""),
+        "--target",
+        str(raw_sample.get("path") or ""),
+        "--output",
+        str(output_path),
+    ]
+    for leaf in dataset_leaves:
+        args.extend(["--leaf-population", leaf])
+    returncode, payload, stderr = await run_dna_platform_json(args, timeout_seconds=AT2_RAW_MATERIALIZE_TIMEOUT_SECONDS)
+    if returncode != 0 or payload.get("status") != "completed" or payload.get("can_run") is not True:
+        raise RuntimeError(_materialization_error(payload, stderr))
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    materialized_files = result.get("dataset_files") if isinstance(result.get("dataset_files"), dict) else {}
+    raw_population_id = str(result.get("raw_population_id") or "").strip()
+    if not materialized_files or not raw_population_id:
+        raise RuntimeError("raw materialization did not return a usable geno_prefix")
+    runtime_graph_text = _replace_qpgraph_token(graph_text, raw_graph_label, raw_population_id)
+    runtime = {
+        "raw_graph_label": raw_graph_label,
+        "raw_population_id": raw_population_id,
+        "display_aliases": {raw_population_id: str(raw_sample.get("label") or raw_graph_label)},
+        "materialization": payload,
+    }
+    return runtime_graph_text, dict(materialized_files), runtime
+
+
 async def _run_qpgraph(message, update: Update | None, context: ContextTypes.DEFAULT_TYPE, *, lang: str) -> None:
     flow = _get_qpgraph_flow(context)
     if flow is None:
@@ -864,14 +1174,41 @@ async def _run_qpgraph(message, update: Update | None, context: ContextTypes.DEF
         await _show_message(message, _format_qpgraph_preflight(preflight, flow=flow), _qpgraph_result_markup(lang), edit_existing=True)
         return
     await _show_message(message, "<b>🕸 qpGraph 2</b>\n\nСчитаю ADMIXTOOLS2...", InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
+    runtime: dict[str, Any] = {}
+    runtime_graph_text = graph_text
+    runtime_dataset_files = dataset_files
+    if _qpgraph_raw_sample(flow) is not None:
+        await _show_message(
+            message,
+            "<b>qpGraph 2</b>\n\nPreparing raw sample for ADMIXTOOLS2...",
+            InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]),
+            edit_existing=True,
+        )
+        try:
+            runtime_graph_text, runtime_dataset_files, runtime = await _prepare_qpgraph_runtime(
+                flow,
+                graph_text=graph_text,
+                dataset_files=dataset_files,
+                preflight=preflight,
+            )
+        except Exception as exc:
+            text = _format_qpgraph_error(exc, flow=flow, elapsed_seconds=0.0)
+            await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
+            return
+        await _show_message(
+            message,
+            "<b>qpGraph 2</b>\n\nRunning ADMIXTOOLS2...",
+            InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]),
+            edit_existing=True,
+        )
     started = time.monotonic()
     try:
         payload = await run_admixtools2_runner(
             {
                 "command": "qpgraph",
                 "dataset": dataset,
-                "dataset_files": dataset_files,
-                "graph_text": graph_text,
+                "dataset_files": runtime_dataset_files,
+                "graph_text": runtime_graph_text,
                 "options": {"afprod": False, "return_fstats": "f3", "numstart": 10},
             },
             timeout_seconds=AT2_QPGRAPH_TIMEOUT_SECONDS,
@@ -881,6 +1218,17 @@ async def _run_qpgraph(message, update: Update | None, context: ContextTypes.DEF
         await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_qpgraph_builder"), lang)]), edit_existing=True)
         return
     elapsed = time.monotonic() - started
+    display_aliases = runtime.get("display_aliases") if isinstance(runtime.get("display_aliases"), dict) else {}
+    payload = _alias_qpgraph_payload(payload, {str(key): str(value) for key, value in display_aliases.items()})
+    if runtime:
+        result = payload.setdefault("result", {})
+        if isinstance(result, dict):
+            materialization = runtime.get("materialization")
+            result["raw_runtime"] = {
+                "raw_graph_label": runtime.get("raw_graph_label"),
+                "raw_population_id": runtime.get("raw_population_id"),
+                "materialization_status": materialization.get("status") if isinstance(materialization, dict) else None,
+            }
     text = _format_qpgraph_result(payload, flow=flow, elapsed_seconds=elapsed)
     caption = _format_qpgraph_caption(payload, flow=flow, elapsed_seconds=elapsed)
     visual_path: Path | None = None
@@ -967,6 +1315,19 @@ async def admixtools2_callback_handler(
         return True
     if action == "at2_qpgraph_builder":
         await _show_qpgraph_builder(message, context, edit_existing=True, lang=lang)
+        return True
+    if action == "at2_qpgraph_raw":
+        await _show_qpgraph_raw_menu(message, update, context, lang=lang, page=0)
+        return True
+    if action == "at2_qpgraph_raw_page" and len(parts) >= 3:
+        try:
+            page = max(0, int(parts[2]))
+        except (TypeError, ValueError):
+            page = 0
+        await _show_qpgraph_raw_menu(message, update, context, lang=lang, page=page)
+        return True
+    if action == "at2_qpgraph_raw_pick" and len(parts) >= 3:
+        await _select_qpgraph_raw_sample(message, update, context, parts[2], lang=lang)
         return True
     if action == "at2_qpgraph_graph":
         await _prompt_qpgraph_graph(message, context, lang=lang)
