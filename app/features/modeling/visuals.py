@@ -758,6 +758,169 @@ def _batch_weight_diagnostics(item: dict[str, Any] | None) -> tuple[float | None
     return min_abs_z, max_se
 
 
+def _fstats_value(row: dict[str, Any], statistic: str) -> float | None:
+    for key in ("est", "estimate", statistic, "f4", "f3", "f2"):
+        if key in row:
+            value = _number(row.get(key))
+            if value is not None:
+                return value
+    return None
+
+
+def _fstats_pop_tuple(row: dict[str, Any], fallback: list[str]) -> str:
+    values = [str(row.get(key) or "").strip() for key in ("pop1", "pop2", "pop3", "pop4")]
+    values = [value for value in values if value]
+    if values:
+        return " / ".join(values)
+    return " / ".join(fallback)
+
+
+def render_admixtools2_fstats_result(
+    payload: dict[str, Any],
+    *,
+    flow: dict[str, Any],
+    elapsed_seconds: float,
+    output_dir: Path,
+) -> Path:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    rows = [item for item in result.get("rows", []) if isinstance(item, dict)]
+    statistic = str(result.get("statistic") or flow.get("statistic") or "f4")
+    populations = [str(item) for item in flow.get("populations", []) if str(item)]
+    data_source = result.get("data_source") if isinstance(result.get("data_source"), dict) else {}
+    warnings = [str(item) for item in payload.get("warnings", []) if str(item)] if isinstance(payload.get("warnings"), list) else []
+    first_row = rows[0] if rows else {}
+
+    shown_rows = rows[:8]
+    table_h = 76 + max(1, len(shown_rows)) * 42
+    population_rows = max(1, math.ceil(max(1, len(populations)) / 2))
+    populations_h = 58 + population_rows * 34
+    data_h = 112
+    warnings_h = 0 if not warnings else 74
+    height = 580 + table_h + populations_h + data_h + warnings_h
+    width = 1180
+    image, draw = _canvas(height, width=width, background="#071019", panel="#111820")
+
+    content_left = 58
+    content_right = width - 58
+    outline = "#263543"
+    accent = "#22d3ee"
+    title_font = _font(46, bold=True)
+    subtitle_font = _font(23)
+    label_font = _font(16, bold=True)
+    value_font = _font(23, bold=True)
+    h_font = _font(26, bold=True)
+    row_font = _font(17)
+    row_bold = _font(18, bold=True)
+    small_font = _font(15)
+
+    def draw_centered(cx: int, yy: int, text: str, font: ImageFont.ImageFont, fill: str) -> None:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        draw.text((cx - (bbox[2] - bbox[0]) // 2, yy), text, font=font, fill=fill)
+
+    y = 54
+    draw.text((content_left, y), "ADMIXTOOLS2 f-statistics", font=title_font, fill="#f8fafc")
+    draw.text((content_left, y + 58), "f2 / f3 / f4 statistic, standard error and z-score", font=subtitle_font, fill="#9aa8bb")
+    status = str(payload.get("status") or "completed").upper()
+    status_color = "#22c55e" if status == "COMPLETED" else "#f59e0b"
+    badge_bbox = draw.textbbox((0, 0), status, font=label_font)
+    badge_w = badge_bbox[2] - badge_bbox[0] + 30
+    draw.rounded_rectangle((content_right - badge_w, y + 16, content_right, y + 50), radius=9, fill="#0f1d27", outline=status_color, width=1)
+    draw.text((content_right - badge_w + 15, y + 24), status, font=label_font, fill=status_color)
+
+    y += 122
+    draw.rounded_rectangle((content_left, y, content_right, y + 58), radius=10, fill="#0d151c", outline=outline, width=1)
+    draw.text((content_left + 24, y + 18), "Dataset", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 126, y + 14), _fit_text(draw, _dataset_label(flow.get("dataset")), value_font, 360), font=value_font, fill="#e5edf5")
+    draw.text((content_left + 610, y + 18), "Statistic", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 720, y + 14), statistic.upper(), font=value_font, fill="#f5b942")
+
+    y += 84
+    metrics = [
+        ("value", _format_number(_fstats_value(first_row, statistic))),
+        ("SE", _format_number(_number(first_row.get("se")))),
+        ("z", _format_number(_number(first_row.get("z")))),
+        ("p-value", _format_number(_number(first_row.get("p")))),
+        ("time", f"{elapsed_seconds:.1f}s"),
+    ]
+    gap = 14
+    tile_w = (content_right - content_left - gap * (len(metrics) - 1)) // len(metrics)
+    for index, (label, value) in enumerate(metrics):
+        x = content_left + index * (tile_w + gap)
+        draw.rounded_rectangle((x, y, x + tile_w, y + 78), radius=10, fill="#17212b", outline="#33424e", width=1)
+        draw.text((x + 15, y + 13), label.upper(), font=label_font, fill="#90a0b3")
+        draw.text((x + 15, y + 38), _fit_text(draw, value, value_font, tile_w - 30), font=value_font, fill="#f5b942")
+
+    y += 112
+    draw.text((content_left, y), "Results", font=h_font, fill="#f8fafc")
+    y += 40
+    table_top = y
+    draw.rounded_rectangle((content_left, table_top, content_right, table_top + table_h), radius=12, fill="#0d151c", outline=outline, width=1)
+    header_y = table_top + 22
+    tuple_x = content_left + 22
+    value_x = content_right - 310
+    se_x = content_right - 210
+    z_x = content_right - 122
+    p_x = content_right - 38
+    draw.text((tuple_x, header_y), "Populations", font=label_font, fill="#cbd5e1")
+    draw_centered(value_x, header_y, "VALUE", label_font, "#cbd5e1")
+    draw_centered(se_x, header_y, "SE", label_font, "#cbd5e1")
+    draw_centered(z_x, header_y, "z", label_font, "#cbd5e1")
+    draw_centered(p_x, header_y, "p", label_font, "#cbd5e1")
+    draw.line((content_left, table_top + 56, content_right, table_top + 56), fill=outline, width=1)
+
+    if not shown_rows:
+        draw.text((tuple_x, table_top + 82), "No rows returned.", font=row_font, fill="#9aa8bb")
+    for index, row in enumerate(shown_rows):
+        row_y = table_top + 70 + index * 42
+        if index:
+            draw.line((content_left + 18, row_y - 12, content_right - 18, row_y - 12), fill="#172432", width=1)
+        tuple_text = _fstats_pop_tuple(row, populations)
+        draw.text((tuple_x, row_y), _fit_text(draw, tuple_text, row_font, value_x - tuple_x - 60), font=row_font, fill="#dbe5ef")
+        draw_centered(value_x, row_y, _format_number(_fstats_value(row, statistic)), row_bold, "#f5b942")
+        draw_centered(se_x, row_y, _format_number(_number(row.get("se"))), row_font, "#cbd5e1")
+        draw_centered(z_x, row_y, _format_number(_number(row.get("z"))), row_font, "#cbd5e1")
+        draw_centered(p_x, row_y, _format_number(_number(row.get("p"))), row_font, "#cbd5e1")
+    if len(rows) > len(shown_rows):
+        draw.text((tuple_x, table_top + table_h - 24), f"+{len(rows) - len(shown_rows)} more rows", font=small_font, fill="#9aa8bb")
+
+    y = table_top + table_h + 30
+    draw.text((content_left, y), "Populations", font=h_font, fill="#f8fafc")
+    y += 40
+    pop_col_w = (content_right - content_left - 18) // 2
+    for index, population in enumerate(populations or ["n/a"]):
+        col = index % 2
+        row = index // 2
+        x = content_left + col * (pop_col_w + 18)
+        yy = y + row * 34
+        label = f"pop{index + 1}" if populations else "population"
+        draw.rounded_rectangle((x, yy, x + pop_col_w, yy + 27), radius=7, fill="#101923", outline=outline, width=1)
+        draw.text((x + 12, yy + 5), label, font=small_font, fill="#90a0b3")
+        draw.text((x + 70, yy + 4), _fit_text(draw, population, small_font, pop_col_w - 82), font=small_font, fill="#dbe5ef")
+
+    y += population_rows * 34 + 22
+    draw.rounded_rectangle((content_left, y, content_right, y + data_h), radius=12, fill="#0d151c", outline=outline, width=1)
+    draw.text((content_left + 22, y + 20), "Data source", font=h_font, fill="#f8fafc")
+    source_type = str(data_source.get("type") or "f2").replace("_", " ")
+    source_path = str(data_source.get("path") or "")
+    cache_status = str(data_source.get("cache_status") or "").strip()
+    draw.text((content_left + 22, y + 60), "Type", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 96, y + 57), _fit_text(draw, source_type, row_bold, 280), font=row_bold, fill="#f5b942")
+    if cache_status:
+        draw.text((content_left + 390, y + 60), "Cache", font=label_font, fill="#90a0b3")
+        draw.text((content_left + 470, y + 57), _fit_text(draw, cache_status, row_bold, 180), font=row_bold, fill="#22c55e" if cache_status == "hit" else "#f5b942")
+    if source_path:
+        draw.text((content_left + 22, y + 86), _fit_text(draw, source_path, small_font, content_right - content_left - 44), font=small_font, fill="#9aa8bb")
+
+    y += data_h + 24
+    if warnings:
+        draw.rounded_rectangle((content_left, y, content_right, y + warnings_h), radius=12, fill="#1f1712", outline="#7c2d12", width=1)
+        draw.text((content_left + 22, y + 18), "Warnings", font=label_font, fill="#f59e0b")
+        draw.text((content_left + 22, y + 42), _fit_text(draw, "; ".join(warnings), row_font, content_right - content_left - 44), font=row_font, fill="#fbbf24")
+
+    _draw_footer(image, draw, product="ADMIXTOOLS2 f-statistics", version="AT2", accent=accent, outline=outline)
+    return _save(image, output_dir, "fstats_admixtools2_result")
+
+
 def render_admixtools2_qpgraph_result(
     payload: dict[str, Any],
     *,

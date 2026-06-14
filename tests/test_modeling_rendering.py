@@ -7,7 +7,12 @@ from pathlib import Path
 
 from PIL import Image
 
-from app.features.modeling.visuals import render_admixtools2_qpadm_batch_result, render_admixtools2_qpgraph_result, render_qpadm_result
+from app.features.modeling.visuals import (
+    render_admixtools2_fstats_result,
+    render_admixtools2_qpadm_batch_result,
+    render_admixtools2_qpgraph_result,
+    render_qpadm_result,
+)
 from app.features.vahaduo.ready_models_rendering import CANVAS_WIDTH, MIN_CANVAS_HEIGHT, build_rendered_source_fit_card, render_source_fit_card, source_fit_caption
 from app.features.vahaduo.ready_models_runtime import SourceFitComponent, SourceFitResult
 
@@ -192,6 +197,40 @@ class ModelingRenderingTests(unittest.TestCase):
             self.assertTrue(path.name.startswith("qpgraph_admixtools2_result_"))
             with Image.open(path) as image:
                 self.assertGreaterEqual(image.width, 1180)
+                self.assertGreaterEqual(image.height, 820)
+
+    def test_admixtools2_fstats_renderer_returns_png(self) -> None:
+        payload = {
+            "status": "completed",
+            "result": {
+                "statistic": "f4",
+                "rows": [
+                    {
+                        "pop1": "Mbuti.DG",
+                        "pop2": "Han.DG",
+                        "pop3": "Papuan.DG",
+                        "pop4": "Balkar.HO",
+                        "est": [0.00123],
+                        "se": [0.00045],
+                        "z": [2.73],
+                        "p": [0.006],
+                    }
+                ],
+                "data_source": {"type": "precomputed_f2_cache", "cache_status": "hit", "path": "/tmp/f2_cache"},
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = render_admixtools2_fstats_result(
+                payload,
+                flow={"dataset": "human_origins", "statistic": "f4", "populations": ["Mbuti.DG", "Han.DG", "Papuan.DG", "Balkar.HO"]},
+                elapsed_seconds=3.1,
+                output_dir=Path(temp_dir),
+            )
+
+            self.assertTrue(path.name.startswith("fstats_admixtools2_result_"))
+            with Image.open(path) as image:
+                self.assertEqual(image.width, 1180)
                 self.assertGreaterEqual(image.height, 820)
 
     def test_admixtools2_qpgraph_renderer_expands_for_deep_graphs(self) -> None:

@@ -19,7 +19,7 @@ from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
 from app.features.modeling.ui import page_nav_row
 from app.features.modeling.ui import show_message as _show_message
-from app.features.modeling.visuals import render_admixtools2_qpgraph_result
+from app.features.modeling.visuals import render_admixtools2_fstats_result, render_admixtools2_qpgraph_result
 from app.heavy_runtime import heavy_command
 from app.i18n import get_user_language
 from app.main_menu import set_active_main_menu_message
@@ -656,6 +656,25 @@ def _format_fstats_result(payload: dict[str, Any], *, flow: dict[str, Any], elap
     return "\n".join(lines)
 
 
+def _format_fstats_caption(payload: dict[str, Any], *, flow: dict[str, Any], elapsed_seconds: float) -> str:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    rows = result.get("rows") if isinstance(result.get("rows"), list) else []
+    row = rows[0] if rows and isinstance(rows[0], dict) else {}
+    statistic = str(result.get("statistic") or flow.get("statistic") or "f4")
+    value = row.get("est", row.get("estimate", row.get(statistic, row.get("f4", row.get("f3", row.get("f2"))))))
+    return "\n".join(
+        [
+            "<b>📊 ADMIXTOOLS2 f-statistics</b>",
+            f"Dataset: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
+            f"Statistic: <code>{html.escape(statistic)}</code>",
+            f"value: <code>{html.escape(_num(value))}</code>",
+            f"SE: <code>{html.escape(_num(row.get('se')))}</code>",
+            f"z: <code>{html.escape(_num(row.get('z')))}</code>",
+            f"Time: <code>{elapsed_seconds:.1f}s</code>",
+        ]
+    )
+
+
 def _num(value: object) -> str:
     if isinstance(value, list) and value:
         value = value[0]
@@ -674,7 +693,7 @@ def _num_float(value: object, default: float = 0.0) -> float:
         return default
 
 
-async def _run_fstats(message, context: ContextTypes.DEFAULT_TYPE, *, lang: str) -> None:
+async def _run_fstats(message, update: Update | None, context: ContextTypes.DEFAULT_TYPE, *, lang: str) -> None:
     flow = _get_fstats_flow(context)
     if flow is None:
         await show_fstats_dataset_menu(message, context, edit_existing=True, lang=lang)
@@ -706,8 +725,16 @@ async def _run_fstats(message, context: ContextTypes.DEFAULT_TYPE, *, lang: str)
         text = _format_fstats_error(exc, flow=flow, elapsed_seconds=time.monotonic() - started)
         await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_fstats_builder"), lang)]), edit_existing=True)
         return
-    text = _format_fstats_result(payload, flow=flow, elapsed_seconds=time.monotonic() - started)
-    await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("at2_fstats_builder"), lang)]), edit_existing=True)
+    elapsed = time.monotonic() - started
+    text = _format_fstats_result(payload, flow=flow, elapsed_seconds=elapsed)
+    caption = _format_fstats_caption(payload, flow=flow, elapsed_seconds=elapsed)
+    markup = InlineKeyboardMarkup([_footer_row(_cb("at2_fstats_builder"), lang)])
+    visual_path: Path | None = None
+    try:
+        visual_path = render_admixtools2_fstats_result(payload, flow=flow, elapsed_seconds=elapsed, output_dir=BOT_AT2_OUTPUT_DIR)
+    except Exception:
+        visual_path = None
+    await _send_qpgraph_result(message, update, context, text=text, caption=caption, markup=markup, visual_path=visual_path)
 
 
 def _new_qpgraph_flow(dataset: str) -> dict[str, Any]:
@@ -1535,6 +1562,6 @@ async def admixtools2_callback_handler(
         await _prompt_fstats_populations(message, context, lang=lang)
         return True
     if action == "at2_fstats_run":
-        await _run_fstats(message, context, lang=lang)
+        await _run_fstats(message, update, context, lang=lang)
         return True
     return False
