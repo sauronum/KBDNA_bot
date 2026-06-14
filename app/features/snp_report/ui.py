@@ -7,6 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from app.features.my_data.storage import SampleAsset
 
 from .domain import SnpCategorySummary, SnpReportResult, SnpRule
+from .interesting import InterestingSnpAnalysis, InterestingSnpResult
 from .storage import SnpReportRecord
 
 
@@ -47,6 +48,7 @@ def build_lab_root_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
         [
             [InlineKeyboardButton("🔎 Поиск SNP", callback_data="snp_report:search")],
             [InlineKeyboardButton("📚 База SNP", callback_data="snp_report:db")],
+            [InlineKeyboardButton("🧪 Интересные SNP", callback_data="snp_report:interesting")],
             [InlineKeyboardButton("🧾 SNP отчёт", callback_data="snp_report:report")],
             _dna_lab_footer_row(),
         ]
@@ -82,6 +84,88 @@ def report_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: in
 
 def build_report_picker_keyboard(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
     return _sample_picker_keyboard(samples, action="run", page_action="report_page", page=page, back_callback="snp_report:root")
+
+
+def interesting_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> str:
+    total_pages = _total_pages(samples, PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    if lang == "en":
+        lines = [
+            "🧪 <b>Interesting SNP</b>",
+            "",
+            "A small curated panel of simple non-medical traits.",
+            "Choose a sample with a raw file.",
+        ]
+        if samples:
+            lines.append(f"Page {page + 1}/{total_pages}.")
+        else:
+            lines.extend(["", "No samples with raw files yet."])
+        return "\n".join(lines)
+
+    lines = [
+        "🧪 <b>Интересные SNP</b>",
+        "",
+        "Небольшая curated-панель простых немедицинских признаков.",
+        "Выберите sample с raw-файлом.",
+    ]
+    if samples:
+        lines.append(f"Страница {page + 1}/{total_pages}.")
+    else:
+        lines.extend(["", "Пока нет sample с raw-файлом."])
+    return "\n".join(lines)
+
+
+def build_interesting_picker_keyboard(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
+    return _sample_picker_keyboard(
+        samples,
+        action="interesting_sample",
+        page_action="interesting_page",
+        page=page,
+        back_callback="snp_report:root",
+    )
+
+
+def interesting_running_text(sample: SampleAsset, *, lang: str = "ru") -> str:
+    if lang == "en":
+        return f"🧪 Interesting SNP\n\nAnalyzing: <b>{html.escape(sample.display_name)}</b>"
+    return f"🧪 Интересные SNP\n\nАнализирую: <b>{html.escape(sample.display_name)}</b>"
+
+
+def interesting_result_text(analysis: InterestingSnpAnalysis, *, lang: str = "ru") -> str:
+    if lang == "en":
+        lines = [
+            "🧪 <b>Interesting SNP</b>",
+            "",
+            f"Sample: <b>{html.escape(analysis.sample_name)}</b>",
+            f"Available: <b>{analysis.found}</b> / {analysis.total}",
+        ]
+        if analysis.unsupported:
+            lines.append(f"Unsupported genotype format: <b>{analysis.unsupported}</b>")
+        lines.append("")
+        lines.extend(_interesting_result_lines(analysis.results, lang=lang))
+        return "\n".join(lines)
+
+    lines = [
+        "🧪 <b>Интересные SNP</b>",
+        "",
+        f"Sample: <b>{html.escape(analysis.sample_name)}</b>",
+        f"Доступно: <b>{analysis.found}</b> из {analysis.total}",
+    ]
+    if analysis.unsupported:
+        lines.append(f"Неподдержанный формат генотипа: <b>{analysis.unsupported}</b>")
+    lines.append("")
+    lines.extend(_interesting_result_lines(analysis.results, lang=lang))
+    return "\n".join(lines)
+
+
+def build_interesting_result_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
+    another_label = "👤 Another sample" if lang == "en" else "👤 Другой sample"
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(another_label, callback_data="snp_report:interesting")],
+            _back_cancel_row("snp_report:root"),
+        ]
+    )
 
 
 def search_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> str:
@@ -608,6 +692,46 @@ def _sample_picker_keyboard(
     _append_page_nav(rows, page=page, total_pages=total_pages, callback_prefix=f"snp_report:{page_action}")
     rows.append(_back_cancel_row(back_callback))
     return InlineKeyboardMarkup(rows)
+
+
+def _interesting_result_lines(results: tuple[InterestingSnpResult, ...], *, lang: str) -> list[str]:
+    lines: list[str] = []
+    missing: list[InterestingSnpResult] = []
+    unsupported: list[InterestingSnpResult] = []
+
+    for item in results:
+        if item.status == "missing":
+            missing.append(item)
+            continue
+        if item.status == "unsupported":
+            unsupported.append(item)
+            continue
+
+        lines.extend(
+            [
+                f"<b>{html.escape(item.title)}</b>",
+                f"{html.escape(item.rsid)} · {html.escape(item.gene)} · genotype: <b>{html.escape(item.genotype)}</b>",
+                f"Result: {html.escape(item.interpretation)}" if lang == "en" else f"Результат: {html.escape(item.interpretation)}",
+            ]
+        )
+        if item.description:
+            lines.append(html.escape(item.description))
+        if item.limitations:
+            label = "Limit" if lang == "en" else "Ограничение"
+            lines.append(f"{label}: {html.escape(item.limitations)}")
+        lines.append("")
+
+    if unsupported:
+        label = "Found but not interpreted yet" if lang == "en" else "Найдено, но пока без трактовки"
+        values = ", ".join(f"{item.rsid} ({item.genotype})" for item in unsupported)
+        lines.extend([f"<b>{label}</b>", html.escape(values), ""])
+
+    if missing:
+        label = "Not found in raw" if lang == "en" else "Не найдено в raw"
+        values = ", ".join(item.rsid for item in missing)
+        lines.extend([f"<b>{label}</b>", html.escape(values)])
+
+    return lines
 
 
 def _append_page_nav(

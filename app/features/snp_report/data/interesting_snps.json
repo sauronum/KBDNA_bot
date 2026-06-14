@@ -1,0 +1,282 @@
+[
+  {
+    "rsid": "rs4988235",
+    "title": "Переносимость лактозы",
+    "category": "Питание",
+    "gene": "MCM6/LCT",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "CC": "Вероятнее сниженная переносимость лактозы",
+      "CT": "Промежуточный вариант",
+      "TT": "Вероятнее сохраненная переносимость лактозы"
+    },
+    "descriptions": {
+      "CC": "В европейском контексте такой вариант чаще связан с выключением активности лактазы во взрослом возрасте.",
+      "CT": "Одна копия T часто дает частичную или сохраненную лактазную активность, но переносимость молока все равно индивидуальна.",
+      "TT": "Две копии T обычно связаны с сохраненной активностью лактазы во взрослом возрасте."
+    },
+    "limitations": "Маркер лучше работает для европейских и близких популяций; переносимость молочных продуктов также зависит от микробиома, дозы и типа продукта.",
+    "source_notes": "T-аллель rs4988235 связан с lactase persistence.",
+    "sources": [
+      {
+        "title": "European Journal of Human Genetics: lactase persistence rs4988235",
+        "url": "https://www.nature.com/articles/ejhg2008156"
+      }
+    ]
+  },
+  {
+    "rsid": "rs17822931",
+    "title": "Тип ушной серы",
+    "category": "Внешние признаки",
+    "gene": "ABCC11",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "AA": "Сухой тип ушной серы",
+      "AG": "Влажный тип ушной серы",
+      "GG": "Влажный тип ушной серы"
+    },
+    "descriptions": {
+      "AA": "ABCC11 обычно работает слабее; это часто связано с сухой ушной серой и менее выраженным подмышечным запахом.",
+      "AG": "Одна рабочая копия ABCC11 обычно достаточна для влажного типа ушной серы.",
+      "GG": "Функциональный вариант ABCC11 обычно связан с влажным типом ушной серы."
+    },
+    "limitations": "Это бытовой признак, а не медицинский вывод. Запах тела зависит также от микробиома кожи, гигиены и среды.",
+    "source_notes": "AA genotype corresponds to dry earwax, GA/GG to wet type.",
+    "sources": [
+      {
+        "title": "Nature Genetics / PubMed: ABCC11 and earwax type",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/16444273/"
+      }
+    ]
+  },
+  {
+    "rsid": "rs713598",
+    "title": "Горький вкус: TAS2R38",
+    "category": "Вкус и запах",
+    "gene": "TAS2R38",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "CC": "Чаще более высокая чувствительность к PTC/PROP",
+      "CG": "Промежуточная чувствительность к горькому",
+      "GG": "Чаще более низкая чувствительность к PTC/PROP"
+    },
+    "descriptions": {
+      "CC": "Этот SNP является частью TAS2R38-гаплотипа PAV/AVI; C чаще соответствует варианту с более выраженным восприятием горечи.",
+      "CG": "Смешанный вариант: восприятие горечи может быть промежуточным и зависит от других TAS2R38 SNP.",
+      "GG": "G чаще встречается в вариантах с более слабым восприятием PTC/PROP-горечи."
+    },
+    "limitations": "Полноценнее считать три SNP TAS2R38 вместе: rs713598, rs1726866 и rs10246939. Один SNP дает только упрощенную подсказку.",
+    "source_notes": "TAS2R38 bitter taste haplotypes use rs713598, rs1726866 and rs10246939.",
+    "sources": [
+      {
+        "title": "PMC: TAS2R38 bitter taste receptor variants",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5982837/"
+      }
+    ]
+  },
+  {
+    "rsid": "rs10246939",
+    "title": "Горький вкус: TAS2R38-3",
+    "category": "Вкус и запах",
+    "gene": "TAS2R38",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "CC": "Чаще более высокая чувствительность к PTC/PROP",
+      "CT": "Промежуточная чувствительность к горькому",
+      "TT": "Чаще более низкая чувствительность к PTC/PROP"
+    },
+    "descriptions": {
+      "CC": "C входит в распространенный tasting-вариант TAS2R38 и может усиливать восприятие некоторых горьких соединений.",
+      "CT": "Один tasting- и один non-tasting-аллель дают промежуточную подсказку, особенно если смотреть вместе с другими TAS2R38 SNP.",
+      "TT": "T чаще входит в non-tasting TAS2R38-вариант; чувствительность к PTC/PROP может быть ниже."
+    },
+    "limitations": "Один SNP не описывает весь bitter taste. Для аккуратного вывода лучше использовать гаплотип из трех TAS2R38-маркеров.",
+    "source_notes": "One of three common TAS2R38 haplotype SNPs.",
+    "sources": [
+      {
+        "title": "PMC: TAS2R38 bitter taste receptor variants",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5982837/"
+      }
+    ]
+  },
+  {
+    "rsid": "rs72921001",
+    "title": "Кинза: мыльный оттенок",
+    "category": "Вкус и запах",
+    "gene": "OR6A2 region",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "AA": "Обычный вариант восприятия кинзы",
+      "AC": "Возможна повышенная чувствительность к мыльному оттенку",
+      "CC": "Более вероятна чувствительность к мыльному оттенку"
+    },
+    "descriptions": {
+      "AA": "По этому маркеру нет явной подсказки к мыльному восприятию кинзы.",
+      "AC": "Одна копия C может быть связана с более заметным восприятием альдегидных, мыльных нот кинзы.",
+      "CC": "Две копии C чаще встречаются у людей, которым кинза кажется мыльной или резкой."
+    },
+    "limitations": "Эффект небольшой: культура питания, привычка и рецепты сильно влияют на отношение к кинзе.",
+    "source_notes": "Variant near olfactory receptor genes, possibly OR6A2, associated with cilantro soapy taste perception.",
+    "sources": [
+      {
+        "title": "Flavour: genetic variant near olfactory receptor genes and cilantro taste",
+        "url": "https://flavourjournal.biomedcentral.com/articles/10.1186/2044-7248-1-22"
+      }
+    ]
+  },
+  {
+    "rsid": "rs12913832",
+    "title": "Цвет глаз: HERC2/OCA2",
+    "category": "Внешние признаки",
+    "gene": "HERC2/OCA2",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "AA": "Чаще карий/темный цвет глаз",
+      "AG": "Промежуточный вариант цвета глаз",
+      "GG": "Чаще голубой/светлый цвет глаз"
+    },
+    "descriptions": {
+      "AA": "A-вариант чаще связан с более высокой активностью OCA2 и темной пигментацией радужки.",
+      "AG": "Смешанный вариант: цвет глаз часто зависит от дополнительных SNP пигментации.",
+      "GG": "G-вариант в этом регуляторном регионе часто связан с голубым или светлым цветом глаз."
+    },
+    "limitations": "Цвет глаз полигенный. Этот SNP один из сильных маркеров, но не единственный.",
+    "source_notes": "HERC2/OCA2 rs12913832 is a major predictor for blue/brown eye colour.",
+    "sources": [
+      {
+        "title": "PMC: OCA2-HERC2 region and eye colour",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10048254/"
+      }
+    ]
+  },
+  {
+    "rsid": "rs1426654",
+    "title": "Пигментация кожи: SLC24A5",
+    "category": "Внешние признаки",
+    "gene": "SLC24A5",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "AA": "Чаще более светлая пигментация",
+      "AG": "Промежуточный вариант пигментации",
+      "GG": "Чаще более темная пигментация"
+    },
+    "descriptions": {
+      "AA": "A-вариант SLC24A5 широко связан с более светлой пигментацией у западноевразийских популяций.",
+      "AG": "Одна копия A дает промежуточную подсказку; итоговая пигментация зависит от многих генов.",
+      "GG": "G-вариант чаще встречается в популяциях с более темной пигментацией."
+    },
+    "limitations": "Пигментация полигенная и популяционно-зависимая. Это не оценка риска кожи или реакции на солнце.",
+    "source_notes": "SLC24A5 is one of the important pigmentation-associated loci.",
+    "sources": [
+      {
+        "title": "PMC: predicting normal pigmentation from genotype",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3626268/"
+      }
+    ]
+  },
+  {
+    "rsid": "rs16891982",
+    "title": "Пигментация: SLC45A2",
+    "category": "Внешние признаки",
+    "gene": "SLC45A2",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "CC": "Чаще более светлая пигментация",
+      "CG": "Промежуточный вариант пигментации",
+      "GG": "Чаще более темная пигментация"
+    },
+    "descriptions": {
+      "CC": "C-вариант в rs16891982 часто связан со светлой пигментацией кожи и волос у европейских популяций.",
+      "CG": "Смешанный вариант: вклад SLC45A2 есть, но итоговая пигментация зависит от множества локусов.",
+      "GG": "G-вариант чаще соответствует более темной пигментации в сравнительных популяционных данных."
+    },
+    "limitations": "Использовать только как бытовую подсказку по пигментации, не как медицинский или дерматологический вывод.",
+    "source_notes": "SLC45A2 rs16891982 is associated with normal pigmentation variation.",
+    "sources": [
+      {
+        "title": "Journal of Human Genetics: SLC45A2 and pigmentation",
+        "url": "https://www.nature.com/articles/jhg2008124"
+      }
+    ]
+  },
+  {
+    "rsid": "rs1805007",
+    "title": "Рыжие волосы: MC1R",
+    "category": "Внешние признаки",
+    "gene": "MC1R",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "CC": "Обычный вариант MC1R по этому SNP",
+      "CT": "Возможен вклад в рыжий/светлый пигмент",
+      "TT": "Более выраженный вклад в рыжий/светлый пигмент"
+    },
+    "descriptions": {
+      "CC": "По этому MC1R-маркеру нет отдельной подсказки к рыжим волосам.",
+      "CT": "Одна копия T может вносить вклад в более светлую или рыжеватую пигментацию, особенно с другими MC1R-вариантами.",
+      "TT": "Две копии T дают более сильную подсказку к MC1R-связанной рыжей/светлой пигментации."
+    },
+    "limitations": "MC1R имеет много вариантов. Один SNP не описывает весь цвет волос и не должен использоваться для оценки рисков кожи.",
+    "source_notes": "MC1R variants are used in normal pigmentation prediction models.",
+    "sources": [
+      {
+        "title": "PMC: predicting normal pigmentation from genotype",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3626268/"
+      }
+    ]
+  },
+  {
+    "rsid": "rs1815739",
+    "title": "ACTN3: мышечные волокна",
+    "category": "Физические признаки",
+    "gene": "ACTN3",
+    "build": "GRCh37",
+    "orientation": "forward",
+    "medical": false,
+    "status": "ready",
+    "genotypes": {
+      "CC": "Больше похоже на power-вариант ACTN3",
+      "CT": "Промежуточный вариант ACTN3",
+      "TT": "ACTN3 deficiency / endurance-склонность в исследованиях"
+    },
+    "descriptions": {
+      "CC": "Обе копии кодируют функциональный ACTN3-белок, который чаще обсуждается в контексте быстрых мышечных волокон.",
+      "CT": "Одна функциональная и одна stop-копия ACTN3; обычно трактуется как промежуточный вариант.",
+      "TT": "Обе копии stop-варианта; ACTN3-белок в быстрых волокнах обычно не производится."
+    },
+    "limitations": "Спортивные качества зависят от тренировки, тела, мотивации и среды. Это не прогноз способностей.",
+    "source_notes": "ACTN3 R577X rs1815739 is studied in power/endurance athlete status.",
+    "sources": [
+      {
+        "title": "PMC: ACTN3 R577X polymorphism and athlete status",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6542526/"
+      }
+    ]
+  }
+]

@@ -13,6 +13,7 @@ from app.heavy_runtime import run_in_heavy_pool
 from app.i18n import get_user_language
 
 from .domain import SnpRule, build_snp_report, load_snp_rules
+from .interesting import InterestingSnpDefinition, analyze_interesting_snps, load_interesting_snps
 from .storage import SnpReportStore
 from .ui import (
     build_db_categories_keyboard,
@@ -21,6 +22,8 @@ from .ui import (
     build_db_rule_lookup_result_keyboard,
     build_db_rule_sample_picker_keyboard,
     build_error_keyboard,
+    build_interesting_picker_keyboard,
+    build_interesting_result_keyboard,
     build_lab_root_keyboard,
     build_report_picker_keyboard,
     build_result_keyboard,
@@ -33,6 +36,9 @@ from .ui import (
     db_rule_sample_picker_text,
     db_rule_text,
     error_text,
+    interesting_picker_text,
+    interesting_result_text,
+    interesting_running_text,
     lab_root_text,
     render_html_report,
     report_picker_text,
@@ -56,11 +62,16 @@ LOGGER = logging.getLogger(__name__)
 
 def register_snp_report_services(application: Application, settings) -> None:
     application.bot_data["snp_report_rules"] = load_snp_rules()
+    application.bot_data["snp_report_interesting_snps"] = load_interesting_snps()
     application.bot_data["snp_report_store"] = SnpReportStore(settings.root_dir / "storage" / "snp_report")
 
 
 def _rules(context: ContextTypes.DEFAULT_TYPE) -> tuple[SnpRule, ...]:
     return context.application.bot_data["snp_report_rules"]
+
+
+def _interesting_panel(context: ContextTypes.DEFAULT_TYPE) -> tuple[InterestingSnpDefinition, ...]:
+    return context.application.bot_data["snp_report_interesting_snps"]
 
 
 def _report_store(context: ContextTypes.DEFAULT_TYPE) -> SnpReportStore:
@@ -246,6 +257,27 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await _run_db_rule_lookup(query.message, update, context, user_id, sample_id)
         return
 
+    if action == "interesting":
+        await query.answer()
+        _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
+        await _show_interesting_picker(query.message, context, user_id, edit_existing=True)
+        return
+
+    if action == "interesting_page":
+        await query.answer()
+        page = _parse_int(parts[2] if len(parts) > 2 else "0")
+        await _show_interesting_picker(query.message, context, user_id, edit_existing=True, page=page)
+        return
+
+    if action == "interesting_sample":
+        await query.answer()
+        _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
+        sample_id = parts[2] if len(parts) > 2 else ""
+        await _run_interesting_snps(query.message, update, context, user_id, sample_id)
+        return
+
     if action == "report":
         await query.answer()
         _clear_lookup_pending(context)
@@ -364,6 +396,21 @@ async def _show_report_picker(
     samples = _samples_with_raw(context, user_id)
     text = report_picker_text(samples, lang=lang, page=page)
     markup = build_report_picker_keyboard(samples, lang=lang, page=page)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
+
+
+async def _show_interesting_picker(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    *,
+    edit_existing: bool,
+    page: int = 0,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    samples = _samples_with_raw(context, user_id)
+    text = interesting_picker_text(samples, lang=lang, page=page)
+    markup = build_interesting_picker_keyboard(samples, lang=lang, page=page)
     await _show_text_menu(message, text, markup, edit_existing=edit_existing)
 
 
@@ -575,6 +622,74 @@ async def _run_db_rule_lookup(
     )
 
 
+async def _run_interesting_snps(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    sample_id: str,
+) -> None:
+    store = _my_data_store(context)
+    sample = store.get_sample(user_id, sample_id)
+    lang = _ui_lang(context, user_id)
+    if sample is None:
+        _record_snp_report_usage(update, context, "interesting", success=False)
+        await message.edit_text(
+            error_text("SNP Lab", "Sample не найден."),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    raw_file = store.get_sample_raw_file(user_id, sample.asset_id)
+    if raw_file is None:
+        _record_snp_report_usage(update, context, "interesting", success=False)
+        await message.edit_text(
+            search_no_raw_text(sample, lang=lang),
+            parse_mode="HTML",
+            reply_markup=build_interesting_result_keyboard(lang=lang),
+        )
+        return
+
+    raw_path = store.resolve_raw_file_path(raw_file)
+    if not raw_path.exists():
+        _record_snp_report_usage(update, context, "interesting", success=False)
+        await message.edit_text(
+            error_text("SNP Lab", "Raw-файл не найден на диске."),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    await message.edit_text(interesting_running_text(sample, lang=lang), parse_mode="HTML")
+    try:
+        analysis = await run_in_heavy_pool(
+            context,
+            _build_interesting_snp_analysis,
+            str(raw_path),
+            _interesting_panel(context),
+            sample.asset_id,
+            sample.display_name,
+        )
+    except Exception:
+        LOGGER.exception("Could not analyze interesting SNP panel")
+        _record_snp_report_usage(update, context, "interesting", success=False)
+        await message.edit_text(
+            error_text("SNP Lab", "Не удалось прочитать raw-файл или построить результат."),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    _record_snp_report_usage(update, context, "interesting")
+    await message.edit_text(
+        interesting_result_text(analysis, lang=lang),
+        parse_mode="HTML",
+        reply_markup=build_interesting_result_keyboard(lang=lang),
+        disable_web_page_preview=True,
+    )
+
+
 async def _run_snp_report(message, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str) -> None:
     store = _my_data_store(context)
     sample = store.get_sample(user_id, sample_id)
@@ -760,6 +875,7 @@ def _looks_like_navigation_text(value: str) -> bool:
         "🧪 Лаборатория",
         "📚 Справка",
         "🧬 SNP Lab",
+        "🧪 Интересные SNP",
         "🧾 SNP Report",
         "📚 База SNP",
         "🧾 SNP отчёт",
@@ -810,6 +926,15 @@ def _build_snp_report_artifacts(
         raw_file_id=raw_file_id,
     )
     return result, render_html_report(result)
+
+
+def _build_interesting_snp_analysis(
+    raw_path: str,
+    panel: tuple[InterestingSnpDefinition, ...],
+    sample_id: str,
+    sample_name: str,
+) -> object:
+    return analyze_interesting_snps(Path(raw_path), panel, sample_id=sample_id, sample_name=sample_name)
 
 
 def _lookup_snp_in_raw_path(raw_path: str, rsid: str) -> object:

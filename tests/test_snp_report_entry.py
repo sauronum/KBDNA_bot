@@ -10,9 +10,10 @@ import bot
 from PIL import Image
 
 from app.features.snp_report.domain import SnpCategorySummary, SnpReportResult, SnpReportRow, load_snp_rules
+from app.features.snp_report.interesting import analyze_interesting_snps, load_interesting_snps
 from app.features.snp_report.menu import show_snp_report_menu
 from app.features.snp_report.storage import SnpReportRecord, SnpReportSummary
-from app.features.snp_report.ui import build_db_rule_keyboard, db_rule_text, render_html_report, result_text
+from app.features.snp_report.ui import build_db_rule_keyboard, db_rule_text, interesting_result_text, render_html_report, result_text
 from app.features.snp_report.visuals import render_category_load_png
 
 
@@ -82,6 +83,7 @@ class SnpReportEntryTests(unittest.TestCase):
             [
                 ["snp_report:search"],
                 ["snp_report:db"],
+                ["snp_report:interesting"],
                 ["snp_report:report"],
                 ["main:root", "main:cancel"],
             ],
@@ -105,6 +107,40 @@ class SnpReportEntryTests(unittest.TestCase):
         text, kwargs = message.calls[0]
         self.assertIn("<b>SNP Lab</b>", text)
         self.assertEqual(kwargs["parse_mode"], "HTML")
+
+    def test_interesting_snp_panel_interprets_safe_consumer_markers(self) -> None:
+        panel = load_interesting_snps()
+        self.assertGreaterEqual(len(panel), 8)
+        self.assertTrue(all(not item.medical for item in panel))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            raw_path = Path(tmp_dir) / "raw.tsv"
+            raw_path.write_text(
+                "\n".join(
+                    [
+                        "rsid\tchromosome\tposition\tgenotype",
+                        "rs4988235\t2\t136608646\tCT",
+                        "rs17822931\t16\t48258198\tAA",
+                        "rs12913832\t15\t28365618\tGG",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = analyze_interesting_snps(raw_path, panel, sample_id="sample", sample_name="Demo")
+
+        by_rsid = {item.rsid: item for item in result.results}
+        self.assertEqual(by_rsid["rs4988235"].status, "ok")
+        self.assertIn("Промежуточный", by_rsid["rs4988235"].interpretation)
+        self.assertEqual(by_rsid["rs17822931"].interpretation, "Сухой тип ушной серы")
+        self.assertEqual(by_rsid["rs12913832"].status, "ok")
+        self.assertGreaterEqual(result.found, 3)
+
+        text = interesting_result_text(result)
+        self.assertIn("Интересные SNP", text)
+        self.assertIn("Переносимость лактозы", text)
+        self.assertIn("Доступно:", text)
 
     def test_snp_base_card_has_description_and_sample_check_button(self) -> None:
         rules = load_snp_rules()
