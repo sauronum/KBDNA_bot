@@ -227,6 +227,12 @@ def _format_cache_status(lang: str = "ru") -> str:
                 f"  latest: <code>{html.escape(latest)}</code>",
             ]
         )
+        if status == "empty":
+            lines.append("  note: <code>first run builds this cache automatically; it can be slow</code>")
+        elif status == "building":
+            lines.append("  note: <code>cache is being built; wait or refresh later</code>")
+        elif status == "missing":
+            lines.append("  note: <code>cache directory is missing or not mounted</code>")
     return "\n".join(lines)
 
 

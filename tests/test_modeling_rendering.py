@@ -226,6 +226,31 @@ class ModelingRenderingTests(unittest.TestCase):
             with Image.open(path) as image:
                 self.assertGreater(image.width, 1180)
 
+    def test_admixtools2_qpgraph_renderer_reserves_edge_weight_section(self) -> None:
+        edges = [{"from": "R", "to": "Mbuti.DG", "weight": [0.031]}]
+        for index in range(12):
+            edges.append({"from": f"N{index}", "to": f"N{index + 1}", "weight": [0.01 * (index + 1)]})
+        payload = {
+            "status": "completed",
+            "result": {
+                "score": [0.1],
+                "worst_residual": [0.2],
+                "leaf_populations": ["Mbuti.DG", "N12"],
+                "edges": edges,
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = render_admixtools2_qpgraph_result(
+                payload,
+                flow={"dataset": "human_origins", "graph_text": "edge R Mbuti.DG"},
+                elapsed_seconds=1.0,
+                output_dir=Path(temp_dir),
+            )
+
+            with Image.open(path) as image:
+                self.assertGreaterEqual(image.height, 980)
+
 
 if __name__ == "__main__":
     unittest.main()

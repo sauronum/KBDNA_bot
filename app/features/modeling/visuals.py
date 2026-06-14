@@ -802,16 +802,20 @@ def render_admixtools2_qpgraph_result(
     max_level = max(levels.values()) if levels else 0
     by_level = [[node for node in nodes if levels.get(node) == level] for level in range(max_level + 1)]
 
-    node_w = 224
+    node_w = 252
     node_h = 44
-    level_gap = 90 if max_level <= 6 else 78
+    level_gap = 82 if max_level <= 6 else 70
     graph_pad_x = 42
     graph_h = max(360, max((len(items) for items in by_level), default=1) * 96 + 100)
     graph_w = graph_pad_x * 2 + (max_level + 1) * node_w + max_level * level_gap
     width = max(1180, graph_w + 116)
+    edge_rows = [row for row in edges if isinstance(row, dict)][:10]
+    edges_h = 0
+    if edge_rows:
+        edges_h = 56 + ((len(edge_rows) + 1) // 2) * 28
     residual_h = 44 + min(5, len(f3_rows)) * 30 if f3_rows else 0
     leaves_h = 76 if leaves else 0
-    height = 540 + graph_h + residual_h + leaves_h
+    height = 540 + graph_h + edges_h + residual_h + leaves_h
     image, draw = _canvas(height, width=width, background="#071019", panel="#111820")
     content_left = 58
     content_right = width - 58
@@ -909,6 +913,30 @@ def render_admixtools2_qpgraph_result(
         draw.text((x + 12, yy + 11), _fit_text(draw, node, node_font, node_w - 24), font=node_font, fill="#f8fafc" if is_leaf else "#cbd5e1")
 
     y = graph_bottom + 34
+    if edge_rows:
+        draw.text((content_left, y), "Edge weights", font=h_font, fill="#f8fafc")
+        y += 38
+        col_gap = 34
+        col_w = (content_right - content_left - col_gap) // 2
+        for index, row in enumerate(edge_rows):
+            col = index % 2
+            row_index = index // 2
+            x = content_left + col * (col_w + col_gap)
+            yy = y + row_index * 28
+            source = str(row.get("from") or "?")
+            target = str(row.get("to") or "?")
+            weight = _number(row.get("weight"))
+            label = _fit_text(draw, f"{source} -> {target}", small_font, col_w - 112)
+            draw.text((x, yy), label, font=small_font, fill="#cbd5e1")
+            draw.text((x + col_w - 96, yy), f"w={_format_number(weight)}", font=small_font, fill="#f5b942")
+        if len(edges) > len(edge_rows):
+            y += ((len(edge_rows) + 1) // 2) * 28
+            draw.text((content_left, y), f"+{len(edges) - len(edge_rows)} more edges", font=small_font, fill="#9aa8bb")
+            y += 28
+        else:
+            y += ((len(edge_rows) + 1) // 2) * 28
+        y += 6
+
     if f3_rows:
         draw.text((content_left, y), "Worst f3 residuals", font=h_font, fill="#f8fafc")
         y += 38

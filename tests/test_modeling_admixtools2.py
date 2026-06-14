@@ -97,6 +97,37 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         self.assertIn("<code>1 ready</code>", text)
         self.assertIn("<code>1 building</code>", text)
 
+    def test_f2_cache_status_explains_empty_cache_first_run_cost(self) -> None:
+        old_config = admixtools2.AT2_QPADM_CONFIG
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            cache_dir = root / "cache"
+            cache_dir.mkdir()
+            config_path = root / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "datasets": {
+                            "v66p1_1240k_public": {
+                                "required_files": {
+                                    "geno_prefix": "/data/admixlab/v66/v66",
+                                    "f2_cache_dir": str(cache_dir),
+                                }
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            admixtools2.AT2_QPADM_CONFIG = config_path
+            try:
+                text = _format_cache_status("ru")
+            finally:
+                admixtools2.AT2_QPADM_CONFIG = old_config
+
+        self.assertIn("<code>empty</code>", text)
+        self.assertIn("first run builds this cache automatically", text)
+
     def test_fstats_population_parser_accepts_keyed_and_plain_lists(self) -> None:
         self.assertEqual(
             _parse_populations("pop1=Mbuti.DG\npop2=Han.DG\npop3=Papuan.DG\npop4=Russia_MA1_UP.SG", 4),
