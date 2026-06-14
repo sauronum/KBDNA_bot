@@ -94,11 +94,13 @@ class _FakePassportService:
 
 
 class _FakeAccessStore:
-    def __init__(self, admin_ids=None) -> None:
+    def __init__(self, admin_ids=None, admin_usernames=None) -> None:
         self.admin_ids = set(admin_ids or [])
+        self.admin_usernames = {str(item).strip().lstrip("@").lower() for item in (admin_usernames or [])}
 
     def is_admin(self, update) -> bool:
-        return getattr(update.effective_user, "id", None) in self.admin_ids
+        username = str(getattr(update.effective_user, "username", "") or "").strip().lstrip("@").lower()
+        return getattr(update.effective_user, "id", None) in self.admin_ids or username in self.admin_usernames
 
 
 class DNAPassportUiTests(unittest.TestCase):
@@ -133,6 +135,19 @@ class DNAPassportUiTests(unittest.TestCase):
                 "🌿 Отцовская и материнская линии",
             ],
         )
+
+    def test_username_admin_reports_callback_shows_full_catalog(self) -> None:
+        store = _FakeStore()
+        message = _FakeMessage()
+        update = _callback_update("reports:root", user_id=2, username="jb_cc", message=message)
+
+        with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True):
+            _run(reports_callback_handler(update, _context(store, admin_usernames={"jb_cc"})))
+
+        labels = [button.text for row in message.calls[-1][2].inline_keyboard for button in row]
+        self.assertIn("🧬 DNA-паспорт", labels)
+        self.assertIn("🧭 Портрет происхождения", labels)
+        self.assertNotIn("Раздел находится в разработке", message.calls[-1][1])
 
     def test_regular_reports_screen_shows_only_stub(self) -> None:
         store = _FakeStore()
@@ -400,22 +415,22 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-def _context(store: _FakeStore, *, admin_ids=None):
+def _context(store: _FakeStore, *, admin_ids=None, admin_usernames=None):
     return SimpleNamespace(
         application=SimpleNamespace(
             bot_data={
                 "my_data_store": store,
                 "traits_runtime": object(),
-                "g25_access_store": _FakeAccessStore(admin_ids),
+                "g25_access_store": _FakeAccessStore(admin_ids, admin_usernames),
             }
         ),
         user_data={},
     )
 
 
-def _callback_update(data: str, *, user_id: int, message: _FakeMessage):
+def _callback_update(data: str, *, user_id: int, message: _FakeMessage, username: str | None = None):
     query = _FakeQuery(data, message)
-    user = SimpleNamespace(id=user_id, username=None)
+    user = SimpleNamespace(id=user_id, username=username)
     return SimpleNamespace(callback_query=query, effective_user=user)
 
 

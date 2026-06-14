@@ -406,9 +406,12 @@ async def show_reports_menu(
     lang: str = "ru",
     back_callback: str | None = None,
     show_products: bool = True,
+    admin_allowed: bool | None = None,
     **_ignored,
 ) -> None:
-    show_products = show_products and _reports_admin_allowed(context, user_id=user_id)
+    if admin_allowed is None:
+        admin_allowed = _reports_admin_allowed(context, user_id=user_id)
+    show_products = show_products and admin_allowed
     text = reports_text(lang=lang, show_products=show_products)
     markup = build_reports_keyboard(lang=lang, back_callback=back_callback or "mydna:root", show_products=show_products)
     if edit_existing:
@@ -453,7 +456,7 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
             await query.answer("Раздел находится в разработке.", show_alert=True)
         else:
             await query.answer()
-        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=False)
+        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=False, admin_allowed=False)
         return
 
     await query.answer()
@@ -463,19 +466,19 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
         return
 
     if action in {"root", "p"}:
-        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, admin_allowed=allowed)
         return
 
     if action in {"info", "s", "sp"}:
         product_id = parts[2] if len(parts) > 2 else ""
         product = _product(product_id)
         if product is None:
-            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+            await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, admin_allowed=allowed)
             return
         await _show_report_detail(query.message, product, lang=lang)
         return
 
-    await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+    await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, admin_allowed=allowed)
 
 
 def _reports_admin_allowed(
