@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001386_arm_leg_joint_pain",
+  "pgs_id": "PGS001386",
+  "display_name": "Arm/leg/joint pain research signal",
+  "short_name": "Arm/leg/joint pain",
+  "group": "health_research",
+  "category": "Health Research",
+  "status": "usable",
+  "consumer_ready": false,
+  "short_description": "Research-only panel-relative PGS signal for pain in arms, legs, or joints.",
+  "summary_note": "This score estimates a cautious, research-only, reference-panel-relative genetic signal for pain in arms, legs, or joints.",
+  "what_it_measures": "A polygenic score associated with Degree bothered by pain in arms/legs/joints in the past 3 months in PGS Catalog. It does not measure current symptoms, diagnosis, clinical state, or clinical risk for this user.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Arm/leg/joint pain research signal is shown as a research-only genetic signal, not a medical result, diagnosis, screening result, treatment recommendation, prevention recommendation, or lifestyle recommendation. {interpretation}",
+  "caution_text": "Research-only genetic signal. This is not a diagnosis, medical advice, screening, treatment guidance, prevention guidance, or a substitute for a clinician. Results depend on raw-file coverage and the local reference panel.",
+  "limitations": [
+    "This is not a diagnosis, medical advice, clinical screening, prevention guidance, or treatment guidance.",
+    "The score does not measure current symptoms, disease status, laboratory values, behavior, or future clinical risk for the user.",
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants; it is not clinical, behavioral, or personal certainty.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files, excluding bot staging folders.",
+  "audience": "research_only",
+  "tags": [
+    "health_research",
+    "pain",
+    "pgs",
+    "pgs001386"
+  ],
+  "product_status": "limited",
+  "pgs_name": "GBE_INI21049",
+  "reported_trait": "Degree bothered by pain in arms/legs/joints in the past 3 months",
+  "mapped_traits": "health-related quality of life measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "534",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001386/ScoringFiles/PGS001386.txt.gz",
+  "release_date": "2021-11-25",
+  "notes_file": "data/pgs/PGS001386_arm_leg_joint_pain_notes.md"
+}

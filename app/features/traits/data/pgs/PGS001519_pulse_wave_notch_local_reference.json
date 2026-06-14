@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Position of pulse wave notch",
+  "trait_id": "pgs001519_pulse_wave_notch",
+  "display_name": "Pulse-wave notch research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 45,
+  "sample_count_excluded": 0,
+  "mean": 0.22867885332022225,
+  "sd": 0.327164563582279,
+  "min": -0.56512088367,
+  "max": 0.9719002726900003,
+  "p5": -0.2574431921079999,
+  "p10": -0.16355389650599983,
+  "p25": 0.030154323799999903,
+  "p50": 0.23556912214000006,
+  "p75": 0.47533244714000006,
+  "p90": 0.620706422052,
+  "p95": 0.7518998461919997,
+  "scoring_file_name": "PGS001519_pulse_wave_notch.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001519_pulse_wave_notch.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001519",
+    "pgs_name": "GBE_INI4199",
+    "trait_reported": "Position of pulse wave notch",
+    "genome_build": "GRCh37",
+    "variants_number": "693",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001519; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001519_pulse_wave_notch",
+    "display_name": "Pulse-wave notch research signal",
+    "reported_name": "Position of pulse wave notch",
+    "pgs_id": "PGS001519",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.22867885332022225,
+    "sd": 0.327164563582279,
+    "min": -0.56512088367,
+    "max": 0.9719002726900003,
+    "p5": -0.2574431921079999,
+    "p10": -0.16355389650599983,
+    "p25": 0.030154323799999903,
+    "p50": 0.23556912214000006,
+    "p75": 0.47533244714000006,
+    "p90": 0.620706422052,
+    "p95": 0.7518998461919997
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 693,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 45,
+    "median_matched_variants": 143,
+    "median_overlap_percent": 20.634920634920633
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs001519_pulse_wave_notch",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 45,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-14T18:08:42Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "a47abcd4e2ed8cb66b48729d3db9c340ff322451edb6c4f4ccdb9de7ada81f33"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001001_getting_up_morning",
+  "pgs_id": "PGS001001",
+  "display_name": "Morning wake-up ease tendency",
+  "short_name": "Morning wake-up",
+  "group": "lifestyle",
+  "category": "Lifestyle Research",
+  "status": "usable",
+  "consumer_ready": false,
+  "short_description": "Panel-relative research-style PGS signal for ease of getting up in the morning.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative genetic signal for ease of getting up in the morning.",
+  "what_it_measures": "A polygenic score associated with Getting up in morning in PGS Catalog. It does not report this user's real-world sleep pattern, habits, or choices.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Morning wake-up ease tendency is presented as a cautious genetic signal, not a statement about current behavior and not lifestyle advice. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. This is not a statement about the user?s actual habits, choices, health, sleep, or behavior, and it is not medical or lifestyle advice.",
+  "limitations": [
+    "The score does not determine or prove current real-world behavior, sleep quality, habits, or choices.",
+    "Lifestyle traits are strongly shaped by environment, culture, personal choice, and measurement context.",
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants; it is not clinical, behavioral, or personal certainty.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files, excluding bot staging folders.",
+  "audience": "exploratory_lifestyle",
+  "tags": [
+    "lifestyle",
+    "sleep",
+    "pgs",
+    "pgs001001"
+  ],
+  "product_status": "limited",
+  "pgs_name": "GBE_QT_FC1001170",
+  "reported_trait": "Getting up in morning",
+  "mapped_traits": "ease of getting up in the morning, self-reported",
+  "genome_build": "GRCh37",
+  "variants_number": "7743",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001001/ScoringFiles/PGS001001.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001001_getting_up_morning_notes.md"
+}

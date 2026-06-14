@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs001090_felt_loved_child",
+  "pgs_id": "PGS001090",
+  "display_name": "Childhood-loved wellbeing signal",
+  "short_name": "Childhood wellbeing",
+  "group": "mind",
+  "category": "Mind Research",
+  "status": "usable",
+  "consumer_ready": false,
+  "short_description": "Research-style panel-relative PGS signal for often felt loved as a child.",
+  "summary_note": "This score estimates a cautious, reference-panel-relative genetic signal related to often felt loved as a child.",
+  "what_it_measures": "A polygenic score associated with Often felt loved as a child in PGS Catalog. It does not describe this user's lived experience, personality, memory, family history, or mental health.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Childhood-loved wellbeing signal is presented as a cautious genetic signal, not a statement about lived experience, biography, mental health, or personal history. {interpretation}",
+  "caution_text": "Use as a cautious panel-relative signal only. This is not a statement about the user?s actual lived experience, childhood, health, personality, choices, or mental state.",
+  "limitations": [
+    "The score does not determine or prove real-world experiences, feelings, personality, history, or mental health.",
+    "Mind and wellbeing traits are strongly shaped by environment, culture, measurement context, and life events.",
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants; it is not clinical, behavioral, or personal certainty.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files, excluding bot staging folders.",
+  "audience": "exploratory_mind",
+  "tags": [
+    "mind",
+    "wellbeing",
+    "pgs",
+    "pgs001090"
+  ],
+  "product_status": "limited",
+  "pgs_name": "GBE_BIN_FC40020489",
+  "reported_trait": "Often felt loved as a child",
+  "mapped_traits": "wellbeing measurement",
+  "genome_build": "GRCh37",
+  "variants_number": "7555",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS001090/ScoringFiles/PGS001090.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS001090_felt_loved_child_notes.md"
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trait_id": "pgs000926_daytime_dozing",
+  "pgs_id": "PGS000926",
+  "display_name": "Daytime dozing research signal",
+  "short_name": "Daytime dozing",
+  "group": "health_research",
+  "category": "Health Research",
+  "status": "usable",
+  "consumer_ready": false,
+  "short_description": "Research-only panel-relative PGS signal for daytime dozing / sleeping.",
+  "summary_note": "This score estimates a cautious, research-only, reference-panel-relative genetic signal for daytime dozing / sleeping.",
+  "what_it_measures": "A polygenic score associated with Daytime dozing / sleeping (narcolepsy) in PGS Catalog. It does not measure current symptoms, diagnosis, clinical state, or clinical risk for this user.",
+  "result_summary_template": "{interpretation} Confidence: {confidence}. Raw-array overlap: {overlap_percent:.2f}%.",
+  "interpretation_template": "Daytime dozing research signal is shown as a research-only genetic signal, not a medical result, diagnosis, screening result, treatment recommendation, prevention recommendation, or lifestyle recommendation. {interpretation}",
+  "caution_text": "Research-only genetic signal. This is not a diagnosis, medical advice, screening, treatment guidance, prevention guidance, or a substitute for a clinician. Results depend on raw-file coverage and the local reference panel.",
+  "limitations": [
+    "This is not a diagnosis, medical advice, clinical screening, prevention guidance, or treatment guidance.",
+    "The score does not measure current symptoms, disease status, laboratory values, behavior, or future clinical risk for the user.",
+    "Reference distribution is built from local raw files and may be small or ancestry-biased.",
+    "No genotype imputation is used, so missing variants can affect the estimate."
+  ],
+  "confidence_note": "Confidence depends on raw-file coverage and overlap with scoring variants; it is not clinical, behavioral, or personal certainty.",
+  "reference_note": "Reference panel: local empirical panel from available Autosomal raw files, excluding bot staging folders.",
+  "audience": "research_only",
+  "tags": [
+    "health_research",
+    "sleep",
+    "pgs",
+    "pgs000926"
+  ],
+  "product_status": "limited",
+  "pgs_name": "GBE_QT_FC1001220",
+  "reported_trait": "Daytime dozing / sleeping (narcolepsy)",
+  "mapped_traits": "narcolepsy",
+  "genome_build": "GRCh37",
+  "variants_number": "4194",
+  "publication_pmid": "35324888",
+  "publication_doi": "10.1371/journal.pgen.1010105",
+  "ftp_link": "https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS000926/ScoringFiles/PGS000926.txt.gz",
+  "release_date": "2021-10-21",
+  "notes_file": "data/pgs/PGS000926_daytime_dozing_notes.md"
+}

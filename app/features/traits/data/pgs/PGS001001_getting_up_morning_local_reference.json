@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Getting up in morning",
+  "trait_id": "pgs001001_getting_up_morning",
+  "display_name": "Morning wake-up ease tendency",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 45,
+  "sample_count_excluded": 0,
+  "mean": 0.011432725276053358,
+  "sd": 0.05877703457916371,
+  "min": -0.20591387854179996,
+  "max": 0.09129940221930001,
+  "p5": -0.10534627143039983,
+  "p10": -0.06547669069319997,
+  "p25": -0.005265484868699988,
+  "p50": 0.023562113702999966,
+  "p75": 0.048530128329600075,
+  "p90": 0.06717589010928009,
+  "p95": 0.08323957919640008,
+  "scoring_file_name": "PGS001001_getting_up_morning.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001001_getting_up_morning.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001001",
+    "pgs_name": "GBE_QT_FC1001170",
+    "trait_reported": "Getting up in morning",
+    "genome_build": "GRCh37",
+    "variants_number": "7743",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001001; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001001_getting_up_morning",
+    "display_name": "Morning wake-up ease tendency",
+    "reported_name": "Getting up in morning",
+    "pgs_id": "PGS001001",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.011432725276053358,
+    "sd": 0.05877703457916371,
+    "min": -0.20591387854179996,
+    "max": 0.09129940221930001,
+    "p5": -0.10534627143039983,
+    "p10": -0.06547669069319997,
+    "p25": -0.005265484868699988,
+    "p50": 0.023562113702999966,
+    "p75": 0.048530128329600075,
+    "p90": 0.06717589010928009,
+    "p95": 0.08323957919640008
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 7743,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 45,
+    "median_matched_variants": 1507,
+    "median_overlap_percent": 19.46274053984244
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs001001_getting_up_morning",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 45,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-14T18:08:42Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "3eda49df53476424b110730aace5812ce77f62df1669a1fe7ce308a4a9db5471"
+  }
+}
