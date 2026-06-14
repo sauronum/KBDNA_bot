@@ -14,6 +14,7 @@ from g25_core import g25_engine
 from g25_core.render_fit_png import _draw_text, _put_rect, _write_png
 
 from app.i18n import get_user_language, t
+from app.features.coordinate_space import g25_summary as coordinate_g25_summary
 from app.features.coordinate_space.reports import CoordinateSpaceReportStore
 try:
     from app.features.coordinate_space.visualization import render_coordinate_space_png
@@ -4472,17 +4473,7 @@ async def _handle_coordinate_space_save(
 
 @lru_cache(maxsize=1)
 def _load_modern_population_averages() -> dict[str, tuple[float, ...]]:
-    if not _MODERN_G25_AVERAGES_PATH.exists():
-        raise FileNotFoundError(f'Missing modern G25 refs file: {_MODERN_G25_AVERAGES_PATH}')
-
-    populations: dict[str, tuple[float, ...]] = {}
-    for raw_line in _MODERN_G25_AVERAGES_PATH.read_text(encoding='utf-8-sig').splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith(',PC1'):
-            continue
-        entry = g25_engine.parse_g25_line(line)
-        populations[entry.name] = entry.coords
-    return populations
+    return coordinate_g25_summary.load_modern_population_map()
 
 
 def _build_centroid(
@@ -4491,15 +4482,7 @@ def _build_centroid(
     region_name: str,
     labels: tuple[str, ...],
 ) -> tuple[float, ...]:
-    missing = [label for label in labels if label not in populations]
-    if missing:
-        raise ValueError(f'Region {region_name} is missing modern labels: {", ".join(missing)}')
-
-    dims = len(next(iter(populations.values())))
-    return tuple(
-        sum(populations[label][index] for label in labels) / len(labels)
-        for index in range(dims)
-    )
+    return coordinate_g25_summary.build_centroid(populations, region_name=region_name, labels=labels)
 
 
 @lru_cache(maxsize=1)
@@ -4760,7 +4743,7 @@ def _project_sample_to_layout(
 
 
 def _classify_global_region(g25_line: str) -> str:
-    return _classify_region_by_full_g25(g25_line, _ready_made_g25_profiles()['global'])
+    return coordinate_g25_summary.classify_global_region(g25_line)
 
 
 def _classify_west_eurasia_region(g25_line: str) -> str:

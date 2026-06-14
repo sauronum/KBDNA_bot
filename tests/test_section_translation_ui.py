@@ -131,7 +131,7 @@ class SectionTranslationUiTests(unittest.TestCase):
 
         self.assertIn("Personal studies based on your DNA samples.", text)
         self.assertIn("Choose a direction.", text)
-        self.assertIn("🧬 DNA passport · Free", labels)
+        self.assertIn("🧬 DNA passport", labels)
         self.assertIn("🧭 Origin portrait", labels)
         self.assertIn("Back", labels)
         self.assertIn("Cancel", labels)
@@ -147,7 +147,7 @@ class SectionTranslationUiTests(unittest.TestCase):
         self.assertEqual(
             labels,
             [
-                "🧬 DNA-паспорт · Бесплатно",
+                "🧬 DNA-паспорт",
                 "🧭 Портрет происхождения",
                 "🏺 Древние корни",
                 "⛰ Региональное исследование",
@@ -188,6 +188,12 @@ class SectionTranslationUiTests(unittest.TestCase):
                 rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
 
                 self.assertIn(product.title("ru"), text)
+                if product.product_id == "passport":
+                    self.assertIn("Краткий персональный отчёт", text)
+                    self.assertIn(["reports:passport:samples:0"], rows)
+                    self.assertNotIn("Бесплатно", text)
+                    self.assertNotIn("В разработке", text)
+                    continue
                 self.assertIn("Что вы получите:", text)
                 self.assertIn("В разработке", text)
                 self.assertNotIn("Выберите образец", text)

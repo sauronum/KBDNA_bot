@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gzip
 import re
+import shutil
 import time
 import zipfile
 from dataclasses import dataclass
@@ -250,61 +251,67 @@ class G25CommandService:
         input_path: Path | str,
         sample_name: str,
         coordinate_type: str = "g25",
+        *,
+        cleanup_run: bool = False,
     ) -> G25CoordinatesResult:
         input_path = Path(input_path)
         coordinate_type = coordinate_type.strip().lower() or "g25"
         run_dir = self.create_run_dir(coordinate_type, sample_name)
-        working_input = run_dir / input_path.name
-        if input_path.resolve() != working_input.resolve():
-            working_input.write_bytes(input_path.read_bytes())
-        working_input = self._expand_archive_if_needed(working_input, run_dir)
-
-        if coordinate_type == "g25":
-            text = self._read_text_if_possible(working_input)
-            if text:
-                try:
-                    g25_line, target_name = self._parse_g25_input(text, sample_name)
-                except G25CommandError:
-                    pass
-                else:
-                    return G25CoordinatesResult(
-                        target_name=target_name,
-                        simulated_g25_line=g25_line,
-                        input_mode="g25-file",
-                    )
-
         try:
-            raw_payload = analyze_raw_to_g25(working_input, run_dir, sample_name=sample_name)
-        except FileNotFoundError as exc:
-            raise G25CommandError(
-                "Для raw-файлов на сервере должен быть установлен admix. Сейчас можно использовать G25-координаты."
-            ) from exc
-        except Exception as exc:
-            raise G25CommandError(
-                "Не удалось обработать файл. Проверьте, что это raw-файл DNA или txt/csv с координатами, "
-                "и попробуйте еще раз."
-            ) from exc
+            working_input = run_dir / input_path.name
+            if input_path.resolve() != working_input.resolve():
+                working_input.write_bytes(input_path.read_bytes())
+            working_input = self._expand_archive_if_needed(working_input, run_dir)
 
-        if coordinate_type == "k36":
-            k36_summary = raw_payload.get("k36_summary") or {}
-            k36_line = str(k36_summary.get("canonical_line") or "").strip()
-            if not k36_line:
-                raise G25CommandError("Не удалось извлечь K36-координаты из файла.")
+            if coordinate_type == "g25":
+                text = self._read_text_if_possible(working_input)
+                if text:
+                    try:
+                        g25_line, target_name = self._parse_g25_input(text, sample_name)
+                    except G25CommandError:
+                        pass
+                    else:
+                        return G25CoordinatesResult(
+                            target_name=target_name,
+                            simulated_g25_line=g25_line,
+                            input_mode="g25-file",
+                        )
+
+            try:
+                raw_payload = analyze_raw_to_g25(working_input, run_dir, sample_name=sample_name)
+            except FileNotFoundError as exc:
+                raise G25CommandError(
+                    "Для raw-файлов на сервере должен быть установлен admix. Сейчас можно использовать G25-координаты."
+                ) from exc
+            except Exception as exc:
+                raise G25CommandError(
+                    "Не удалось обработать файл. Проверьте, что это raw-файл DNA или txt/csv с координатами, "
+                    "и попробуйте еще раз."
+                ) from exc
+
+            if coordinate_type == "k36":
+                k36_summary = raw_payload.get("k36_summary") or {}
+                k36_line = str(k36_summary.get("canonical_line") or "").strip()
+                if not k36_line:
+                    raise G25CommandError("Не удалось извлечь K36-координаты из файла.")
+                return G25CoordinatesResult(
+                    target_name=str(k36_summary.get("sample_name") or raw_payload.get("target_name") or sample_name),
+                    simulated_g25_line=k36_line,
+                    input_mode="raw-file-k36",
+                )
+
+            g25_line = str(raw_payload.get("simulated_g25_line", "")).strip()
+            if not g25_line:
+                raise G25CommandError("Не удалось извлечь G25-координаты из файла.")
+
             return G25CoordinatesResult(
-                target_name=str(k36_summary.get("sample_name") or raw_payload.get("target_name") or sample_name),
-                simulated_g25_line=k36_line,
-                input_mode="raw-file-k36",
+                target_name=str(raw_payload.get("target_name") or sample_name),
+                simulated_g25_line=g25_line,
+                input_mode="raw-file",
             )
-
-        g25_line = str(raw_payload.get("simulated_g25_line", "")).strip()
-        if not g25_line:
-            raise G25CommandError("Не удалось извлечь G25-координаты из файла.")
-
-        return G25CoordinatesResult(
-            target_name=str(raw_payload.get("target_name") or sample_name),
-            simulated_g25_line=g25_line,
-            input_mode="raw-file",
-        )
+        finally:
+            if cleanup_run:
+                shutil.rmtree(run_dir, ignore_errors=True)
 
     def _expand_archive_if_needed(self, input_path: Path, run_dir: Path) -> Path:
         suffix = input_path.suffix.lower()

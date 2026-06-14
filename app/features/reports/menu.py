@@ -6,6 +6,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from app.i18n import get_user_language, t
+from app.features.reports.dna_passport.menu import (
+    build_passport_intro_keyboard,
+    dna_passport_callback_handler,
+    passport_intro_text,
+)
 from app.main_menu import ensure_active_main_menu
 
 
@@ -50,7 +55,7 @@ class ReportProduct:
 
     def button_label(self, lang: str) -> str:
         title = self.title(lang)
-        if self.free:
+        if self.free and self.product_id != "passport":
             return f"{self.emoji} {title} · {'Free' if lang == 'en' else 'Бесплатно'}"
         return f"{self.emoji} {title}"
 
@@ -279,6 +284,18 @@ def _product(product_id: str) -> ReportProduct | None:
 
 
 def reports_text(*, lang: str = "ru", show_products: bool = True) -> str:
+    if not show_products:
+        if lang == "en":
+            return (
+                "📊 Reports\n\n"
+                "This section is in development.\n\n"
+                "Personal DNA reports with results, visualizations, and clear explanations will appear here."
+            )
+        return (
+            "📊 Отчёты\n\n"
+            "Раздел находится в разработке.\n\n"
+            "Здесь появятся персональные DNA-отчёты с результатами, визуализациями и понятными пояснениями."
+        )
     if lang == "en":
         return (
             "📊 Reports\n\n"
@@ -321,6 +338,8 @@ def build_reports_keyboard(
 
 
 def report_detail_text(product: ReportProduct, samples_count: int = 0, *, lang: str = "ru") -> str:
+    if product.product_id == "passport":
+        return passport_intro_text(lang=lang)
     lines = [
         f"{product.emoji} {product.title(lang)}",
         "",
@@ -336,7 +355,9 @@ def report_detail_text(product: ReportProduct, samples_count: int = 0, *, lang: 
     note = product.note(lang)
     if note:
         lines.extend(["", note])
-    lines.extend(["", product.status(lang)])
+    status = product.status(lang)
+    if status:
+        lines.extend(["", status])
     return "\n".join(lines)
 
 
@@ -347,6 +368,8 @@ def build_report_detail_keyboard(
     page: int = 0,
     lang: str = "ru",
 ) -> InlineKeyboardMarkup:
+    if product.product_id == "passport":
+        return build_passport_intro_keyboard(lang=lang)
     return InlineKeyboardMarkup(
         [
             [
@@ -385,6 +408,7 @@ async def show_reports_menu(
     show_products: bool = True,
     **_ignored,
 ) -> None:
+    show_products = show_products and _reports_admin_allowed(context, user_id=user_id)
     text = reports_text(lang=lang, show_products=show_products)
     markup = build_reports_keyboard(lang=lang, back_callback=back_callback or "mydna:root", show_products=show_products)
     if edit_existing:
@@ -415,7 +439,6 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
     if not await ensure_active_main_menu(update, context):
         return
 
-    await query.answer()
     user = update.effective_user
     if user is None:
         return
@@ -424,6 +447,21 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else "root"
+    allowed = _reports_admin_allowed(context, update=update, user_id=user_id)
+    if not allowed:
+        if action not in {"root", "p"}:
+            await query.answer("Раздел находится в разработке.", show_alert=True)
+        else:
+            await query.answer()
+        await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, show_products=False)
+        return
+
+    await query.answer()
+
+    if action == "passport":
+        await dna_passport_callback_handler(update, context, user_id=user_id, lang=lang)
+        return
+
     if action in {"root", "p"}:
         await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
         return
@@ -438,3 +476,27 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
         return
 
     await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang)
+
+
+def _reports_admin_allowed(
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    update: Update | None = None,
+    user_id: int | None = None,
+) -> bool:
+    access_store = context.application.bot_data.get("g25_access_store")
+    is_admin = getattr(access_store, "is_admin", None)
+    if update is not None and callable(is_admin):
+        try:
+            return bool(is_admin(update))
+        except Exception:
+            return False
+    if user_id is None:
+        return False
+    admin_ids = getattr(access_store, "admin_ids", None)
+    if admin_ids is not None:
+        try:
+            return int(user_id) in {int(item) for item in admin_ids}
+        except Exception:
+            return False
+    return False
