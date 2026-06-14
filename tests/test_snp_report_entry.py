@@ -96,14 +96,16 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertEqual(len(message.calls), 1)
         text, kwargs = message.calls[0]
         self.assertIn("<b>SNP Lab</b>", text)
-        self.assertIn("Сначала выберите sample", text)
+        self.assertIn("Выберите действие", text)
         keyboard = kwargs["reply_markup"].inline_keyboard
         callbacks = [[button.callback_data for button in row] for row in keyboard]
         self.assertEqual(
             callbacks,
             [
-                ["snp_report:sample:sample-1"],
+                ["snp_report:interesting"],
+                ["snp_report:search"],
                 ["snp_report:db"],
+                ["snp_report:report"],
                 ["main:root", "main:cancel"],
             ],
         )
@@ -169,21 +171,14 @@ class SnpReportEntryTests(unittest.TestCase):
         ]
         self.assertIn("snp_report:intdetail:sample:rs4988235", callbacks)
 
-    def test_snp_lab_sample_home_shows_coverage_and_actions(self) -> None:
+    def test_snp_lab_sample_home_is_lightweight_and_action_first(self) -> None:
         sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
 
-        text = sample_home_text(
-            sample,
-            interesting_found=7,
-            interesting_total=10,
-            panel_found=3401,
-            panel_total=4460,
-            raw_records=600000,
-            provider_hint="23andMe",
-        )
+        text = sample_home_text(sample)
 
-        self.assertIn("Интересные SNP: <b>7</b> из 10", text)
-        self.assertIn("Панель категорий: <b>3401</b> из 4460", text)
+        self.assertIn("Raw-файл подключен.", text)
+        self.assertIn("Выберите действие", text)
+        self.assertNotIn("Записей в raw", text)
 
         callbacks = [
             button.callback_data

@@ -11,8 +11,6 @@ from app.features.matching.domain import lookup_snp_in_raw
 from app.features.my_data.storage import MyDataStore, SampleAsset
 from app.heavy_runtime import run_in_heavy_pool
 from app.i18n import get_user_language
-from g25_core.g25_engine import parse_raw_dna
-
 from .domain import SnpRule, build_snp_report, load_snp_rules
 from .interesting import InterestingSnpDefinition, analyze_interesting_snps, load_interesting_snps
 from .storage import SnpReportStore
@@ -58,7 +56,6 @@ from .ui import (
     result_text,
     running_text,
     sample_home_text,
-    sample_loading_text,
     search_input_text,
     search_invalid_text,
     search_no_raw_text,
@@ -574,8 +571,7 @@ async def _show_sample_home(
         )
         return
 
-    raw_path = store.resolve_raw_file_path(raw_file)
-    if not raw_path.exists():
+    if not store.resolve_raw_file_path(raw_file).exists():
         _record_snp_report_usage(update, context, "sample", success=False)
         await message.edit_text(
             error_text("SNP Lab", "Raw-файл не найден на диске."),
@@ -584,37 +580,9 @@ async def _show_sample_home(
         )
         return
 
-    await message.edit_text(sample_loading_text(sample, lang=lang), parse_mode="HTML")
-    try:
-        coverage = await run_in_heavy_pool(
-            context,
-            _build_sample_coverage,
-            str(raw_path),
-            tuple(rule.rsid for rule in _rules(context)),
-            tuple(item.rsid for item in _interesting_panel(context)),
-        )
-    except Exception:
-        LOGGER.exception("Could not build SNP Lab sample coverage")
-        _record_snp_report_usage(update, context, "sample", success=False)
-        await message.edit_text(
-            error_text("SNP Lab", "Не удалось прочитать raw-файл."),
-            parse_mode="HTML",
-            reply_markup=build_error_keyboard(),
-        )
-        return
-
     _record_snp_report_usage(update, context, "sample")
     await message.edit_text(
-        sample_home_text(
-            sample,
-            interesting_found=int(coverage["interesting_found"]),
-            interesting_total=int(coverage["interesting_total"]),
-            panel_found=int(coverage["panel_found"]),
-            panel_total=int(coverage["panel_total"]),
-            raw_records=int(coverage["raw_records"]),
-            provider_hint=str(coverage["provider_hint"]),
-            lang=lang,
-        ),
+        sample_home_text(sample, lang=lang),
         parse_mode="HTML",
         reply_markup=build_sample_home_keyboard(sample.asset_id, lang=lang),
     )
@@ -1367,23 +1335,6 @@ def _build_interesting_snp_analysis(
     sample_name: str,
 ) -> object:
     return analyze_interesting_snps(Path(raw_path), panel, sample_id=sample_id, sample_name=sample_name)
-
-
-def _build_sample_coverage(
-    raw_path: str,
-    rule_rsids: tuple[str, ...],
-    interesting_rsids: tuple[str, ...],
-) -> dict[str, object]:
-    summary, calls = parse_raw_dna(Path(raw_path))
-    present = {call.rsid.strip().lower() for call in calls if call.rsid.strip()}
-    return {
-        "provider_hint": summary.vendor_hint,
-        "raw_records": summary.total_rows,
-        "panel_found": sum(1 for rsid in rule_rsids if rsid in present),
-        "panel_total": len(rule_rsids),
-        "interesting_found": sum(1 for rsid in interesting_rsids if rsid in present),
-        "interesting_total": len(interesting_rsids),
-    }
 
 
 def _lookup_snp_in_raw_path(raw_path: str, rsid: str) -> object:
