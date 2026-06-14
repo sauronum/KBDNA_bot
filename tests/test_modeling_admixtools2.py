@@ -6,13 +6,16 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 from app.features.modeling import admixtools2
 from app.features.modeling.admixtools2 import (
     AT2_FSTATS_FLOW_KEY,
     AT2_QPGRAPH_FLOW_KEY,
+    _cache_warm_buttons,
     _cache_entry_ready,
     _cache_rows,
+    _format_cache_warm_result,
     _format_cache_status,
     _format_fstats_error,
     _format_fstats_result,
@@ -127,6 +130,76 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
 
         self.assertIn("<code>empty</code>", text)
         self.assertIn("first run builds this cache automatically", text)
+
+    def test_f2_cache_status_exposes_warm_smoke_buttons(self) -> None:
+        callbacks = [button.callback_data for row in _cache_warm_buttons("ru") for button in row]
+
+        self.assertIn("modeling:at2_f2_warm:v66p1_1240k_public", callbacks)
+        self.assertIn("modeling:at2_f2_warm:v66p1_human_origins", callbacks)
+
+    def test_f2_cache_warm_result_formats_cache_source(self) -> None:
+        text = _format_cache_warm_result(
+            {
+                "status": "completed",
+                "result": {
+                    "data_source": {
+                        "cache_status": "created",
+                        "path": "/var/lib/admixlab/f2_cache/v66/f2_x",
+                    },
+                    "ranks": [{"tail": [0.42]}],
+                },
+            },
+            dataset="v66p1_human_origins",
+            preset={"left": ["Mbuti", "Han"], "right": ["Papuan", "Russia_UstIshim_IUP"]},
+            elapsed_seconds=12.3,
+        )
+
+        self.assertIn("created", text)
+        self.assertIn("v66.p1 Human Origins", text)
+        self.assertIn("/var/lib/admixlab/f2_cache/v66/f2_x", text)
+        self.assertIn("0.42", text)
+
+    def test_f2_cache_warm_callback_runs_qpwave_smoke_payload(self) -> None:
+        class Message:
+            async def edit_text(self, text, reply_markup=None, parse_mode=None):
+                self.text = text
+                self.reply_markup = reply_markup
+
+        message = Message()
+        update = SimpleNamespace(callback_query=SimpleNamespace(message=message))
+        context = SimpleNamespace(user_data={})
+
+        async def fake_runner(payload, *, timeout_seconds):
+            return {
+                "status": "completed",
+                "result": {
+                    "data_source": {"cache_status": "hit", "path": "/cache/f2_x"},
+                    "ranks": [{"tail": [0.5]}],
+                },
+            }
+
+        with mock.patch.object(admixtools2, "_dataset_files", return_value={"geno_prefix": "/data/v66", "f2_cache_dir": "/cache"}), mock.patch.object(
+            admixtools2,
+            "run_admixtools2_runner",
+            side_effect=fake_runner,
+        ) as runner:
+            handled = asyncio.run(
+                admixtools2_callback_handler(
+                    update,
+                    context,
+                    "at2_f2_warm",
+                    ["modeling", "at2_f2_warm", "v66p1_1240k_public"],
+                    lang="ru",
+                )
+            )
+
+        self.assertTrue(handled)
+        self.assertIn("hit", message.text)
+        payload = runner.call_args.args[0]
+        self.assertEqual(payload["command"], "qpwave")
+        self.assertEqual(payload["dataset"], "v66p1_1240k_public")
+        self.assertEqual(payload["left"], ["Mbuti", "Han"])
+        self.assertEqual(payload["right"], ["Papuan", "Russia_UstIshim_IUP"])
 
     def test_fstats_population_parser_accepts_keyed_and_plain_lists(self) -> None:
         self.assertEqual(

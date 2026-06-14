@@ -39,6 +39,7 @@ AT2_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_TIMEOUT_SECONDS", "7200"))
 AT2_FSTATS_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_FSTATS_TIMEOUT_SECONDS", "1800"))
 AT2_QPGRAPH_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_QPGRAPH_TIMEOUT_SECONDS", "7200"))
 AT2_RAW_MATERIALIZE_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_RAW_MATERIALIZE_TIMEOUT_SECONDS", "1800"))
+AT2_F2_CACHE_WARM_TIMEOUT_SECONDS = int(os.getenv("KBDNA_AT2_F2_CACHE_WARM_TIMEOUT_SECONDS", "7200"))
 AT2_QPGRAPH_SAMPLE_PAGE_SIZE = 8
 
 FSTAT_ARITIES = {"f2": 2, "f3": 3, "f4": 4}
@@ -48,6 +49,24 @@ F2_CACHE_READY_MARKERS = (
     "block_lengths_ap.rds",
     "block_lengths_fst.rds",
 )
+F2_CACHE_WARM_PRESETS: dict[str, dict[str, list[str]]] = {
+    "v62_1240k_public": {
+        "left": ["Mbuti.DG", "Han.DG"],
+        "right": ["PapuaNewGuinea.DG", "Russia_UstIshim_IUP.DG"],
+    },
+    "human_origins": {
+        "left": ["Mbuti.DG", "Han.DG"],
+        "right": ["PapuaNewGuinea.DG", "Russia_UstIshim_IUP.DG"],
+    },
+    "v66p1_1240k_public": {
+        "left": ["Mbuti", "Han"],
+        "right": ["Papuan", "Russia_UstIshim_IUP"],
+    },
+    "v66p1_human_origins": {
+        "left": ["Mbuti", "Han"],
+        "right": ["Papuan", "Russia_UstIshim_IUP"],
+    },
+}
 
 
 def _dataset_label(dataset: object) -> str:
@@ -236,6 +255,78 @@ def _format_cache_status(lang: str = "ru") -> str:
     return "\n".join(lines)
 
 
+def _cache_warm_preset(dataset: object) -> dict[str, list[str]] | None:
+    preset = F2_CACHE_WARM_PRESETS.get(str(dataset or ""))
+    if preset is None:
+        return None
+    return {"left": list(preset.get("left") or []), "right": list(preset.get("right") or [])}
+
+
+def _cache_warm_buttons(lang: str = "ru") -> list[list[InlineKeyboardButton]]:
+    rows: list[list[InlineKeyboardButton]] = []
+    for dataset, _label in dataset_choices():
+        if dataset not in F2_CACHE_WARM_PRESETS:
+            continue
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"Warm smoke: {_dataset_label(dataset)}",
+                    callback_data=_cb("at2_f2_warm", dataset),
+                )
+            ]
+        )
+    return rows
+
+
+def _format_cache_warm_result(
+    payload: dict[str, Any],
+    *,
+    dataset: str,
+    preset: dict[str, list[str]],
+    elapsed_seconds: float,
+) -> str:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    data_source = result.get("data_source") if isinstance(result.get("data_source"), dict) else {}
+    ranks = result.get("ranks") if isinstance(result.get("ranks"), list) else []
+    lines = [
+        "<b>f2 cache · warm smoke</b>",
+        "",
+        f"Dataset: <code>{html.escape(_dataset_label(dataset))}</code>",
+        f"Status: <code>{html.escape(str(payload.get('status') or 'completed'))}</code>",
+        f"Cache: <code>{html.escape(str(data_source.get('cache_status') or 'unknown'))}</code>",
+        f"Time: <code>{elapsed_seconds:.1f}s</code>",
+        "",
+        "<b>Preset</b>",
+        f"Left: <code>{html.escape(', '.join(preset.get('left') or []))}</code>",
+        f"Right: <code>{html.escape(', '.join(preset.get('right') or []))}</code>",
+    ]
+    cache_path = str(data_source.get("path") or "").strip()
+    if cache_path:
+        lines.extend(["", f"Path: <code>{html.escape(cache_path)}</code>"])
+    if ranks:
+        best = ranks[0] if isinstance(ranks[0], dict) else {}
+        lines.append(f"qpWave p: <code>{html.escape(_num(best.get('tail')))}</code>")
+    return "\n".join(lines)
+
+
+def _format_cache_warm_error(exc: Exception, *, dataset: str, preset: dict[str, list[str]], elapsed_seconds: float) -> str:
+    return "\n".join(
+        [
+            "<b>f2 cache · warm smoke failed</b>",
+            "",
+            f"Dataset: <code>{html.escape(_dataset_label(dataset))}</code>",
+            f"Time: <code>{elapsed_seconds:.1f}s</code>",
+            "",
+            "<b>Error</b>",
+            f"<code>{html.escape(str(exc) or exc.__class__.__name__)}</code>",
+            "",
+            "<b>Preset</b>",
+            f"Left: <code>{html.escape(', '.join(preset.get('left') or []))}</code>",
+            f"Right: <code>{html.escape(', '.join(preset.get('right') or []))}</code>",
+        ]
+    )
+
+
 async def show_f2_cache_status(
     message,
     context: ContextTypes.DEFAULT_TYPE | None,
@@ -247,10 +338,81 @@ async def show_f2_cache_status(
     markup = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("🔄 Refresh", callback_data=_cb("at2_f2_cache"))],
+            *_cache_warm_buttons(lang),
             _footer_row(nav_back_callback(), lang),
         ]
     )
     await _show_message(message, _format_cache_status(lang), markup, edit_existing=edit_existing)
+
+
+async def warm_f2_cache_smoke(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    dataset: str,
+    *,
+    lang: str = "ru",
+) -> None:
+    if dataset not in DATASET_LABELS:
+        await show_f2_cache_status(message, context, edit_existing=True, lang=lang)
+        return
+    preset = _cache_warm_preset(dataset)
+    dataset_files = _dataset_files(dataset)
+    if preset is None or not dataset_files:
+        await _show_message(
+            message,
+            "\n".join(
+                [
+                    "<b>f2 cache</b>",
+                    "",
+                    f"Dataset: <code>{html.escape(_dataset_label(dataset))}</code>",
+                    "Warm preset or dataset files are not configured.",
+                ]
+            ),
+            InlineKeyboardMarkup([_footer_row(_cb("at2_f2_cache"), lang)]),
+            edit_existing=True,
+        )
+        return
+    await _show_message(
+        message,
+        "\n".join(
+            [
+                "<b>f2 cache · warm smoke</b>",
+                "",
+                f"Dataset: <code>{html.escape(_dataset_label(dataset))}</code>",
+                "Running a small ADMIXTOOLS2 qpWave smoke to prepare/reuse this cache entry.",
+                "The first run can be slow on a new dataset.",
+            ]
+        ),
+        InlineKeyboardMarkup([_footer_row(_cb("at2_f2_cache"), lang)]),
+        edit_existing=True,
+    )
+    started = time.monotonic()
+    try:
+        payload = await run_admixtools2_runner(
+            {
+                "command": "qpwave",
+                "dataset": dataset,
+                "dataset_files": dataset_files,
+                "left": preset["left"],
+                "right": preset["right"],
+                "options": {"auto_only": True, "afprod": True},
+            },
+            timeout_seconds=AT2_F2_CACHE_WARM_TIMEOUT_SECONDS,
+        )
+        text = _format_cache_warm_result(payload, dataset=dataset, preset=preset, elapsed_seconds=time.monotonic() - started)
+    except Exception as exc:
+        text = _format_cache_warm_error(exc, dataset=dataset, preset=preset, elapsed_seconds=time.monotonic() - started)
+    await _show_message(
+        message,
+        text,
+        InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("Refresh f2 cache", callback_data=_cb("at2_f2_cache"))],
+                _footer_row(_cb("at2_f2_cache"), lang),
+            ]
+        ),
+        edit_existing=True,
+    )
 
 
 async def run_admixtools2_runner(payload: dict[str, Any], *, timeout_seconds: int = AT2_TIMEOUT_SECONDS) -> dict[str, Any]:
@@ -1303,6 +1465,9 @@ async def admixtools2_callback_handler(
 
     if action == "at2_f2_cache":
         await show_f2_cache_status(message, context, edit_existing=True, lang=lang)
+        return True
+    if action == "at2_f2_warm" and len(parts) >= 3:
+        await warm_f2_cache_smoke(message, context, parts[2], lang=lang)
         return True
     if action == "at2_qpgraph":
         nav_reset(context, _cb("at2"))

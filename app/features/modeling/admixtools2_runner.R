@@ -182,7 +182,7 @@ simple_graph_edges <- function(graph_text) {
 }
 
 normalize_qpwave <- function(value) {
-  frame <- as.data.frame(value)
+  frame <- as.data.frame(field(value, "rankdrop", value))
   names_lower <- tolower(names(frame))
   pick <- function(candidates) {
     match <- match(candidates, names_lower, nomatch = 0)
@@ -286,7 +286,9 @@ run_qpwave <- function(request) {
       invokeRestart("muffleWarning")
     }
   )
-  list(status = "completed", warnings = as.list(captured), result = list(ranks = normalize_qpwave(result), rows = rows_from_frame(result), data_source = source$source))
+  rank_rows <- field(result, "rankdrop", result)
+  f4_rows <- field(result, "f4", data.frame())
+  list(status = "completed", warnings = as.list(captured), result = list(ranks = normalize_qpwave(result), rows = rows_from_frame(rank_rows), f4 = rows_from_frame(f4_rows), data_source = source$source))
 }
 
 run_qpgraph <- function(request) {
