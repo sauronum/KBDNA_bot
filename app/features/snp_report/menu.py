@@ -11,6 +11,7 @@ from app.features.matching.domain import lookup_snp_in_raw
 from app.features.my_data.storage import MyDataStore, SampleAsset
 from app.heavy_runtime import run_in_heavy_pool
 from app.i18n import get_user_language
+from g25_core.g25_engine import parse_raw_dna
 
 from .domain import SnpRule, build_snp_report, load_snp_rules
 from .interesting import InterestingSnpDefinition, analyze_interesting_snps, load_interesting_snps
@@ -18,32 +19,46 @@ from .storage import SnpReportStore
 from .ui import (
     build_db_categories_keyboard,
     build_db_category_keyboard,
+    build_db_gene_results_keyboard,
     build_db_rule_keyboard,
     build_db_rule_lookup_result_keyboard,
     build_db_rule_sample_picker_keyboard,
+    build_db_root_keyboard,
+    build_db_search_input_keyboard,
     build_error_keyboard,
     build_interesting_picker_keyboard,
+    build_interesting_detail_keyboard,
     build_interesting_result_keyboard,
+    build_interesting_result_keyboard_for_analysis,
     build_lab_root_keyboard,
+    build_popular_snps_keyboard,
     build_report_picker_keyboard,
     build_result_keyboard,
+    build_sample_home_keyboard,
     build_search_input_keyboard,
     build_search_picker_keyboard,
     build_search_result_keyboard,
     db_categories_text,
     db_category_text,
+    db_gene_results_text,
     db_rule_lookup_result_text,
     db_rule_sample_picker_text,
     db_rule_text,
+    db_root_text,
+    db_search_input_text,
     error_text,
+    interesting_detail_text,
     interesting_picker_text,
     interesting_result_text,
     interesting_running_text,
     lab_root_text,
+    popular_snps_text,
     render_html_report,
     report_picker_text,
     result_text,
     running_text,
+    sample_home_text,
+    sample_loading_text,
     search_input_text,
     search_invalid_text,
     search_no_raw_text,
@@ -56,6 +71,7 @@ from .visuals import render_category_load_png
 SNP_REPORT_CALLBACK_PREFIX = "snp_report"
 SNP_LOOKUP_PENDING_KEY = "snp_lab_lookup_pending"
 SNP_DB_LOOKUP_PENDING_KEY = "snp_lab_db_lookup_pending"
+SNP_DB_SEARCH_PENDING_KEY = "snp_lab_db_search_pending"
 RSID_RE = re.compile(r"^rs\d+$", re.IGNORECASE)
 LOGGER = logging.getLogger(__name__)
 
@@ -136,11 +152,10 @@ async def show_snp_report_menu(
     edit_existing: bool = False,
     page: int = 0,
 ) -> None:
-    del page
     lang = _ui_lang(context, user_id)
     samples = _samples_with_raw(context, user_id)
-    text = lab_root_text(samples, _rules(context), lang=lang)
-    markup = build_lab_root_keyboard(lang=lang)
+    text = lab_root_text(samples, _rules(context), lang=lang, page=page)
+    markup = build_lab_root_keyboard(samples, lang=lang, page=page)
     await _show_text_menu(message, text, markup, edit_existing=edit_existing)
 
 
@@ -159,6 +174,7 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await query.answer()
         _clear_lookup_pending(context)
         _clear_db_lookup_pending(context)
+        _clear_db_search_pending(context)
         await show_snp_report_menu(query.message, context, user_id, edit_existing=True)
         return
 
@@ -166,10 +182,23 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await query.answer()
         return
 
+    if action == "sample_page":
+        await query.answer()
+        page = _parse_int(parts[2] if len(parts) > 2 else "0")
+        await show_snp_report_menu(query.message, context, user_id, edit_existing=True, page=page)
+        return
+
+    if action == "sample":
+        await query.answer()
+        sample_id = parts[2] if len(parts) > 2 else ""
+        await _show_sample_home(query.message, update, context, user_id, sample_id)
+        return
+
     if action == "search":
         await query.answer()
         _clear_lookup_pending(context)
         _clear_db_lookup_pending(context)
+        _clear_db_search_pending(context)
         await _show_search_picker(query.message, context, user_id, edit_existing=True)
         return
 
@@ -179,16 +208,39 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await _show_search_picker(query.message, context, user_id, edit_existing=True, page=page)
         return
 
+    if action == "search_rsid_page":
+        await query.answer()
+        rsid = parts[2] if len(parts) > 2 else ""
+        page = _parse_int(parts[3] if len(parts) > 3 else "0")
+        await _show_search_picker(query.message, context, user_id, edit_existing=True, page=page, prefill_rsid=rsid)
+        return
+
     if action == "search_sample":
         await query.answer()
         sample_id = parts[2] if len(parts) > 2 else ""
         await _show_search_input(query.message, context, user_id, sample_id, edit_existing=True)
         return
 
+    if action == "search_rsid_sample":
+        await query.answer()
+        rsid = parts[2] if len(parts) > 2 else ""
+        sample_id = parts[3] if len(parts) > 3 else ""
+        await _run_prefilled_snp_lookup(query.message, update, context, user_id, sample_id, rsid)
+        return
+
     if action == "db":
         await query.answer()
         _clear_lookup_pending(context)
         _clear_db_lookup_pending(context)
+        _clear_db_search_pending(context)
+        await _show_db_root(query.message, context, user_id, edit_existing=True)
+        return
+
+    if action == "dbcats":
+        await query.answer()
+        _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
+        _clear_db_search_pending(context)
         await _show_db_categories(query.message, context, user_id, edit_existing=True)
         return
 
@@ -196,6 +248,26 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await query.answer()
         page = _parse_int(parts[2] if len(parts) > 2 else "0")
         await _show_db_categories(query.message, context, user_id, edit_existing=True, page=page)
+        return
+
+    if action in {"db_search", "db_gene"}:
+        await query.answer()
+        mode = "gene" if action == "db_gene" else "rsid"
+        _clear_lookup_pending(context)
+        _clear_db_lookup_pending(context)
+        await _show_db_search_input(query.message, context, user_id, mode=mode, edit_existing=True)
+        return
+
+    if action == "dbgene_page":
+        await query.answer()
+        query_text = parts[2] if len(parts) > 2 else ""
+        page = _parse_int(parts[3] if len(parts) > 3 else "0")
+        await _show_db_gene_results(query.message, context, user_id, query_text, page=page, edit_existing=True)
+        return
+
+    if action == "dbpopular":
+        await query.answer()
+        await _show_popular_snps(query.message, context, user_id, edit_existing=True)
         return
 
     if action == "dbcat":
@@ -274,8 +346,22 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await query.answer()
         _clear_lookup_pending(context)
         _clear_db_lookup_pending(context)
+        _clear_db_search_pending(context)
         sample_id = parts[2] if len(parts) > 2 else ""
         await _run_interesting_snps(query.message, update, context, user_id, sample_id)
+        return
+
+    if action == "intdetail":
+        await query.answer()
+        sample_id = parts[2] if len(parts) > 2 else ""
+        rsid = parts[3] if len(parts) > 3 else ""
+        await _show_interesting_detail(query.message, update, context, user_id, sample_id, rsid)
+        return
+
+    if action == "interesting_rsid":
+        await query.answer()
+        rsid = parts[2] if len(parts) > 2 else ""
+        await _show_search_picker(query.message, context, user_id, edit_existing=True, prefill_rsid=rsid)
         return
 
     if action == "report":
@@ -311,6 +397,12 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
 async def snp_report_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user is None or update.effective_chat is None or update.effective_message is None:
         return
+    db_pending = context.user_data.get(SNP_DB_SEARCH_PENDING_KEY)
+    if isinstance(db_pending, dict):
+        handled = await _handle_db_search_text(update, context, db_pending)
+        if handled:
+            raise ApplicationHandlerStop
+
     pending = context.user_data.get(SNP_LOOKUP_PENDING_KEY)
     if not isinstance(pending, dict):
         return
@@ -384,6 +476,150 @@ async def snp_report_text_input_handler(update: Update, context: ContextTypes.DE
     raise ApplicationHandlerStop
 
 
+async def _handle_db_search_text(update: Update, context: ContextTypes.DEFAULT_TYPE, pending: dict) -> bool:
+    if update.effective_user is None or update.effective_chat is None or update.effective_message is None:
+        return False
+    if int(pending.get("user_id", 0) or 0) != int(update.effective_user.id):
+        return False
+    if int(pending.get("chat_id", 0) or 0) != int(update.effective_chat.id):
+        return False
+
+    body = (update.effective_message.text or "").strip()
+    if not body:
+        return False
+    if _looks_like_navigation_text(body):
+        _clear_db_search_pending(context)
+        return True
+
+    user_id = int(update.effective_user.id)
+    lang = _ui_lang(context, user_id)
+    mode = str(pending.get("mode") or "rsid")
+    message_id = int(pending.get("message_id", 0) or 0)
+    chat_id = int(pending.get("chat_id", 0) or 0)
+    rules = _rules(context)
+
+    if mode == "gene":
+        query_text = _normalize_gene_query(body)
+        _clear_db_search_pending(context)
+        matches = _find_rules_by_gene(rules, query_text)
+        await _edit_pending_lookup_message(
+            context,
+            chat_id,
+            message_id,
+            db_gene_results_text(query_text, matches, lang=lang),
+            build_db_gene_results_keyboard(query_text, matches, lang=lang),
+        )
+        return True
+
+    rsid = _normalize_rsid(body)
+    if rsid is None:
+        await _edit_pending_lookup_message(
+            context,
+            chat_id,
+            message_id,
+            db_search_input_text(mode="rsid", lang=lang),
+            build_db_search_input_keyboard(lang=lang),
+        )
+        return True
+
+    rule_index = _find_rule_index_by_rsid(rules, rsid)
+    _clear_db_search_pending(context)
+    if rule_index is None:
+        await _edit_pending_lookup_message(
+            context,
+            chat_id,
+            message_id,
+            error_text("База SNP", f"{rsid} не найден в текущей SNP-базе."),
+            build_db_root_keyboard(lang=lang),
+        )
+        return True
+
+    rule = rules[rule_index]
+    await _edit_pending_lookup_message(
+        context,
+        chat_id,
+        message_id,
+        db_rule_text(rule, lang=lang),
+        build_db_rule_keyboard(rule, rule_index, 0, 0, lang=lang),
+    )
+    return True
+
+
+async def _show_sample_home(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    sample_id: str,
+) -> None:
+    store = _my_data_store(context)
+    sample = store.get_sample(user_id, sample_id)
+    lang = _ui_lang(context, user_id)
+    if sample is None:
+        _record_snp_report_usage(update, context, "sample", success=False)
+        await message.edit_text(
+            error_text("SNP Lab", "Sample не найден."),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    raw_file = store.get_sample_raw_file(user_id, sample.asset_id)
+    if raw_file is None:
+        _record_snp_report_usage(update, context, "sample", success=False)
+        await message.edit_text(
+            search_no_raw_text(sample, lang=lang),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    raw_path = store.resolve_raw_file_path(raw_file)
+    if not raw_path.exists():
+        _record_snp_report_usage(update, context, "sample", success=False)
+        await message.edit_text(
+            error_text("SNP Lab", "Raw-файл не найден на диске."),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    await message.edit_text(sample_loading_text(sample, lang=lang), parse_mode="HTML")
+    try:
+        coverage = await run_in_heavy_pool(
+            context,
+            _build_sample_coverage,
+            str(raw_path),
+            tuple(rule.rsid for rule in _rules(context)),
+            tuple(item.rsid for item in _interesting_panel(context)),
+        )
+    except Exception:
+        LOGGER.exception("Could not build SNP Lab sample coverage")
+        _record_snp_report_usage(update, context, "sample", success=False)
+        await message.edit_text(
+            error_text("SNP Lab", "Не удалось прочитать raw-файл."),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    _record_snp_report_usage(update, context, "sample")
+    await message.edit_text(
+        sample_home_text(
+            sample,
+            interesting_found=int(coverage["interesting_found"]),
+            interesting_total=int(coverage["interesting_total"]),
+            panel_found=int(coverage["panel_found"]),
+            panel_total=int(coverage["panel_total"]),
+            raw_records=int(coverage["raw_records"]),
+            provider_hint=str(coverage["provider_hint"]),
+            lang=lang,
+        ),
+        parse_mode="HTML",
+        reply_markup=build_sample_home_keyboard(sample.asset_id, lang=lang),
+    )
+
+
 async def _show_report_picker(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -421,11 +657,12 @@ async def _show_search_picker(
     *,
     edit_existing: bool,
     page: int = 0,
+    prefill_rsid: str = "",
 ) -> None:
     lang = _ui_lang(context, user_id)
     samples = _samples_with_raw(context, user_id)
-    text = search_picker_text(samples, lang=lang, page=page)
-    markup = build_search_picker_keyboard(samples, lang=lang, page=page)
+    text = search_picker_text(samples, lang=lang, page=page, prefill_rsid=prefill_rsid)
+    markup = build_search_picker_keyboard(samples, lang=lang, page=page, prefill_rsid=prefill_rsid)
     if edit_existing:
         await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
     else:
@@ -483,6 +720,69 @@ async def _show_db_categories(
         await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
     else:
         await message.reply_text(text, parse_mode="HTML", reply_markup=markup, do_quote=False)
+
+
+async def _show_db_root(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    *,
+    edit_existing: bool,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    rules = _rules(context)
+    text = db_root_text(rules, lang=lang)
+    markup = build_db_root_keyboard(lang=lang)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
+
+
+async def _show_db_search_input(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    *,
+    mode: str,
+    edit_existing: bool,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    text = db_search_input_text(mode=mode, lang=lang)
+    markup = build_db_search_input_keyboard(lang=lang)
+    edited = await _show_text_menu(message, text, markup, edit_existing=edit_existing)
+    context.user_data[SNP_DB_SEARCH_PENDING_KEY] = {
+        "chat_id": int(edited.chat_id),
+        "message_id": int(edited.message_id),
+        "mode": mode,
+        "user_id": int(user_id),
+    }
+
+
+async def _show_db_gene_results(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    query_text: str,
+    *,
+    page: int,
+    edit_existing: bool,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    matches = _find_rules_by_gene(_rules(context), query_text)
+    text = db_gene_results_text(query_text, matches, lang=lang, page=page)
+    markup = build_db_gene_results_keyboard(query_text, matches, lang=lang, page=page)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
+
+
+async def _show_popular_snps(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    *,
+    edit_existing: bool,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    text = popular_snps_text(lang=lang)
+    markup = build_popular_snps_keyboard(_rules(context), lang=lang)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
 
 
 async def _show_db_category(
@@ -622,6 +922,48 @@ async def _run_db_rule_lookup(
     )
 
 
+async def _run_prefilled_snp_lookup(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    sample_id: str,
+    rsid: str,
+) -> None:
+    normalized_rsid = _normalize_rsid(rsid)
+    if normalized_rsid is None:
+        _record_snp_report_usage(update, context, "lookup", success=False)
+        await message.edit_text(
+            search_invalid_text(lang=_ui_lang(context, user_id)),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    store = _my_data_store(context)
+    sample = store.get_sample(user_id, sample_id)
+    lang = _ui_lang(context, user_id)
+    if sample is None:
+        _record_snp_report_usage(update, context, "lookup", success=False)
+        await message.edit_text(error_text("SNP Lab", "Sample не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+
+    raw_file = store.get_sample_raw_file(user_id, sample.asset_id)
+    if raw_file is None:
+        _record_snp_report_usage(update, context, "lookup", success=False)
+        await message.edit_text(search_no_raw_text(sample, lang=lang), parse_mode="HTML", reply_markup=build_search_result_keyboard(sample.asset_id, lang=lang))
+        return
+
+    raw_path = store.resolve_raw_file_path(raw_file)
+    result = await run_in_heavy_pool(context, _lookup_snp_in_raw_path, str(raw_path), normalized_rsid)
+    _record_snp_report_usage(update, context, "lookup", success=(getattr(result, "error", None) is None), input_mode="callback")
+    await message.edit_text(
+        search_result_text(sample, result, lang=lang),
+        parse_mode="HTML",
+        reply_markup=build_search_result_keyboard(sample.asset_id, lang=lang),
+    )
+
+
 async def _run_interesting_snps(
     message,
     update: Update,
@@ -685,7 +1027,60 @@ async def _run_interesting_snps(
     await message.edit_text(
         interesting_result_text(analysis, lang=lang),
         parse_mode="HTML",
-        reply_markup=build_interesting_result_keyboard(lang=lang),
+        reply_markup=build_interesting_result_keyboard_for_analysis(analysis, lang=lang),
+        disable_web_page_preview=True,
+    )
+
+
+async def _show_interesting_detail(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    sample_id: str,
+    rsid: str,
+) -> None:
+    store = _my_data_store(context)
+    sample = store.get_sample(user_id, sample_id)
+    lang = _ui_lang(context, user_id)
+    if sample is None:
+        _record_snp_report_usage(update, context, "interesting_detail", success=False)
+        await message.edit_text(error_text("SNP Lab", "Sample не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+
+    raw_file = store.get_sample_raw_file(user_id, sample.asset_id)
+    if raw_file is None:
+        _record_snp_report_usage(update, context, "interesting_detail", success=False)
+        await message.edit_text(search_no_raw_text(sample, lang=lang), parse_mode="HTML", reply_markup=build_interesting_result_keyboard(lang=lang))
+        return
+
+    raw_path = store.resolve_raw_file_path(raw_file)
+    try:
+        analysis = await run_in_heavy_pool(
+            context,
+            _build_interesting_snp_analysis,
+            str(raw_path),
+            _interesting_panel(context),
+            sample.asset_id,
+            sample.display_name,
+        )
+    except Exception:
+        LOGGER.exception("Could not build interesting SNP detail")
+        _record_snp_report_usage(update, context, "interesting_detail", success=False)
+        await message.edit_text(error_text("SNP Lab", "Не удалось прочитать raw-файл."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+
+    item = next((result for result in analysis.results if result.rsid == rsid and result.status == "ok"), None)
+    if item is None:
+        _record_snp_report_usage(update, context, "interesting_detail", success=False)
+        await message.edit_text(error_text("SNP Lab", "Результат не найден."), parse_mode="HTML", reply_markup=build_interesting_result_keyboard(lang=lang))
+        return
+
+    _record_snp_report_usage(update, context, "interesting_detail")
+    await message.edit_text(
+        interesting_detail_text(item, sample.display_name, lang=lang),
+        parse_mode="HTML",
+        reply_markup=build_interesting_detail_keyboard(sample.asset_id, item.rsid, rule_index=_find_rule_index_by_rsid(_rules(context), item.rsid), lang=lang),
         disable_web_page_preview=True,
     )
 
@@ -837,6 +1232,10 @@ def _clear_db_lookup_pending(context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.pop(SNP_DB_LOOKUP_PENDING_KEY, None)
 
 
+def _clear_db_search_pending(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(SNP_DB_SEARCH_PENDING_KEY, None)
+
+
 def _db_lookup_pending(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> dict[str, int] | None:
     pending = context.user_data.get(SNP_DB_LOOKUP_PENDING_KEY)
     if not isinstance(pending, dict):
@@ -861,6 +1260,31 @@ def _normalize_rsid(value: str) -> str | None:
     return None
 
 
+def _normalize_gene_query(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9/_-]+", "", value.strip().upper())
+    return cleaned[:40]
+
+
+def _find_rule_index_by_rsid(rules: tuple[SnpRule, ...], rsid: str) -> int | None:
+    normalized = rsid.strip().lower()
+    for index, rule in enumerate(rules):
+        if rule.rsid == normalized:
+            return index
+    return None
+
+
+def _find_rules_by_gene(rules: tuple[SnpRule, ...], query_text: str) -> list[tuple[int, SnpRule]]:
+    query = _normalize_gene_query(query_text)
+    if not query:
+        return []
+    matches: list[tuple[int, SnpRule]] = []
+    for index, rule in enumerate(rules):
+        haystack = " ".join([rule.gene, rule.title, rule.description]).upper()
+        if query in haystack:
+            matches.append((index, rule))
+    return matches
+
+
 def _looks_like_navigation_text(value: str) -> bool:
     return value.strip() in {
         "Назад",
@@ -876,6 +1300,14 @@ def _looks_like_navigation_text(value: str) -> bool:
         "📚 Справка",
         "🧬 SNP Lab",
         "🧪 Интересные SNP",
+        "📊 Нагрузка по категориям",
+        "🔎 Проверить rsID",
+        "🔎 По rsID",
+        "🧬 По gene",
+        "📂 По категории",
+        "⭐ Популярные SNP",
+        "📚 Открыть в базе SNP",
+        "👤 Проверить в другом sample",
         "🧾 SNP Report",
         "📚 База SNP",
         "🧾 SNP отчёт",
@@ -935,6 +1367,23 @@ def _build_interesting_snp_analysis(
     sample_name: str,
 ) -> object:
     return analyze_interesting_snps(Path(raw_path), panel, sample_id=sample_id, sample_name=sample_name)
+
+
+def _build_sample_coverage(
+    raw_path: str,
+    rule_rsids: tuple[str, ...],
+    interesting_rsids: tuple[str, ...],
+) -> dict[str, object]:
+    summary, calls = parse_raw_dna(Path(raw_path))
+    present = {call.rsid.strip().lower() for call in calls if call.rsid.strip()}
+    return {
+        "provider_hint": summary.vendor_hint,
+        "raw_records": summary.total_rows,
+        "panel_found": sum(1 for rsid in rule_rsids if rsid in present),
+        "panel_total": len(rule_rsids),
+        "interesting_found": sum(1 for rsid in interesting_rsids if rsid in present),
+        "interesting_total": len(interesting_rsids),
+    }
 
 
 def _lookup_snp_in_raw_path(raw_path: str, rsid: str) -> object:

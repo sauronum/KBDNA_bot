@@ -13,13 +13,32 @@ from app.features.snp_report.domain import SnpCategorySummary, SnpReportResult, 
 from app.features.snp_report.interesting import analyze_interesting_snps, load_interesting_snps
 from app.features.snp_report.menu import show_snp_report_menu
 from app.features.snp_report.storage import SnpReportRecord, SnpReportSummary
-from app.features.snp_report.ui import build_db_rule_keyboard, db_rule_text, interesting_result_text, render_html_report, result_text
+from app.features.snp_report.ui import (
+    build_db_root_keyboard,
+    build_db_rule_keyboard,
+    build_interesting_result_keyboard_for_analysis,
+    build_sample_home_keyboard,
+    db_rule_text,
+    interesting_result_text,
+    render_html_report,
+    result_text,
+    sample_home_text,
+)
 from app.features.snp_report.visuals import render_category_load_png
 
 
 class _FakeMyDataStore:
+    def __init__(self, samples: list[object] | None = None) -> None:
+        self._samples = samples if samples is not None else []
+
     def list_samples(self, user_id: int) -> list[object]:
-        return []
+        return self._samples
+
+    def get_sample_raw_file(self, user_id: int, sample_id: str) -> object | None:
+        sample = next((item for item in self._samples if item.asset_id == sample_id), None)
+        if sample is None or not sample.raw_file_id:
+            return None
+        return SimpleNamespace(asset_id=sample.raw_file_id)
 
 
 class _FakeMessage:
@@ -61,10 +80,11 @@ class SnpReportEntryTests(unittest.TestCase):
 
     def test_dna_lab_snp_report_entry_renders_root_screen(self) -> None:
         message = _FakeMessage()
+        sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
         context = SimpleNamespace(
             application=SimpleNamespace(
                 bot_data={
-                    "my_data_store": _FakeMyDataStore(),
+                    "my_data_store": _FakeMyDataStore([sample]),
                     "snp_report_rules": load_snp_rules(),
                 }
             ),
@@ -76,15 +96,14 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertEqual(len(message.calls), 1)
         text, kwargs = message.calls[0]
         self.assertIn("<b>SNP Lab</b>", text)
+        self.assertIn("Сначала выберите sample", text)
         keyboard = kwargs["reply_markup"].inline_keyboard
         callbacks = [[button.callback_data for button in row] for row in keyboard]
         self.assertEqual(
             callbacks,
             [
-                ["snp_report:search"],
+                ["snp_report:sample:sample-1"],
                 ["snp_report:db"],
-                ["snp_report:interesting"],
-                ["snp_report:report"],
                 ["main:root", "main:cancel"],
             ],
         )
@@ -141,6 +160,59 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertIn("Интересные SNP", text)
         self.assertIn("Переносимость лактозы", text)
         self.assertIn("Доступно:", text)
+        self.assertNotIn("Ограничение:", text)
+
+        callbacks = [
+            button.callback_data
+            for row in build_interesting_result_keyboard_for_analysis(result).inline_keyboard
+            for button in row
+        ]
+        self.assertIn("snp_report:intdetail:sample:rs4988235", callbacks)
+
+    def test_snp_lab_sample_home_shows_coverage_and_actions(self) -> None:
+        sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
+
+        text = sample_home_text(
+            sample,
+            interesting_found=7,
+            interesting_total=10,
+            panel_found=3401,
+            panel_total=4460,
+            raw_records=600000,
+            provider_hint="23andMe",
+        )
+
+        self.assertIn("Интересные SNP: <b>7</b> из 10", text)
+        self.assertIn("Панель категорий: <b>3401</b> из 4460", text)
+
+        callbacks = [
+            button.callback_data
+            for row in build_sample_home_keyboard(sample.asset_id).inline_keyboard
+            for button in row
+        ]
+        self.assertEqual(
+            callbacks,
+            [
+                "snp_report:interesting_sample:sample-1",
+                "snp_report:search_sample:sample-1",
+                "snp_report:run:sample-1",
+                "snp_report:db",
+                "snp_report:root",
+                "main:cancel",
+            ],
+        )
+
+    def test_snp_base_root_has_fast_entry_points(self) -> None:
+        callbacks = [
+            button.callback_data
+            for row in build_db_root_keyboard().inline_keyboard
+            for button in row
+        ]
+
+        self.assertIn("snp_report:db_search", callbacks)
+        self.assertIn("snp_report:db_gene", callbacks)
+        self.assertIn("snp_report:dbcats", callbacks)
+        self.assertIn("snp_report:dbpopular", callbacks)
 
     def test_snp_base_card_has_description_and_sample_check_button(self) -> None:
         rules = load_snp_rules()

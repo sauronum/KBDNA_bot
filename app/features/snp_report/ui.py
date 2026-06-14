@@ -16,41 +16,118 @@ SNP_PAGE_SIZE = 10
 CATEGORY_PAGE_SIZE = 9
 
 
-def lab_root_text(samples: list[SampleAsset], rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
+def lab_root_text(samples: list[SampleAsset], rules: tuple[SnpRule, ...], *, lang: str = "ru", page: int = 0) -> str:
     categories = _category_names(rules)
+    total_pages = _total_pages(samples, PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    if lang == "en":
+        lines = [
+            "🧬 <b>SNP Lab</b>",
+            "",
+            "Choose a sample first. Then you can run the simple SNP panel, check one rsID, or build the category report.",
+            "",
+            f"Samples with raw files: <b>{len(samples)}</b>",
+            f"SNP in reference panel: <b>{len(rules)}</b>",
+            f"Categories: <b>{len(categories)}</b>",
+        ]
+        if samples:
+            lines.append(f"Page {page + 1}/{total_pages}.")
+        else:
+            lines.extend(["", "No samples with raw files yet."])
+        return "\n".join(lines)
+    lines = [
+        "🧬 <b>SNP Lab</b>",
+        "",
+        "Сначала выберите sample. Дальше откроются простые SNP, ручная проверка rsID и большой отчёт по категориям.",
+        "",
+        f"Sample с raw-файлом: <b>{len(samples)}</b>",
+        f"SNP в панели отчёта: <b>{len(rules)}</b>",
+        f"Разделов базы: <b>{len(categories)}</b>",
+    ]
+    if samples:
+        lines.append(f"Страница {page + 1}/{total_pages}.")
+    else:
+        lines.extend(["", "Пока нет sample с raw-файлом."])
+    return "\n".join(lines)
+
+
+def build_lab_root_keyboard(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
+    total_pages = _total_pages(samples, PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    start = page * PAGE_SIZE
+    visible_samples = samples[start:start + PAGE_SIZE]
+    rows = [
+        [InlineKeyboardButton(sample.display_name, callback_data=f"snp_report:sample:{sample.asset_id}")]
+        for sample in visible_samples
+    ]
+    _append_page_nav(rows, page=page, total_pages=total_pages, callback_prefix="snp_report:sample_page")
+    db_label = "📚 SNP base" if lang == "en" else "📚 База SNP"
+    rows.append([InlineKeyboardButton(db_label, callback_data="snp_report:db")])
+    rows.append(_dna_lab_footer_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def sample_loading_text(sample: SampleAsset, *, lang: str = "ru") -> str:
+    if lang == "en":
+        return f"🧬 SNP Lab\n\nChecking raw coverage for: <b>{html.escape(sample.display_name)}</b>"
+    return f"🧬 SNP Lab\n\nПроверяю покрытие raw для: <b>{html.escape(sample.display_name)}</b>"
+
+
+def sample_home_text(
+    sample: SampleAsset,
+    *,
+    interesting_found: int,
+    interesting_total: int,
+    panel_found: int,
+    panel_total: int,
+    raw_records: int,
+    provider_hint: str,
+    lang: str = "ru",
+) -> str:
+    provider = provider_hint if provider_hint and provider_hint != "unknown" else "autosomal raw"
     if lang == "en":
         return "\n".join(
             [
                 "🧬 <b>SNP Lab</b>",
                 "",
-                "Single SNP lookup, a compact SNP reference base, and HTML reports for your raw files.",
+                f"Sample: <b>{html.escape(sample.display_name)}</b>",
+                f"Raw format: <b>{html.escape(provider)}</b>",
+                f"Records in raw: <b>{raw_records}</b>",
                 "",
-                f"Samples with raw files: <b>{len(samples)}</b>",
-                f"SNP in panel: <b>{len(rules)}</b>",
-                f"Categories: <b>{len(categories)}</b>",
+                f"Interesting SNP: <b>{interesting_found}</b> / {interesting_total}",
+                f"Category panel: <b>{panel_found}</b> / {panel_total}",
+                "",
+                "Choose what to do with this sample.",
             ]
         )
     return "\n".join(
         [
             "🧬 <b>SNP Lab</b>",
             "",
-            "Поиск SNP, справочная база и отчёты по raw-файлам.",
+            f"Sample: <b>{html.escape(sample.display_name)}</b>",
+            f"Формат raw: <b>{html.escape(provider)}</b>",
+            f"Записей в raw: <b>{raw_records}</b>",
             "",
-            f"Sample с raw-файлом: <b>{len(samples)}</b>",
-            f"SNP в панели: <b>{len(rules)}</b>",
-            f"Разделов базы: <b>{len(categories)}</b>",
+            f"Интересные SNP: <b>{interesting_found}</b> из {interesting_total}",
+            f"Панель категорий: <b>{panel_found}</b> из {panel_total}",
+            "",
+            "Выберите, что сделать с этим sample.",
         ]
     )
 
 
-def build_lab_root_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
+def build_sample_home_keyboard(sample_id: str, *, lang: str = "ru") -> InlineKeyboardMarkup:
+    interesting_label = "🧪 Interesting SNP" if lang == "en" else "🧪 Интересные SNP"
+    search_label = "🔎 Check rsID" if lang == "en" else "🔎 Проверить rsID"
+    report_label = "📊 Category load" if lang == "en" else "📊 Нагрузка по категориям"
+    db_label = "📚 SNP base" if lang == "en" else "📚 База SNP"
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("🔎 Поиск SNP", callback_data="snp_report:search")],
-            [InlineKeyboardButton("📚 База SNP", callback_data="snp_report:db")],
-            [InlineKeyboardButton("🧪 Интересные SNP", callback_data="snp_report:interesting")],
-            [InlineKeyboardButton("🧾 SNP отчёт", callback_data="snp_report:report")],
-            _dna_lab_footer_row(),
+            [InlineKeyboardButton(interesting_label, callback_data=f"snp_report:interesting_sample:{sample_id}")],
+            [InlineKeyboardButton(search_label, callback_data=f"snp_report:search_sample:{sample_id}")],
+            [InlineKeyboardButton(report_label, callback_data=f"snp_report:run:{sample_id}")],
+            [InlineKeyboardButton(db_label, callback_data="snp_report:db")],
+            _back_cancel_row("snp_report:root"),
         ]
     )
 
@@ -168,13 +245,92 @@ def build_interesting_result_keyboard(*, lang: str = "ru") -> InlineKeyboardMark
     )
 
 
-def search_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> str:
+def build_interesting_result_keyboard_for_analysis(analysis: InterestingSnpAnalysis, *, lang: str = "ru") -> InlineKeyboardMarkup:
+    detail_label = "Details" if lang == "en" else "Подробнее"
+    rows = [
+        [InlineKeyboardButton(f"ℹ️ {detail_label}: {item.title[:32]}", callback_data=f"snp_report:intdetail:{analysis.sample_id}:{item.rsid}")]
+        for item in analysis.results
+        if item.status == "ok"
+    ]
+    another_label = "👤 Another sample" if lang == "en" else "👤 Другой sample"
+    db_label = "📚 SNP base" if lang == "en" else "📚 База SNP"
+    rows.extend(
+        [
+            [InlineKeyboardButton(db_label, callback_data="snp_report:db")],
+            [InlineKeyboardButton(another_label, callback_data="snp_report:interesting")],
+            _back_cancel_row(f"snp_report:sample:{analysis.sample_id}"),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
+
+
+def interesting_detail_text(item: InterestingSnpResult, sample_name: str, *, lang: str = "ru") -> str:
+    if lang == "en":
+        lines = [
+            "🧪 <b>Interesting SNP</b>",
+            "",
+            f"Sample: <b>{html.escape(sample_name)}</b>",
+            f"<b>{html.escape(item.title)}</b>",
+            f"{html.escape(item.rsid)} · {html.escape(item.gene)}",
+            f"Genotype: <b>{html.escape(item.genotype)}</b>",
+            f"Result: {html.escape(item.interpretation)}",
+        ]
+        if item.description:
+            lines.extend(["", html.escape(item.description)])
+        if item.limitations:
+            lines.extend(["", f"Limit: {html.escape(item.limitations)}"])
+        if item.sources:
+            lines.append("")
+            lines.append("Sources:")
+            for source in item.sources[:3]:
+                title = html.escape(source.title or source.url)
+                url = html.escape(source.url, quote=True)
+                lines.append(f'• <a href="{url}">{title}</a>')
+        return "\n".join(lines)
+
+    lines = [
+        "🧪 <b>Интересные SNP</b>",
+        "",
+        f"Sample: <b>{html.escape(sample_name)}</b>",
+        f"<b>{html.escape(item.title)}</b>",
+        f"{html.escape(item.rsid)} · {html.escape(item.gene)}",
+        f"Генотип: <b>{html.escape(item.genotype)}</b>",
+        f"Результат: {html.escape(item.interpretation)}",
+    ]
+    if item.description:
+        lines.extend(["", html.escape(item.description)])
+    if item.limitations:
+        lines.extend(["", f"Ограничение: {html.escape(item.limitations)}"])
+    if item.sources:
+        lines.append("")
+        lines.append("Источники:")
+        for source in item.sources[:3]:
+            title = html.escape(source.title or source.url)
+            url = html.escape(source.url, quote=True)
+            lines.append(f'• <a href="{url}">{title}</a>')
+    return "\n".join(lines)
+
+
+def build_interesting_detail_keyboard(sample_id: str, rsid: str, *, rule_index: int | None = None, lang: str = "ru") -> InlineKeyboardMarkup:
+    rows = []
+    if rule_index is not None:
+        db_label = "📚 Open in SNP base" if lang == "en" else "📚 Открыть в базе SNP"
+        rows.append([InlineKeyboardButton(db_label, callback_data=f"snp_report:dbsnp:{rule_index}:0:0")])
+    other_label = "👤 Check another sample" if lang == "en" else "👤 Проверить в другом sample"
+    rows.append([InlineKeyboardButton(other_label, callback_data=f"snp_report:interesting_rsid:{rsid}")])
+    rows.append(_back_cancel_row(f"snp_report:interesting_sample:{sample_id}"))
+    return InlineKeyboardMarkup(rows)
+
+
+def search_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0, prefill_rsid: str = "") -> str:
     total_pages = _total_pages(samples, PAGE_SIZE)
     page = _clamp_page(page, total_pages)
     if lang == "en":
         lines = [
             "🔎 <b>Поиск SNP</b>",
             "",
+            f"Choose the sample where <code>{html.escape(prefill_rsid)}</code> should be checked."
+            if prefill_rsid else
             "Choose the sample where SNP should be checked.",
         ]
         if samples:
@@ -186,6 +342,8 @@ def search_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: in
     lines = [
         "🔎 <b>Поиск SNP</b>",
         "",
+        f"Выберите sample, в котором нужно проверить <code>{html.escape(prefill_rsid)}</code>."
+        if prefill_rsid else
         "Выберите sample, в котором нужно проверить SNP.",
     ]
     if samples:
@@ -195,11 +353,13 @@ def search_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: in
     return "\n".join(lines)
 
 
-def build_search_picker_keyboard(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
+def build_search_picker_keyboard(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0, prefill_rsid: str = "") -> InlineKeyboardMarkup:
+    action = f"search_rsid_sample:{prefill_rsid}" if prefill_rsid else "search_sample"
+    page_action = f"search_rsid_page:{prefill_rsid}" if prefill_rsid else "search_page"
     return _sample_picker_keyboard(
         samples,
-        action="search_sample",
-        page_action="search_page",
+        action=action,
+        page_action=page_action,
         page=page,
         back_callback="snp_report:root",
     )
@@ -301,6 +461,122 @@ def build_search_result_keyboard(sample_id: str, *, lang: str = "ru") -> InlineK
             _back_cancel_row("snp_report:root"),
         ]
     )
+
+
+def db_root_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
+    categories = _category_names(rules)
+    annotated = sum(1 for rule in rules if rule.description or rule.gene or rule.title)
+    if lang == "en":
+        return "\n".join(
+            [
+                "📚 <b>SNP base</b>",
+                "",
+                f"SNP in panel: <b>{len(rules)}</b>",
+                f"Annotated cards: <b>{annotated}</b>",
+                f"Categories: <b>{len(categories)}</b>",
+                "",
+                "Search by rsID or gene, open categories, or start from popular consumer SNP.",
+            ]
+        )
+    return "\n".join(
+        [
+            "📚 <b>База SNP</b>",
+            "",
+            f"SNP в панели: <b>{len(rules)}</b>",
+            f"Карточек с описанием: <b>{annotated}</b>",
+            f"Разделов: <b>{len(categories)}</b>",
+            "",
+            "Можно искать по rsID или gene, открыть категории или начать с популярных SNP.",
+        ]
+    )
+
+
+def build_db_root_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
+    rsid_label = "🔎 Search rsID" if lang == "en" else "🔎 По rsID"
+    gene_label = "🧬 Search gene" if lang == "en" else "🧬 По gene"
+    cats_label = "📂 Categories" if lang == "en" else "📂 По категории"
+    popular_label = "⭐ Popular SNP" if lang == "en" else "⭐ Популярные SNP"
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(rsid_label, callback_data="snp_report:db_search")],
+            [InlineKeyboardButton(gene_label, callback_data="snp_report:db_gene")],
+            [InlineKeyboardButton(cats_label, callback_data="snp_report:dbcats")],
+            [InlineKeyboardButton(popular_label, callback_data="snp_report:dbpopular")],
+            _back_cancel_row("snp_report:root"),
+        ]
+    )
+
+
+def db_search_input_text(*, mode: str, lang: str = "ru") -> str:
+    if mode == "gene":
+        if lang == "en":
+            return "🧬 <b>Search gene</b>\n\nSend a gene name, for example: <code>COMT</code>"
+        return "🧬 <b>Поиск по gene</b>\n\nПришлите gene/locus, например: <code>COMT</code>"
+    if lang == "en":
+        return "🔎 <b>Search rsID</b>\n\nSend rsID, for example: <code>rs4988235</code>"
+    return "🔎 <b>Поиск по rsID</b>\n\nПришлите rsID, например: <code>rs4988235</code>"
+
+
+def build_db_search_input_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([_back_cancel_row("snp_report:db")])
+
+
+def db_gene_results_text(query: str, matches: list[tuple[int, SnpRule]], *, lang: str = "ru", page: int = 0) -> str:
+    total_pages = _total_pages(matches, SNP_PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    if lang == "en":
+        lines = ["🧬 <b>Search gene</b>", "", f"Query: <code>{html.escape(query)}</code>", f"Found: <b>{len(matches)}</b>"]
+        if matches:
+            lines.append(f"Page {page + 1}/{total_pages}.")
+        else:
+            lines.extend(["", "No matching SNP cards."])
+        return "\n".join(lines)
+    lines = ["🧬 <b>Поиск по gene</b>", "", f"Запрос: <code>{html.escape(query)}</code>", f"Найдено: <b>{len(matches)}</b>"]
+    if matches:
+        lines.append(f"Страница {page + 1}/{total_pages}.")
+    else:
+        lines.extend(["", "Подходящих SNP-карточек не найдено."])
+    return "\n".join(lines)
+
+
+def build_db_gene_results_keyboard(
+    query: str,
+    matches: list[tuple[int, SnpRule]],
+    *,
+    lang: str = "ru",
+    page: int = 0,
+) -> InlineKeyboardMarkup:
+    total_pages = _total_pages(matches, SNP_PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    start = page * SNP_PAGE_SIZE
+    visible = matches[start:start + SNP_PAGE_SIZE]
+    rows = [
+        [InlineKeyboardButton(f"{rule.rsid} · {_rule_title(rule)[:42]}", callback_data=f"snp_report:dbsnp:{rule_index}:0:0")]
+        for rule_index, rule in visible
+    ]
+    _append_page_nav(rows, page=page, total_pages=total_pages, callback_prefix=f"snp_report:dbgene_page:{query}")
+    rows.append(_back_cancel_row("snp_report:db"))
+    return InlineKeyboardMarkup(rows)
+
+
+def popular_snps_text(*, lang: str = "ru") -> str:
+    if lang == "en":
+        return "⭐ <b>Popular SNP</b>\n\nSimple, commonly requested SNP cards from the current base."
+    return "⭐ <b>Популярные SNP</b>\n\nПростые и часто запрашиваемые SNP-карточки из текущей базы."
+
+
+def build_popular_snps_keyboard(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> InlineKeyboardMarkup:
+    popular = ["rs4988235", "rs17822931", "rs12913832", "rs1426654", "rs1805007", "rs1815739", "rs4680", "rs1801133"]
+    by_rsid = {rule.rsid: (index, rule) for index, rule in enumerate(rules)}
+    rows = []
+    for rsid in popular:
+        item = by_rsid.get(rsid)
+        if item is None:
+            continue
+        rule_index, rule = item
+        rows.append([InlineKeyboardButton(f"{rule.rsid} · {_rule_title(rule)[:42]}", callback_data=f"snp_report:dbsnp:{rule_index}:0:0")])
+    rows.append(_back_cancel_row("snp_report:db"))
+    return InlineKeyboardMarkup(rows)
 
 
 def db_categories_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
@@ -710,15 +986,12 @@ def _interesting_result_lines(results: tuple[InterestingSnpResult, ...], *, lang
         lines.extend(
             [
                 f"<b>{html.escape(item.title)}</b>",
-                f"{html.escape(item.rsid)} · {html.escape(item.gene)} · genotype: <b>{html.escape(item.genotype)}</b>",
+                f"{html.escape(item.rsid)} · genotype: <b>{html.escape(item.genotype)}</b>",
                 f"Result: {html.escape(item.interpretation)}" if lang == "en" else f"Результат: {html.escape(item.interpretation)}",
             ]
         )
         if item.description:
             lines.append(html.escape(item.description))
-        if item.limitations:
-            label = "Limit" if lang == "en" else "Ограничение"
-            lines.append(f"{label}: {html.escape(item.limitations)}")
         lines.append("")
 
     if unsupported:
