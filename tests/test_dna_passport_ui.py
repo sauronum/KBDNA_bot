@@ -15,6 +15,7 @@ from app.features.reports.dna_passport.domain import (
     DNAPassportTraitItem,
     DNAPassportTraitsSummary,
 )
+from app.features.snp_report.domain import load_snp_rules
 from app.features.reports.dna_passport.menu import (
     build_passport_intro_keyboard,
     build_sample_picker_keyboard,
@@ -330,16 +331,116 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("Получаем координаты G25 из DNA-файла", message.calls[0][1])
 
     def test_renderer_escapes_values_and_stays_compact(self) -> None:
-        data = _passport_data(sample_name="<Zaur>", g25_name="<Main>", population="<Balkar>")
+        data = _passport_data(sample_name="<Zaur>", g25_name="<Main>", population="<UnknownPop>")
 
         text = render_dna_passport_html(data)
 
         self.assertLessEqual(len(text), 4096)
         self.assertIn("&lt;Zaur&gt;", text)
-        self.assertIn("&lt;Main&gt;", text)
-        self.assertIn("&lt;Balkar&gt;", text)
+        self.assertIn("&lt;UnknownPop&gt;", text)
         self.assertNotIn("<Zaur>", text)
         self.assertNotIn("pgs003835", text)
+
+    def test_renderer_uses_user_friendly_raw_copy(self) -> None:
+        data = _passport_data()
+        text = render_dna_passport_html(data)
+
+        self.assertIn("📁 Исходные данные", text)
+        self.assertIn("Провайдер: FamilyTreeDNA", text)
+        self.assertIn("Качество чтения: 98,7%", text)
+        self.assertNotIn("Call rate", text)
+        self.assertNotIn("автосомный DNA-файл", text)
+        self.assertNotIn("автосомный файл", text)
+
+    def test_renderer_hides_ambiguous_provider_hint(self) -> None:
+        data = _passport_data(
+            raw=DNAPassportRawSummary(
+                status="ok",
+                raw_file_id="raw-1",
+                original_file_name="raw.txt",
+                provider_hint="23andMe/FTDNA/MyHeritage-like",
+                called_snps=612438,
+                autosomal_count=598210,
+                x_count=14012,
+                y_count=0,
+                mtdna_count=32,
+                call_rate=0.981,
+            )
+        )
+
+        text = render_dna_passport_html(data)
+
+        self.assertIn("Формат: autosomal raw", text)
+        self.assertNotIn("23andMe/FTDNA/MyHeritage-like", text)
+        self.assertNotIn("like", text)
+
+    def test_renderer_localizes_g25_and_removes_gap_copy(self) -> None:
+        data = _passport_data()
+        text = render_dna_passport_html(data)
+
+        self.assertIn("Генетическое пространство: Кавказ", text)
+        self.assertIn("Ближайшие референсные популяции", text)
+        self.assertIn("1. Балкарцы — 2,14", text)
+        self.assertIn("2. Черкесы — 2,56", text)
+        self.assertIn("3. Кумыки — 2,72", text)
+        self.assertNotIn("Отрыв от второго результата", text)
+        self.assertNotIn("практически на одинаковой дистанции", text)
+
+    def test_renderer_shows_all_traits_as_percentages(self) -> None:
+        data = _passport_data()
+        text = render_dna_passport_html(data)
+
+        for label in (
+            "Рост",
+            "Хронотип",
+            "Потребление кофе",
+            "Длительность сна",
+            "Сила хвата",
+            "Темп ходьбы",
+            "Пигментация кожи",
+            "Потребление воды",
+        ):
+            self.assertIn(label, text)
+        self.assertIn("Потребление кофе — 73% · ★★☆", text)
+        self.assertIn("Хронотип — 40% · ★☆☆", text)
+        self.assertNotIn("процентиль", text.split("ℹ️ Важно", 1)[0])
+        self.assertNotIn("низкая надёжность", text)
+
+    def test_renderer_important_copy_explains_trait_percentages(self) -> None:
+        text = render_dna_passport_html(_passport_data())
+
+        self.assertIn("Проценты признаков показывают положение результата относительно референсной панели", text)
+        self.assertIn("а не вероятность наличия признака", text)
+
+    def test_renderer_omits_interesting_snp_block_without_curated_interpretations(self) -> None:
+        rules = load_snp_rules()
+        rule_ids = {rule.rsid for rule in rules}
+        text = render_dna_passport_html(_passport_data())
+
+        self.assertIn("rs4988235", rule_ids)
+        self.assertIn("rs429358", rule_ids)
+        self.assertNotIn("🧪 Интересные SNP", text)
+        self.assertNotIn("rs4988235", text)
+        self.assertNotIn("APOE", text)
+        self.assertNotIn("Lactase persistence", text)
+        self.assertNotIn("Genotype", text)
+
+    def test_renderer_uses_user_friendly_lineage_statuses_summary_and_recommendations(self) -> None:
+        data = _passport_data(
+            lineage=DNAPassportLineageReadiness(status="ok", y_markers_detected=False, y_count=0, mtdna_markers_detected=True, mtdna_count=179)
+        )
+        text = render_dna_passport_html(data)
+
+        self.assertIn("Отцовская линия: недоступна по этому файлу", text)
+        self.assertIn("Материнская линия: ограниченные данные", text)
+        self.assertIn("Для точного определения прямых линий нужны специализированные Y-DNA и mtDNA-тесты", text)
+        self.assertIn("Autosomal raw подходит для анализа происхождения", text)
+        self.assertIn("По G25 образец относится к кавказскому генетическому пространству", text)
+        self.assertIn("➡️ Что исследовать дальше", text)
+        recommendation_lines = [line for line in text.splitlines() if line.startswith("• ")]
+        self.assertLessEqual(len(recommendation_lines), 3)
+        self.assertNotIn("DNA-файл прочитан", text)
+        self.assertNotIn("G25-сравнение рассчитано", text)
 
     def test_renderer_handles_missing_raw_g25_and_partial_traits(self) -> None:
         data = DNAPassportData(
@@ -357,11 +458,11 @@ class DNAPassportUiTests(unittest.TestCase):
 
         text = render_dna_passport_html(data)
 
-        self.assertIn("Исходный DNA-файл не прикреплён", text)
+        self.assertIn("Autosomal raw не прикреплён", text)
         self.assertIn("G25-профиль не прикреплён", text)
-        self.assertIn("Рост — 72-й процентиль", text)
+        self.assertIn("Рост — 72% · ★★☆", text)
         self.assertIn("Хронотип — недостаточно данных", text)
-        self.assertIn("Недоступны без исходного DNA-файла", text)
+        self.assertIn("Недоступны без autosomal raw", text)
 
     def test_renderer_shows_temporary_raw_g25_source(self) -> None:
         data = _passport_data()
@@ -385,8 +486,8 @@ class DNAPassportUiTests(unittest.TestCase):
 
         text = render_dna_passport_html(data)
 
-        self.assertIn("G25: рассчитан из DNA-файла", text)
-        self.assertNotIn("G25: профиль образца", text)
+        self.assertIn("Генетическое пространство: Кавказ", text)
+        self.assertIn("Ближайшие референсные популяции", text)
 
     def test_renderer_hides_raw_g25_traceback(self) -> None:
         data = DNAPassportData(
@@ -453,10 +554,16 @@ def _product(product_id: str):
     raise AssertionError(product_id)
 
 
-def _passport_data(sample_name: str = "Zaur", g25_name: str = "Main", population: str = "Balkar") -> DNAPassportData:
+def _passport_data(
+    sample_name: str = "Zaur",
+    g25_name: str = "Main",
+    population: str = "Balkar",
+    raw: DNAPassportRawSummary | None = None,
+    lineage: DNAPassportLineageReadiness | None = None,
+) -> DNAPassportData:
     return DNAPassportData(
         sample=DNAPassportSampleSummary(status="ok", sample_id="sample-1", display_name=sample_name),
-        raw=DNAPassportRawSummary(
+        raw=raw or DNAPassportRawSummary(
             status="ok",
             raw_file_id="raw-1",
             original_file_name="raw.txt",
@@ -474,18 +581,28 @@ def _passport_data(sample_name: str = "Zaur", g25_name: str = "Main", population
             coordinate_id="coord-1",
             display_name=g25_name,
             region="Caucasus",
-            top_modern=(DNAPassportG25Population(population, 0.0214),),
+            top_modern=(
+                DNAPassportG25Population(population, 0.0214),
+                DNAPassportG25Population("Cherkes", 0.0256),
+                DNAPassportG25Population("Kumyk", 0.0272),
+            ),
             first_distance=0.0214,
             first_second_gap=0.0023,
         ),
         traits=DNAPassportTraitsSummary(
             status="ok",
             traits=(
-                DNAPassportTraitItem("pgs003835_height", "Height", "limited", percentile=72.0, confidence="medium"),
-                DNAPassportTraitItem("pgs001123_coffee", "Coffee consumption", "limited", percentile=48.0, confidence="low"),
+                DNAPassportTraitItem("pgs003835_height", "Height", "limited", percentile=21.0, confidence="medium"),
+                DNAPassportTraitItem("pgs000336_chronotype", "Chronotype", "limited", percentile=40.0, confidence="low"),
+                DNAPassportTraitItem("pgs001123_coffee", "Coffee consumption", "limited", percentile=73.0, confidence="medium"),
+                DNAPassportTraitItem("pgs001150_sleep_duration", "Sleep duration", "limited", percentile=28.0, confidence="low"),
+                DNAPassportTraitItem("pgs001927_mean_hand_grip_strength", "Grip strength", "limited", percentile=1.0, confidence="low"),
+                DNAPassportTraitItem("pgs001075_walking_pace", "Walking pace", "limited", percentile=87.0, confidence="low"),
+                DNAPassportTraitItem("pgs001897_skin_pigmentation", "Skin pigmentation", "limited", percentile=11.0, confidence="low"),
+                DNAPassportTraitItem("pgs002011_water_intake", "Water intake", "limited", percentile=79.0, confidence="low"),
             ),
         ),
-        lineage=DNAPassportLineageReadiness(status="ok", y_markers_detected=True, y_count=184, mtdna_markers_detected=True, mtdna_count=32),
+        lineage=lineage or DNAPassportLineageReadiness(status="ok", y_markers_detected=True, y_count=184, mtdna_markers_detected=True, mtdna_count=32),
         generated_at="2026-06-14T00:00:00Z",
     )
 
