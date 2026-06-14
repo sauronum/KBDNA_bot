@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import unittest
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 from app.features.modeling.qpadm_classic import (
     QPADM_ENGINE_ADMIXTOOLS2,
@@ -22,6 +24,7 @@ from app.features.modeling.qpadm_classic import (
     _qpadm_backend_config_for_engine,
     _qpadm_env,
     _qpadm_title,
+    _run_qpadm_job,
     _has_supported_target_for_engine,
     _snapshot_flow,
     _target_menu_markup,
@@ -162,6 +165,40 @@ class QpadmClassicFormattingTests(unittest.TestCase):
         self.assertIn("ADMIXTOOLS2 qpAdm", _format_queue_text(flow, job_id=1, position=1, active_count=1))
         self.assertIn("ADMIXTOOLS2 qpAdm", _format_qpadm_summary(summary, elapsed_seconds=1.0, flow=flow, lang="en"))
         self.assertNotIn("qpAdm classic", _format_queue_text(flow, job_id=1, position=1, active_count=1))
+
+    def test_qpadm_summary_expands_structured_errors(self) -> None:
+        flow = {
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "dataset": "v66p1_1240k_public",
+            "target": "Ramazan",
+            "sources": ["Missing_Source.AG"],
+            "references": ["Mbuti.DG"],
+        }
+        summary = {
+            "status": "population_not_found",
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "engine_status": "backend_not_ready",
+            "fit": {"p_value": None},
+            "feasibility": {"status": "FAIL"},
+            "weights": [],
+            "errors": [
+                {
+                    "code": "population_not_found",
+                    "message": "One or more qpAdm sources/references are not available in the selected dataset.",
+                    "details": {
+                        "missing": [
+                            {"role": "source", "label": "Missing_Source.AG"},
+                        ]
+                    },
+                }
+            ],
+        }
+
+        text = _format_qpadm_summary(summary, elapsed_seconds=2.0, flow=flow, lang="en")
+
+        self.assertIn("Errors", text)
+        self.assertIn("Missing_Source.AG", text)
+        self.assertIn("Missing in dataset", text)
 
     def test_exact_qpadm_label_can_be_added_without_population_search(self) -> None:
         flow = {
@@ -344,6 +381,63 @@ class QpadmClassicEngineTests(unittest.TestCase):
         self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "raw_file", "target": "/tmp/raw.txt"}))
         self.assertFalse(_has_supported_target_for_engine({"engine": QPADM_ENGINE_ADMIXTOOLS2, "target_type": "raw_file"}))
         self.assertTrue(_has_supported_target_for_engine({"engine": QPADM_ENGINE_CLASSIC, "target_type": "raw_file"}))
+
+
+class QpadmClassicJobTests(unittest.IsolatedAsyncioTestCase):
+    async def test_run_qpadm_job_uses_structured_summary_when_command_exits_nonzero(self) -> None:
+        flow = {
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "dataset": "v66p1_1240k_public",
+            "target_type": "dataset_population",
+            "target": "Ramazan",
+            "target_label": "Ramazan",
+            "sources": ["Missing_Source.AG"],
+            "references": ["Mbuti.DG"],
+        }
+        summary = {
+            "status": "population_not_found",
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "engine_status": "backend_not_ready",
+            "target": {"label": "Ramazan", "kind": "dataset_population"},
+            "fit": {"p_value": None},
+            "feasibility": {"status": "FAIL"},
+            "weights": [],
+            "errors": [
+                {
+                    "code": "population_not_found",
+                    "message": "One or more qpAdm sources/references are not available in the selected dataset.",
+                    "details": {"missing": [{"role": "source", "label": "Missing_Source.AG"}]},
+                }
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+
+            async def fake_run_process_result(*args, **kwargs):
+                output_path = output_dir / "admixtools2_100_1_7.json"
+                output_path.write_text(json.dumps({"status": "population_not_found"}), encoding="utf-8")
+                return 1, json.dumps({"status": "population_not_found"}), ""
+
+            with patch("app.features.modeling.qpadm_classic.BOT_QPADM_OUTPUT_DIR", output_dir), patch(
+                "app.features.modeling.qpadm_classic.time.time",
+                return_value=1,
+            ), patch(
+                "app.features.modeling.qpadm_classic._run_process_result",
+                new=AsyncMock(side_effect=fake_run_process_result),
+            ), patch(
+                "app.features.modeling.qpadm_classic._load_qpadm_summary",
+                new=AsyncMock(return_value=summary),
+            ), patch(
+                "app.features.modeling.qpadm_classic.render_qpadm_result",
+                side_effect=RuntimeError("visual skipped"),
+            ):
+                text, save_payload = await _run_qpadm_job(flow, 100, job_id=7, lang="en")
+
+        self.assertIn("population_not_found", text)
+        self.assertIn("Missing_Source.AG", text)
+        self.assertEqual(save_payload["result_payload"], summary)
+        self.assertEqual(save_payload["visual_error"], "visual skipped")
 
 
 if __name__ == "__main__":

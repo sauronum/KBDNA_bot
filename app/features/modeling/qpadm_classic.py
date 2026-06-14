@@ -523,6 +523,46 @@ def _process_error_detail(returncode: int, stdout: str, stderr: str) -> str:
     return "\n".join(detail) or f"process failed with exit code {returncode}"
 
 
+async def _load_qpadm_summary(output_path: Path, *, engine: object) -> dict[str, Any]:
+    summary_args = [DNA_PLATFORM_PYTHON, "dna_platform.py", "admixlab-summary", str(output_path), "--json"]
+    summary_stdout = await _run_process(summary_args, timeout_seconds=60, engine=engine)
+    payload = json.loads(summary_stdout)
+    if not isinstance(payload, dict):
+        raise RuntimeError("admixlab-summary returned a non-object JSON payload")
+    return payload
+
+
+def _summary_error_detail(summary: dict[str, Any] | None, fallback: str = "") -> str:
+    if isinstance(summary, dict):
+        errors = summary.get("errors") if isinstance(summary.get("errors"), list) else []
+        parts: list[str] = []
+        for item in errors[:2]:
+            if not isinstance(item, dict):
+                parts.append(str(item))
+                continue
+            message = str(item.get("message") or item.get("code") or "").strip()
+            details = item.get("details") if isinstance(item.get("details"), dict) else {}
+            missing = details.get("missing") if isinstance(details.get("missing"), list) else []
+            if not missing and details.get("population_id"):
+                missing = [{"role": "target", "label": details.get("population_id")}]
+            missing_bits = []
+            for row in missing[:4]:
+                if not isinstance(row, dict):
+                    continue
+                label = str(row.get("label") or "").strip()
+                if not label:
+                    continue
+                role = str(row.get("role") or "population").strip()
+                missing_bits.append(f"{role}: {label}")
+            if missing_bits:
+                message = f"{message} ({'; '.join(missing_bits)})" if message else "; ".join(missing_bits)
+            if message:
+                parts.append(message)
+        if parts:
+            return " | ".join(parts)
+    return fallback.strip() or "qpAdm run failed"
+
+
 async def show_qpadm_classic_dataset_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE | None = None,
@@ -1742,6 +1782,7 @@ def _format_qpadm_summary(summary: dict[str, Any], *, elapsed_seconds: float, fl
     feasibility = summary.get("feasibility") if isinstance(summary.get("feasibility"), dict) else {}
     weights = summary.get("weights") if isinstance(summary.get("weights"), list) else []
     errors = summary.get("errors") if isinstance(summary.get("errors"), list) else []
+    warnings = summary.get("warnings") if isinstance(summary.get("warnings"), list) else []
     engine_display = _qpadm_engine_display(summary.get("engine") or flow.get("engine"))
     target_label = _target_display(flow) or target.get("label") or target.get("display_label")
     references = _as_list(flow, "references")
@@ -1770,8 +1811,12 @@ def _format_qpadm_summary(summary: dict[str, Any], *, elapsed_seconds: float, fl
         lines.extend(["", "<b>References</b>"])
         for item in references:
             lines.append(f"• <code>{html.escape(item)}</code>")
+    warning_lines = _format_messages(warnings, lang=lang, friendly=True)
+    error_lines = _format_messages(errors, lang=lang)
+    if warning_lines:
+        lines.extend(["", "<b>Предупреждения</b>" if lang != "en" else "<b>Warnings</b>", *warning_lines])
     if errors:
-        lines.extend(["", f"Ошибки: <code>{len(errors)}</code>"])
+        lines.extend(["", "<b>Ошибки</b>" if lang != "en" else "<b>Errors</b>", *(error_lines or [f"• {len(errors)}"])])
     return "\n".join(lines)
 
 
@@ -2013,10 +2058,15 @@ async def _run_qpadm_job(flow: dict[str, Any], user_id: int, *, job_id: int, lan
     started = time.monotonic()
     run_args = _qpadm_args(flow, "admixlab-run-qpadm")
     run_args.extend(["--details", "--summary", "--output", str(output_path)])
-    summary_args = [DNA_PLATFORM_PYTHON, "dna_platform.py", "admixlab-summary", str(output_path), "--json"]
-    await _run_process(run_args, timeout_seconds=QPADM_TIMEOUT_SECONDS, engine=flow.get("engine"))
-    summary_stdout = await _run_process(summary_args, timeout_seconds=60, engine=flow.get("engine"))
-    summary_payload = json.loads(summary_stdout)
+    returncode, stdout, stderr = await _run_process_result(run_args, timeout_seconds=QPADM_TIMEOUT_SECONDS, engine=flow.get("engine"))
+    if returncode != 0 and not output_path.exists():
+        raise RuntimeError(_process_error_detail(returncode, stdout, stderr))
+    try:
+        summary_payload = await _load_qpadm_summary(output_path, engine=flow.get("engine"))
+    except Exception:
+        if returncode != 0:
+            raise RuntimeError(_process_error_detail(returncode, stdout, stderr))
+        raise
     elapsed = time.monotonic() - started
     text = _format_qpadm_summary(summary_payload, elapsed_seconds=elapsed, flow=flow, lang=lang)
     caption = _format_qpadm_caption(summary_payload, elapsed_seconds=elapsed, flow=flow)
@@ -2122,11 +2172,19 @@ async def _run_qpadm_batch_job(flow: dict[str, Any], user_id: int, *, job_id: in
         output_path = BOT_QPADM_OUTPUT_DIR / f"admixtools2_batch_{user_id}_{int(time.time())}_{job_id}_{index}.json"
         run_args = _qpadm_args(single_flow, "admixlab-run-qpadm")
         run_args.extend(["--details", "--summary", "--output", str(output_path)])
-        summary_args = [DNA_PLATFORM_PYTHON, "dna_platform.py", "admixlab-summary", str(output_path), "--json"]
         try:
-            await _run_process(run_args, timeout_seconds=QPADM_TIMEOUT_SECONDS, engine=engine)
-            summary_stdout = await _run_process(summary_args, timeout_seconds=60, engine=engine)
-            summary_payload = json.loads(summary_stdout)
+            returncode, stdout, stderr = await _run_process_result(run_args, timeout_seconds=QPADM_TIMEOUT_SECONDS, engine=engine)
+            summary_payload = None
+            if output_path.exists():
+                try:
+                    summary_payload = await _load_qpadm_summary(output_path, engine=engine)
+                except Exception:
+                    summary_payload = None
+            if returncode != 0:
+                fallback = _process_error_detail(returncode, stdout, stderr)
+                raise RuntimeError(_summary_error_detail(summary_payload, fallback))
+            if summary_payload is None:
+                summary_payload = await _load_qpadm_summary(output_path, engine=engine)
             batch_results.append(
                 {
                     "target": target_entry["target"],
