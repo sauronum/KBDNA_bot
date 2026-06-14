@@ -11,6 +11,7 @@ from app.features.modeling.visuals import (
     render_admixtools2_fstats_result,
     render_admixtools2_qpadm_batch_result,
     render_admixtools2_qpgraph_result,
+    render_qpwave_result,
     render_qpadm_result,
 )
 from app.features.vahaduo.ready_models_rendering import CANVAS_WIDTH, MIN_CANVAS_HEIGHT, build_rendered_source_fit_card, render_source_fit_card, source_fit_caption
@@ -231,6 +232,33 @@ class ModelingRenderingTests(unittest.TestCase):
             self.assertTrue(path.name.startswith("fstats_admixtools2_result_"))
             with Image.open(path) as image:
                 self.assertEqual(image.width, 1180)
+                self.assertGreaterEqual(image.height, 820)
+
+    def test_admixtools2_qpwave_renderer_uses_distinct_visual_profile(self) -> None:
+        ranks = [
+            {"rank": 0, "dof": 3, "chisq": 2.4, "tail": 0.493},
+            {"rank": 1, "dof": 2, "chisq": 0.8, "tail": 0.672},
+        ]
+        flow = {
+            "engine": "admixtools2_qpwave",
+            "dataset": "v66p1_1240k_public",
+            "left": ["Russia_Caucasus_Maikop_Novosvobodnaya.AG", "Russia_MLBA_Sintashta.SG"],
+            "right": ["Mbuti", "Han", "Papuan", "Russia_UstIshim_IUP"],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = render_qpwave_result(
+                ranks=ranks,
+                flow=flow,
+                elapsed_seconds=4.2,
+                output_dir=Path(temp_dir),
+                data_source={"type": "precomputed_f2_cache", "cache_status": "hit", "path": "/tmp/f2_cache"},
+                f4_rows=[{"pop1": "A"} for _ in range(5)],
+            )
+
+            self.assertTrue(path.name.startswith("qpwave_admixtools2_result_"))
+            with Image.open(path) as image:
+                self.assertEqual(image.width, 1200)
                 self.assertGreaterEqual(image.height, 820)
 
     def test_admixtools2_qpgraph_renderer_expands_for_deep_graphs(self) -> None:

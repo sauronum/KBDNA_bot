@@ -1235,20 +1235,210 @@ def render_qpadm_result(summary: dict[str, Any], *, flow: dict[str, Any], elapse
     return _save(image, output_dir, str(profile["prefix"]))
 
 
+def _render_admixtools2_qpwave_result(
+    *,
+    ranks: list[dict[str, Any]],
+    flow: dict[str, Any],
+    elapsed_seconds: float,
+    output_dir: Path,
+    data_source: dict[str, Any] | None = None,
+    warnings: list[str] | None = None,
+    f4_rows: list[dict[str, Any]] | None = None,
+) -> Path:
+    left = [str(item) for item in flow.get("left", []) if str(item)]
+    right = [str(item) for item in flow.get("right", []) if str(item)]
+    data_source = data_source or {}
+    warnings = warnings or []
+    f4_rows = f4_rows or []
+    shown_ranks = ranks[:8]
+    shown_rows = max(1, min(max(len(left), len(right), 1), 10))
+    more_items = max(0, len(left) - shown_rows) + max(0, len(right) - shown_rows)
+    rank_h = 74 + max(1, len(shown_ranks)) * 42
+    panels_h = 72 + shown_rows * 31 + (24 if more_items else 0)
+    data_h = 106
+    warnings_h = 0 if not warnings else 74
+    height = 650 + rank_h + panels_h + data_h + warnings_h
+    width = 1200
+    image, draw = _canvas(height, width=width, background="#071019", panel="#111820")
+
+    content_left = 58
+    content_right = width - 58
+    outline = "#263543"
+    accent = "#38bdf8"
+    title_font = _font(46, bold=True)
+    subtitle_font = _font(23)
+    label_font = _font(16, bold=True)
+    value_font = _font(23, bold=True)
+    h_font = _font(26, bold=True)
+    row_font = _font(17)
+    row_bold = _font(18, bold=True)
+    small_font = _font(15)
+
+    def draw_centered(cx: int, yy: int, text: str, font: ImageFont.ImageFont, fill: str) -> None:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        draw.text((cx - (bbox[2] - bbox[0]) // 2, yy), text, font=font, fill=fill)
+
+    def p_color(value: object) -> str:
+        p_value = _number(value)
+        if p_value is None:
+            return "#cbd5e1"
+        return "#22c55e" if p_value >= 0.05 else "#fb7185"
+
+    first_rank = ranks[0] if ranks else {}
+    first_p = _number(first_rank.get("tail"))
+    fit_label = "PASS" if first_p is not None and first_p >= 0.05 else "LOW P" if first_p is not None else "n/a"
+    fit_color = "#22c55e" if fit_label == "PASS" else "#fb7185" if fit_label == "LOW P" else "#cbd5e1"
+
+    y = 54
+    draw.text((content_left, y), "ADMIXTOOLS2 qpWave 2", font=title_font, fill="#f8fafc")
+    draw.text((content_left, y + 58), "rankdrop test / left-right differentiation", font=subtitle_font, fill="#9aa8bb")
+    status = "COMPLETED"
+    badge_bbox = draw.textbbox((0, 0), status, font=label_font)
+    badge_w = badge_bbox[2] - badge_bbox[0] + 30
+    draw.rounded_rectangle((content_right - badge_w, y + 16, content_right, y + 50), radius=9, fill="#0f1d27", outline="#22c55e", width=1)
+    draw.text((content_right - badge_w + 15, y + 24), status, font=label_font, fill="#22c55e")
+
+    y += 122
+    draw.rounded_rectangle((content_left, y, content_right, y + 58), radius=10, fill="#0d151c", outline=outline, width=1)
+    draw.text((content_left + 24, y + 18), "Dataset", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 126, y + 14), _fit_text(draw, _dataset_label(flow.get("dataset")), value_font, 360), font=value_font, fill="#e5edf5")
+    draw.text((content_left + 600, y + 18), "Left", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 660, y + 14), str(len(left)), font=value_font, fill="#f5b942")
+    draw.text((content_left + 760, y + 18), "Right", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 836, y + 14), str(len(right)), font=value_font, fill="#f5b942")
+
+    y += 84
+    metrics = [
+        ("rank", _format_number(first_rank.get("rank"))),
+        ("p-value", _format_number(first_rank.get("tail"))),
+        ("chisq", _format_number(first_rank.get("chisq"))),
+        ("dof", _format_number(first_rank.get("dof"))),
+        ("fit", fit_label),
+        ("time", f"{elapsed_seconds:.1f}s"),
+    ]
+    gap = 12
+    tile_w = (content_right - content_left - gap * (len(metrics) - 1)) // len(metrics)
+    for index, (label, value) in enumerate(metrics):
+        x = content_left + index * (tile_w + gap)
+        value_fill = fit_color if label == "fit" else p_color(first_rank.get("tail")) if label == "p-value" else "#f5b942"
+        draw.rounded_rectangle((x, y, x + tile_w, y + 76), radius=10, fill="#17212b", outline="#33424e", width=1)
+        draw.text((x + 14, y + 12), label.upper(), font=label_font, fill="#90a0b3")
+        draw.text((x + 14, y + 37), _fit_text(draw, value, value_font, tile_w - 28), font=value_font, fill=value_fill)
+
+    y += 108
+    draw.text((content_left, y), "Rank Tests", font=h_font, fill="#f8fafc")
+    y += 40
+    table_top = y
+    draw.rounded_rectangle((content_left, table_top, content_right, table_top + rank_h), radius=12, fill="#0d151c", outline=outline, width=1)
+    rank_x = content_left + 62
+    p_x = content_left + 300
+    chisq_x = content_left + 540
+    dof_x = content_left + 760
+    fit_x = content_right - 82
+    header_y = table_top + 22
+    draw_centered(rank_x, header_y, "RANK", label_font, "#cbd5e1")
+    draw_centered(p_x, header_y, "P-VALUE", label_font, "#cbd5e1")
+    draw_centered(chisq_x, header_y, "CHISQ", label_font, "#cbd5e1")
+    draw_centered(dof_x, header_y, "DOF", label_font, "#cbd5e1")
+    draw_centered(fit_x, header_y, "FIT", label_font, "#cbd5e1")
+    draw.line((content_left, table_top + 56, content_right, table_top + 56), fill=outline, width=1)
+
+    if not shown_ranks:
+        draw.text((content_left + 24, table_top + 82), "No rank rows returned.", font=row_font, fill="#9aa8bb")
+    for index, item in enumerate(shown_ranks):
+        row_y = table_top + 70 + index * 42
+        if index:
+            draw.line((content_left + 18, row_y - 12, content_right - 18, row_y - 12), fill="#172432", width=1)
+        p_value = _number(item.get("tail"))
+        row_fit = "PASS" if p_value is not None and p_value >= 0.05 else "LOW P" if p_value is not None else "n/a"
+        row_fit_color = "#22c55e" if row_fit == "PASS" else "#fb7185" if row_fit == "LOW P" else "#cbd5e1"
+        draw_centered(rank_x, row_y, _format_number(item.get("rank")), row_bold, "#f8fafc")
+        draw_centered(p_x, row_y, _format_number(item.get("tail")), row_bold, p_color(item.get("tail")))
+        draw_centered(chisq_x, row_y, _format_number(item.get("chisq")), row_font, "#cbd5e1")
+        draw_centered(dof_x, row_y, _format_number(item.get("dof")), row_font, "#cbd5e1")
+        draw_centered(fit_x, row_y, row_fit, row_font, row_fit_color)
+    if len(ranks) > len(shown_ranks):
+        draw.text((content_left + 24, table_top + rank_h - 24), f"+{len(ranks) - len(shown_ranks)} more rank rows", font=small_font, fill="#9aa8bb")
+
+    y = table_top + rank_h + 30
+    draw.text((content_left, y), "Panels", font=h_font, fill="#f8fafc")
+    y += 40
+    panels_top = y
+    draw.rounded_rectangle((content_left, panels_top, content_right, panels_top + panels_h), radius=12, fill="#0d151c", outline=outline, width=1)
+    col_gap = 22
+    col_w = (content_right - content_left - 48 - col_gap) // 2
+    left_x = content_left + 24
+    right_x = left_x + col_w + col_gap
+    draw.text((left_x, panels_top + 18), "Left", font=label_font, fill="#cbd5e1")
+    draw.text((right_x, panels_top + 18), "Right", font=label_font, fill="#cbd5e1")
+    for index in range(shown_rows):
+        yy = panels_top + 50 + index * 31
+        if index < len(left):
+            draw.text((left_x, yy), _fit_text(draw, left[index], row_font, col_w - 8), font=row_font, fill="#7dd3fc")
+        if index < len(right):
+            draw.text((right_x, yy), _fit_text(draw, right[index], row_font, col_w - 8), font=row_font, fill="#c4b5fd")
+    if more_items:
+        yy = panels_top + 50 + shown_rows * 31
+        left_more = max(0, len(left) - shown_rows)
+        right_more = max(0, len(right) - shown_rows)
+        if left_more:
+            draw.text((left_x, yy), f"+{left_more} more", font=small_font, fill="#9aa8bb")
+        if right_more:
+            draw.text((right_x, yy), f"+{right_more} more", font=small_font, fill="#9aa8bb")
+
+    y = panels_top + panels_h + 28
+    draw.rounded_rectangle((content_left, y, content_right, y + data_h), radius=12, fill="#0d151c", outline=outline, width=1)
+    draw.text((content_left + 22, y + 20), "Data source", font=h_font, fill="#f8fafc")
+    source_type = str(data_source.get("type") or "f2").replace("_", " ")
+    source_path = str(data_source.get("path") or "")
+    cache_status = str(data_source.get("cache_status") or "").strip()
+    draw.text((content_left + 22, y + 60), "Type", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 96, y + 57), _fit_text(draw, source_type, row_bold, 260), font=row_bold, fill="#f5b942")
+    draw.text((content_left + 380, y + 60), "f4 rows", font=label_font, fill="#90a0b3")
+    draw.text((content_left + 470, y + 57), str(len(f4_rows)), font=row_bold, fill="#e5edf5")
+    if cache_status:
+        draw.text((content_left + 600, y + 60), "Cache", font=label_font, fill="#90a0b3")
+        draw.text((content_left + 680, y + 57), _fit_text(draw, cache_status, row_bold, 180), font=row_bold, fill="#22c55e" if cache_status == "hit" else "#f5b942")
+    if source_path:
+        draw.text((content_left + 22, y + 86), _fit_text(draw, source_path, small_font, content_right - content_left - 44), font=small_font, fill="#9aa8bb")
+
+    y += data_h + 24
+    if warnings:
+        draw.rounded_rectangle((content_left, y, content_right, y + warnings_h), radius=12, fill="#1f1712", outline="#7c2d12", width=1)
+        draw.text((content_left + 22, y + 18), "Warnings", font=label_font, fill="#f59e0b")
+        draw.text((content_left + 22, y + 42), _fit_text(draw, "; ".join(warnings), row_font, content_right - content_left - 44), font=row_font, fill="#fbbf24")
+
+    _draw_footer(image, draw, product="ADMIXTOOLS2 qpWave", version="AT2", accent=accent, outline=outline)
+    return _save(image, output_dir, "qpwave_admixtools2_result")
+
+
 def render_qpwave_result(
     *,
     ranks: list[dict[str, Any]],
     flow: dict[str, Any],
     elapsed_seconds: float,
     output_dir: Path,
+    data_source: dict[str, Any] | None = None,
+    warnings: list[str] | None = None,
+    f4_rows: list[dict[str, Any]] | None = None,
 ) -> Path:
+    if _is_admixtools2_qpwave(flow):
+        return _render_admixtools2_qpwave_result(
+            ranks=ranks,
+            flow=flow,
+            elapsed_seconds=elapsed_seconds,
+            output_dir=output_dir,
+            data_source=data_source,
+            warnings=warnings,
+            f4_rows=f4_rows,
+        )
+
     left = [str(item) for item in flow.get("left", []) if str(item)]
     right = [str(item) for item in flow.get("right", []) if str(item)]
-    is_at2 = _is_admixtools2_qpwave(flow)
-    title = "ADMIXTOOLS2 qpWave" if is_at2 else "qpWave"
-    product = "ADMIXTOOLS2 qpWave" if is_at2 else "qpWave"
-    version = "AT2" if is_at2 else "v2.1"
-    prefix = "qpwave_admixtools2_result" if is_at2 else "qpwave_result"
+    title = "qpWave"
+    product = "qpWave"
+    version = "v2.1"
+    prefix = "qpwave_result"
     height = 670 + len(ranks) * 48 + max(len(left), len(right), 1) * 34
     image, draw = _canvas(height)
     title_font = _font(42, bold=True)

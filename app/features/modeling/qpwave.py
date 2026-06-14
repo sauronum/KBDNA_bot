@@ -1042,10 +1042,22 @@ async def _run_qpwave_admixtools2_job(flow: dict[str, Any], user_id: int, *, job
     ranks = _extract_admixtools2_ranks(payload)
     text = _format_qpwave_result("", flow=flow, elapsed_seconds=elapsed, ranks_override=ranks)
     caption = _format_qpwave_caption(ranks, flow=flow, elapsed_seconds=elapsed)
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    data_source = result.get("data_source") if isinstance(result.get("data_source"), dict) else {}
+    f4_rows = result.get("f4") if isinstance(result.get("f4"), list) else []
+    warnings = [str(item) for item in payload.get("warnings", []) if str(item)] if isinstance(payload.get("warnings"), list) else []
     visual_path: Path | None = None
     visual_error: str | None = None
     try:
-        visual_path = render_qpwave_result(ranks=ranks, flow=flow, elapsed_seconds=elapsed, output_dir=BOT_QPWAVE_OUTPUT_DIR)
+        visual_path = render_qpwave_result(
+            ranks=ranks,
+            flow=flow,
+            elapsed_seconds=elapsed,
+            output_dir=BOT_QPWAVE_OUTPUT_DIR,
+            data_source=data_source,
+            warnings=warnings,
+            f4_rows=f4_rows,
+        )
     except Exception as exc:
         visual_error = str(exc)
     raw_output = json.dumps(payload, ensure_ascii=False, indent=2)
@@ -1063,6 +1075,9 @@ async def _run_qpwave_admixtools2_job(flow: dict[str, Any], user_id: int, *, job
         "raw_output_path": str(out_path),
         "raw_output": raw_output,
         "admixtools2_payload": payload,
+        "data_source": data_source,
+        "warnings": warnings,
+        "f4_rows": f4_rows,
     }
     return text, save_payload
 
