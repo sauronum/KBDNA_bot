@@ -440,14 +440,24 @@ def build_search_input_keyboard(sample_id: str, *, lang: str = "ru") -> InlineKe
 
 
 def build_search_result_keyboard(sample_id: str, *, lang: str = "ru") -> InlineKeyboardMarkup:
+    return build_search_result_keyboard_for_rule(sample_id, rule_index=None, lang=lang)
+
+
+def build_search_result_keyboard_for_rule(sample_id: str, *, rule_index: int | None, lang: str = "ru") -> InlineKeyboardMarkup:
     retry_label = "🔁 Check another SNP" if lang == "en" else "🔁 Проверить другой SNP"
-    return InlineKeyboardMarkup(
+    another_label = "👤 Another sample" if lang == "en" else "👤 Другой sample"
+    card_label = "📚 Open SNP card" if lang == "en" else "📚 Открыть карточку SNP"
+    rows = []
+    if rule_index is not None:
+        rows.append([InlineKeyboardButton(card_label, callback_data=f"snp_report:dbsnp:{rule_index}:0:0")])
+    rows.extend(
         [
             [InlineKeyboardButton(retry_label, callback_data=f"snp_report:search_sample:{sample_id}")],
-            [InlineKeyboardButton("👤 Другой sample", callback_data="snp_report:search")],
+            [InlineKeyboardButton(another_label, callback_data="snp_report:search")],
             _back_cancel_row("snp_report:root"),
         ]
     )
+    return InlineKeyboardMarkup(rows)
 
 
 def db_root_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
@@ -462,7 +472,7 @@ def db_root_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
                 f"Annotated cards: <b>{annotated}</b>",
                 f"Categories: <b>{len(categories)}</b>",
                 "",
-                "Search by rsID or gene, open categories, or start from popular consumer SNP.",
+                "Choose a search mode. rsID is exact, gene/locus is broader, categories are for browsing.",
             ]
         )
     return "\n".join(
@@ -473,15 +483,15 @@ def db_root_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
             f"Карточек с описанием: <b>{annotated}</b>",
             f"Разделов: <b>{len(categories)}</b>",
             "",
-            "Можно искать по rsID или gene, открыть категории или начать с популярных SNP.",
+            "Выберите режим поиска. rsID — точный поиск, gene/locus — шире, разделы — для просмотра панели.",
         ]
     )
 
 
 def build_db_root_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
-    rsid_label = "🔎 Search rsID" if lang == "en" else "🔎 По rsID"
-    gene_label = "🧬 Search gene" if lang == "en" else "🧬 По gene"
-    cats_label = "📂 Categories" if lang == "en" else "📂 По категории"
+    rsid_label = "🔎 Find rsID" if lang == "en" else "🔎 Найти rsID"
+    gene_label = "🧬 Find gene/locus" if lang == "en" else "🧬 Найти gene/locus"
+    cats_label = "📂 Base sections" if lang == "en" else "📂 Разделы базы"
     popular_label = "⭐ Popular SNP" if lang == "en" else "⭐ Популярные SNP"
     return InlineKeyboardMarkup(
         [
@@ -497,11 +507,11 @@ def build_db_root_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
 def db_search_input_text(*, mode: str, lang: str = "ru") -> str:
     if mode == "gene":
         if lang == "en":
-            return "🧬 <b>Search gene</b>\n\nSend a gene name, for example: <code>COMT</code>"
-        return "🧬 <b>Поиск по gene</b>\n\nПришлите gene/locus, например: <code>COMT</code>"
+            return "🧬 <b>Find gene/locus</b>\n\nSend a gene or locus, for example: <code>COMT</code>, <code>LCT</code>, <code>HLA</code>."
+        return "🧬 <b>Поиск по gene/locus</b>\n\nПришлите gene или locus, например: <code>COMT</code>, <code>LCT</code>, <code>HLA</code>."
     if lang == "en":
-        return "🔎 <b>Search rsID</b>\n\nSend rsID, for example: <code>rs4988235</code>"
-    return "🔎 <b>Поиск по rsID</b>\n\nПришлите rsID, например: <code>rs4988235</code>"
+        return "🔎 <b>Find rsID</b>\n\nSend an exact rsID, for example: <code>rs4988235</code>."
+    return "🔎 <b>Поиск по rsID</b>\n\nПришлите точный rsID, например: <code>rs4988235</code>."
 
 
 def build_db_search_input_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
@@ -512,17 +522,17 @@ def db_gene_results_text(query: str, matches: list[tuple[int, SnpRule]], *, lang
     total_pages = _total_pages(matches, SNP_PAGE_SIZE)
     page = _clamp_page(page, total_pages)
     if lang == "en":
-        lines = ["🧬 <b>Search gene</b>", "", f"Query: <code>{html.escape(query)}</code>", f"Found: <b>{len(matches)}</b>"]
+        lines = ["🧬 <b>Find gene/locus</b>", "", f"Query: <code>{html.escape(query)}</code>", f"Found: <b>{len(matches)}</b>"]
         if matches:
             lines.append(f"Page {page + 1}/{total_pages}.")
         else:
-            lines.extend(["", "No matching SNP cards."])
+            lines.extend(["", "No matching SNP cards. Try another gene/locus or use exact rsID search."])
         return "\n".join(lines)
-    lines = ["🧬 <b>Поиск по gene</b>", "", f"Запрос: <code>{html.escape(query)}</code>", f"Найдено: <b>{len(matches)}</b>"]
+    lines = ["🧬 <b>Поиск по gene/locus</b>", "", f"Запрос: <code>{html.escape(query)}</code>", f"Найдено: <b>{len(matches)}</b>"]
     if matches:
         lines.append(f"Страница {page + 1}/{total_pages}.")
     else:
-        lines.extend(["", "Подходящих SNP-карточек не найдено."])
+        lines.extend(["", "Подходящих SNP-карточек не найдено. Попробуйте другой gene/locus или точный rsID."])
     return "\n".join(lines)
 
 
@@ -538,12 +548,47 @@ def build_db_gene_results_keyboard(
     start = page * SNP_PAGE_SIZE
     visible = matches[start:start + SNP_PAGE_SIZE]
     rows = [
-        [InlineKeyboardButton(f"{rule.rsid} · {_rule_title(rule)[:42]}", callback_data=f"snp_report:dbsnp:{rule_index}:0:0")]
+        [InlineKeyboardButton(_gene_result_button_label(rule), callback_data=f"snp_report:dbsnp:{rule_index}:0:0")]
         for rule_index, rule in visible
     ]
     _append_page_nav(rows, page=page, total_pages=total_pages, callback_prefix=f"snp_report:dbgene_page:{query}")
     rows.append(_back_cancel_row("snp_report:db"))
     return InlineKeyboardMarkup(rows)
+
+
+def db_rsid_not_found_text(rsid: str, *, lang: str = "ru") -> str:
+    rsid_text = html.escape(rsid)
+    if lang == "en":
+        return "\n".join(
+            [
+                "📚 <b>SNP base</b>",
+                "",
+                f"<code>{rsid_text}</code> was not found in the current SNP base.",
+                "",
+                "You can still check this rsID in a sample raw file, or try gene/locus search.",
+            ]
+        )
+    return "\n".join(
+        [
+            "📚 <b>База SNP</b>",
+            "",
+            f"<code>{rsid_text}</code> не найден в текущей SNP-базе.",
+            "",
+            "Его всё равно можно проверить в raw sample или попробовать поиск по gene/locus.",
+        ]
+    )
+
+
+def build_db_rsid_not_found_keyboard(rsid: str, *, lang: str = "ru") -> InlineKeyboardMarkup:
+    check_label = "🧬 Check in sample" if lang == "en" else "🧬 Проверить в sample"
+    gene_label = "🧬 Search gene/locus" if lang == "en" else "🧬 Поиск gene/locus"
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(check_label, callback_data=f"snp_report:search_rsid_page:{rsid}:0")],
+            [InlineKeyboardButton(gene_label, callback_data="snp_report:db_gene")],
+            _back_cancel_row("snp_report:db"),
+        ]
+    )
 
 
 def popular_snps_text(*, lang: str = "ru") -> str:
@@ -1030,6 +1075,23 @@ def _rule_title(rule: SnpRule) -> str:
     if rule.gene:
         return f"{rule.gene} {rule.rsid}"
     return f"SNP {rule.rsid}"
+
+
+def _gene_result_button_label(rule: SnpRule) -> str:
+    parts = [rule.rsid]
+    if rule.gene:
+        parts.append(rule.gene)
+    title = _rule_title(rule)
+    if title and title not in {rule.rsid, rule.gene}:
+        parts.append(title)
+    return _short_button_label(" · ".join(parts), limit=60)
+
+
+def _short_button_label(value: str, *, limit: int = 60) -> str:
+    clean = " ".join(str(value or "").split())
+    if len(clean) <= limit:
+        return clean
+    return clean[: max(1, limit - 1)].rstrip() + "…"
 
 
 def _rule_description(rule: SnpRule, *, lang: str = "ru") -> str:

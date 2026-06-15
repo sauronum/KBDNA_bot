@@ -21,6 +21,7 @@ from .ui import (
     build_db_rule_keyboard,
     build_db_rule_lookup_result_keyboard,
     build_db_rule_sample_picker_keyboard,
+    build_db_rsid_not_found_keyboard,
     build_db_root_keyboard,
     build_db_search_input_keyboard,
     build_error_keyboard,
@@ -35,6 +36,7 @@ from .ui import (
     build_sample_home_keyboard,
     build_search_input_keyboard,
     build_search_picker_keyboard,
+    build_search_result_keyboard_for_rule,
     build_search_result_keyboard,
     db_categories_text,
     db_category_text,
@@ -42,6 +44,7 @@ from .ui import (
     db_rule_lookup_result_text,
     db_rule_sample_picker_text,
     db_rule_text,
+    db_rsid_not_found_text,
     db_root_text,
     db_search_input_text,
     error_text,
@@ -461,6 +464,7 @@ async def snp_report_text_input_handler(update: Update, context: ContextTypes.DE
 
     raw_path = store.resolve_raw_file_path(raw_file)
     result = await run_in_heavy_pool(context, _lookup_snp_in_raw_path, str(raw_path), rsid)
+    rule_index = _find_rule_index_by_rsid(_rules(context), rsid)
     _clear_lookup_pending(context)
     _record_snp_report_usage(update, context, "lookup", success=(getattr(result, "error", None) is None), input_mode="text")
     await _edit_pending_lookup_message(
@@ -468,7 +472,7 @@ async def snp_report_text_input_handler(update: Update, context: ContextTypes.DE
         chat_id,
         message_id,
         search_result_text(sample, result, lang=lang),
-        build_search_result_keyboard(sample.asset_id, lang=lang),
+        build_search_result_keyboard_for_rule(sample.asset_id, rule_index=rule_index, lang=lang),
     )
     raise ApplicationHandlerStop
 
@@ -526,8 +530,8 @@ async def _handle_db_search_text(update: Update, context: ContextTypes.DEFAULT_T
             context,
             chat_id,
             message_id,
-            error_text("База SNP", f"{rsid} не найден в текущей SNP-базе."),
-            build_db_root_keyboard(lang=lang),
+            db_rsid_not_found_text(rsid, lang=lang),
+            build_db_rsid_not_found_keyboard(rsid, lang=lang),
         )
         return True
 
@@ -924,11 +928,12 @@ async def _run_prefilled_snp_lookup(
 
     raw_path = store.resolve_raw_file_path(raw_file)
     result = await run_in_heavy_pool(context, _lookup_snp_in_raw_path, str(raw_path), normalized_rsid)
+    rule_index = _find_rule_index_by_rsid(_rules(context), normalized_rsid)
     _record_snp_report_usage(update, context, "lookup", success=(getattr(result, "error", None) is None), input_mode="callback")
     await message.edit_text(
         search_result_text(sample, result, lang=lang),
         parse_mode="HTML",
-        reply_markup=build_search_result_keyboard(sample.asset_id, lang=lang),
+        reply_markup=build_search_result_keyboard_for_rule(sample.asset_id, rule_index=rule_index, lang=lang),
     )
 
 

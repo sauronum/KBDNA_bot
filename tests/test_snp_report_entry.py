@@ -14,10 +14,14 @@ from app.features.snp_report.interesting import analyze_interesting_snps, load_i
 from app.features.snp_report.menu import show_snp_report_menu
 from app.features.snp_report.storage import SnpReportRecord, SnpReportSummary
 from app.features.snp_report.ui import (
+    build_db_gene_results_keyboard,
+    build_db_rsid_not_found_keyboard,
     build_db_root_keyboard,
     build_db_rule_keyboard,
     build_interesting_result_keyboard_for_analysis,
     build_sample_home_keyboard,
+    build_search_result_keyboard_for_rule,
+    db_rsid_not_found_text,
     db_rule_text,
     interesting_result_text,
     render_html_report,
@@ -202,16 +206,57 @@ class SnpReportEntryTests(unittest.TestCase):
         )
 
     def test_snp_base_root_has_fast_entry_points(self) -> None:
+        labels = [
+            button.text
+            for row in build_db_root_keyboard().inline_keyboard
+            for button in row
+        ]
         callbacks = [
             button.callback_data
             for row in build_db_root_keyboard().inline_keyboard
             for button in row
         ]
 
+        self.assertIn("🔎 Найти rsID", labels)
+        self.assertIn("🧬 Найти gene/locus", labels)
+        self.assertIn("📂 Разделы базы", labels)
         self.assertIn("snp_report:db_search", callbacks)
         self.assertIn("snp_report:db_gene", callbacks)
         self.assertIn("snp_report:dbcats", callbacks)
         self.assertIn("snp_report:dbpopular", callbacks)
+
+    def test_snp_base_rsid_miss_can_be_checked_in_sample(self) -> None:
+        text = db_rsid_not_found_text("rs999999")
+        self.assertIn("rs999999", text)
+        self.assertIn("проверить в raw sample", text)
+
+        callbacks = [
+            button.callback_data
+            for row in build_db_rsid_not_found_keyboard("rs999999").inline_keyboard
+            for button in row
+        ]
+        self.assertIn("snp_report:search_rsid_page:rs999999:0", callbacks)
+        self.assertIn("snp_report:db_gene", callbacks)
+
+    def test_sample_lookup_result_links_back_to_known_snp_card(self) -> None:
+        callbacks = [
+            button.callback_data
+            for row in build_search_result_keyboard_for_rule("sample-1", rule_index=17).inline_keyboard
+            for button in row
+        ]
+        self.assertEqual(callbacks[0], "snp_report:dbsnp:17:0:0")
+        self.assertIn("snp_report:search_sample:sample-1", callbacks)
+
+    def test_gene_search_result_buttons_show_gene_and_rsid(self) -> None:
+        rules = load_snp_rules()
+        rule_index = next(index for index, rule in enumerate(rules) if rule.rsid == "rs4680")
+        labels = [
+            button.text
+            for row in build_db_gene_results_keyboard("COMT", [(rule_index, rules[rule_index])]).inline_keyboard
+            for button in row
+        ]
+
+        self.assertTrue(any("rs4680" in label and "COMT" in label for label in labels))
 
     def test_snp_base_card_has_description_and_sample_check_button(self) -> None:
         rules = load_snp_rules()
