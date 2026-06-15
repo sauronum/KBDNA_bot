@@ -422,14 +422,15 @@ class SnpReportEntryTests(unittest.TestCase):
             payload={
                 "categories": [
                     {
-                        "category": "Высокобелк. диета",
+                        "category": f"Категория {index}",
                         "total": 4,
                         "ok": 1,
                         "warn": 2,
                         "bad": 1,
                         "missing": 0,
-                        "risk_percent": 50,
+                        "risk_percent": 50 + index,
                     }
+                    for index in range(10)
                 ]
             },
         )
@@ -465,14 +466,15 @@ class SnpReportEntryTests(unittest.TestCase):
             payload={
                 "categories": [
                     {
-                        "category": "Высокобелк. диета",
+                        "category": f"Категория {index}",
                         "total": 4,
                         "ok": 1,
                         "warn": 2,
                         "bad": 1,
                         "missing": 0,
-                        "risk_percent": 50,
+                        "risk_percent": 50 + index,
                     }
+                    for index in range(10)
                 ]
             },
         )
@@ -484,9 +486,9 @@ class SnpReportEntryTests(unittest.TestCase):
             self.assertTrue(path.exists())
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
-                self.assertGreaterEqual(image.width, 1200)
-                self.assertGreaterEqual(image.height, 500)
-                self.assertLessEqual(image.height, 700)
+                self.assertGreaterEqual(image.width, 1400)
+                self.assertGreaterEqual(image.height, 950)
+                self.assertLessEqual(image.height, 1100)
 
 
 if __name__ == "__main__":
