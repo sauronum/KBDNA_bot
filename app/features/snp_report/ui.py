@@ -157,7 +157,7 @@ def interesting_picker_text(samples: list[SampleAsset], *, lang: str = "ru", pag
         lines = [
             "🧪 <b>Interesting SNP</b>",
             "",
-            "A small curated panel of simple non-medical traits.",
+            "A compact non-medical showcase: nutrition, taste/smell, appearance, and simple physical traits.",
             "Choose a sample with a raw file.",
         ]
         if samples:
@@ -169,7 +169,7 @@ def interesting_picker_text(samples: list[SampleAsset], *, lang: str = "ru", pag
     lines = [
         "🧪 <b>Интересные SNP</b>",
         "",
-        "Небольшая curated-панель простых немедицинских признаков.",
+        "Короткая немедицинская витрина: питание, вкус/запах, внешние и простые физические признаки.",
         "Выберите sample с raw-файлом.",
     ]
     if samples:
@@ -201,11 +201,13 @@ def interesting_result_text(analysis: InterestingSnpAnalysis, *, lang: str = "ru
             "🧪 <b>Interesting SNP</b>",
             "",
             f"Sample: <b>{html.escape(analysis.sample_name)}</b>",
-            f"Available: <b>{analysis.found}</b> / {analysis.total}",
+            f"Interpreted: <b>{analysis.found}</b> / {analysis.total}",
         ]
         if analysis.unsupported:
-            lines.append(f"Unsupported genotype format: <b>{analysis.unsupported}</b>")
-        lines.append("")
+            lines.append(f"Found without interpretation: <b>{analysis.unsupported}</b>")
+        if analysis.missing:
+            lines.append(f"Not found in raw: <b>{analysis.missing}</b>")
+        lines.extend(["", "<b>Results</b>"])
         lines.extend(_interesting_result_lines(analysis.results, lang=lang))
         return "\n".join(lines)
 
@@ -213,11 +215,13 @@ def interesting_result_text(analysis: InterestingSnpAnalysis, *, lang: str = "ru
         "🧪 <b>Интересные SNP</b>",
         "",
         f"Sample: <b>{html.escape(analysis.sample_name)}</b>",
-        f"Доступно: <b>{analysis.found}</b> из {analysis.total}",
+        f"С трактовкой: <b>{analysis.found}</b> из {analysis.total}",
     ]
     if analysis.unsupported:
-        lines.append(f"Неподдержанный формат генотипа: <b>{analysis.unsupported}</b>")
-    lines.append("")
+        lines.append(f"Найдено без трактовки: <b>{analysis.unsupported}</b>")
+    if analysis.missing:
+        lines.append(f"Не найдено в raw: <b>{analysis.missing}</b>")
+    lines.extend(["", "<b>Результаты</b>"])
     lines.extend(_interesting_result_lines(analysis.results, lang=lang))
     return "\n".join(lines)
 
@@ -233,12 +237,12 @@ def build_interesting_result_keyboard(*, lang: str = "ru") -> InlineKeyboardMark
 
 
 def build_interesting_result_keyboard_for_analysis(analysis: InterestingSnpAnalysis, *, lang: str = "ru") -> InlineKeyboardMarkup:
-    detail_label = "SNP card" if lang == "en" else "Карточка"
-    rows = [
-        [InlineKeyboardButton(f"ℹ️ {detail_label}: {item.rsid}", callback_data=f"snp_report:intdetail:{analysis.sample_id}:{item.rsid}")]
-        for item in analysis.results
-        if item.status == "ok"
+    detail_items = [item for item in analysis.results if item.status == "ok"]
+    detail_buttons = [
+        InlineKeyboardButton(_interesting_button_label(item), callback_data=f"snp_report:intdetail:{analysis.sample_id}:{item.rsid}")
+        for item in detail_items
     ]
+    rows = [detail_buttons[index:index + 2] for index in range(0, len(detail_buttons), 2)]
     another_label = "👤 Another sample" if lang == "en" else "👤 Другой sample"
     db_label = "📚 SNP base" if lang == "en" else "📚 База SNP"
     rows.extend(
@@ -256,16 +260,20 @@ def interesting_detail_text(item: InterestingSnpResult, sample_name: str, *, lan
         lines = [
             "🧪 <b>Interesting SNP</b>",
             "",
+            f"<code>{html.escape(item.rsid)}</code> · <b>{html.escape(item.title)}</b>",
+            f"Gene/locus: <b>{html.escape(item.gene)}</b>",
+            f"Category: <b>{html.escape(item.category)}</b>",
             f"Sample: <b>{html.escape(sample_name)}</b>",
-            f"<b>{html.escape(item.title)}</b>",
-            f"{html.escape(item.rsid)} · {html.escape(item.gene)}",
+            "",
             f"Genotype: <b>{html.escape(item.genotype)}</b>",
-            f"Result: {html.escape(item.interpretation)}",
+            f"Result: <b>{html.escape(item.interpretation)}</b>",
         ]
         if item.description:
-            lines.extend(["", html.escape(item.description)])
+            lines.extend(["", "<b>What it means</b>", html.escape(item.description)])
         if item.limitations:
             lines.extend(["", f"Limit: {html.escape(item.limitations)}"])
+        if item.source_notes:
+            lines.extend(["", html.escape(item.source_notes)])
         if item.sources:
             lines.append("")
             lines.append("Sources:")
@@ -278,16 +286,20 @@ def interesting_detail_text(item: InterestingSnpResult, sample_name: str, *, lan
     lines = [
         "🧪 <b>Интересные SNP</b>",
         "",
+        f"<code>{html.escape(item.rsid)}</code> · <b>{html.escape(item.title)}</b>",
+        f"Gene/locus: <b>{html.escape(item.gene)}</b>",
+        f"Категория: <b>{html.escape(item.category)}</b>",
         f"Sample: <b>{html.escape(sample_name)}</b>",
-        f"<b>{html.escape(item.title)}</b>",
-        f"{html.escape(item.rsid)} · {html.escape(item.gene)}",
-        f"Генотип: <b>{html.escape(item.genotype)}</b>",
-        f"Результат: {html.escape(item.interpretation)}",
+        "",
+        f"Генотип sample: <b>{html.escape(item.genotype)}</b>",
+        f"Итог: <b>{html.escape(item.interpretation)}</b>",
     ]
     if item.description:
-        lines.extend(["", html.escape(item.description)])
+        lines.extend(["", "<b>Что это значит</b>", html.escape(item.description)])
     if item.limitations:
         lines.extend(["", f"Ограничение: {html.escape(item.limitations)}"])
+    if item.source_notes:
+        lines.extend(["", html.escape(item.source_notes)])
     if item.sources:
         lines.append("")
         lines.append("Источники:")
@@ -1040,15 +1052,22 @@ def _interesting_result_lines(results: tuple[InterestingSnpResult, ...], *, lang
             unsupported.append(item)
             continue
 
-        lines.extend(
-            [
-                f"<b>{html.escape(item.title)}</b>",
-                f"{html.escape(item.rsid)} · {'genotype' if lang == 'en' else 'генотип'}: <b>{html.escape(item.genotype)}</b>",
-                f"Result: {html.escape(item.interpretation)}" if lang == "en" else f"Результат: {html.escape(item.interpretation)}",
-            ]
-        )
+        if lang == "en":
+            lines.extend(
+                [
+                    f"• <b>{html.escape(item.title)}</b> — {html.escape(item.interpretation)}",
+                    f"  <code>{html.escape(item.rsid)}</code> · {html.escape(item.gene)} · genotype <b>{html.escape(item.genotype)}</b>",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    f"• <b>{html.escape(item.title)}</b> — {html.escape(item.interpretation)}",
+                    f"  <code>{html.escape(item.rsid)}</code> · {html.escape(item.gene)} · генотип <b>{html.escape(item.genotype)}</b>",
+                ]
+            )
         if item.description:
-            lines.append(html.escape(item.description))
+            lines.append(f"  {html.escape(_short_text(item.description, 150))}")
         lines.append("")
 
     if unsupported:
@@ -1062,6 +1081,18 @@ def _interesting_result_lines(results: tuple[InterestingSnpResult, ...], *, lang
         lines.extend([f"<b>{label}</b>", html.escape(values)])
 
     return lines
+
+
+def _interesting_button_label(item: InterestingSnpResult) -> str:
+    title = str(item.title or item.rsid).split(":")[0].strip()
+    return _short_button_label(f"ℹ️ {title}", limit=28)
+
+
+def _short_text(value: str, limit: int) -> str:
+    clean = " ".join(str(value or "").split())
+    if len(clean) <= limit:
+        return clean
+    return clean[: max(1, limit - 1)].rstrip() + "…"
 
 
 def _append_page_nav(

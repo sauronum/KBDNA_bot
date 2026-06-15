@@ -25,6 +25,7 @@ from app.features.snp_report.ui import (
     build_search_result_keyboard_for_rule,
     db_rsid_not_found_text,
     db_rule_text,
+    interesting_detail_text,
     interesting_result_text,
     render_html_report,
     result_text,
@@ -172,15 +173,23 @@ class SnpReportEntryTests(unittest.TestCase):
         text = interesting_result_text(result)
         self.assertIn("Интересные SNP", text)
         self.assertIn("Переносимость лактозы", text)
-        self.assertIn("Доступно:", text)
+        self.assertIn("С трактовкой:", text)
+        self.assertIn("Не найдено в raw:", text)
+        self.assertIn("• <b>Переносимость лактозы</b>", text)
         self.assertNotIn("Ограничение:", text)
 
+        keyboard = build_interesting_result_keyboard_for_analysis(result).inline_keyboard
         callbacks = [
             button.callback_data
-            for row in build_interesting_result_keyboard_for_analysis(result).inline_keyboard
+            for row in keyboard
             for button in row
         ]
         self.assertIn("snp_report:intdetail:sample:rs4988235", callbacks)
+        self.assertLessEqual(max(len(row) for row in keyboard), 2)
+
+        detail = interesting_detail_text(by_rsid["rs4988235"], "Demo")
+        self.assertIn("Что это значит", detail)
+        self.assertIn("Итог:", detail)
 
     def test_snp_lab_sample_home_is_lightweight_and_action_first(self) -> None:
         sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
