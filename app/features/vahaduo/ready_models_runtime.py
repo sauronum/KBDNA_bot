@@ -6,7 +6,7 @@ from pathlib import Path
 
 from g25_core import g25_engine
 
-from .ready_model_sets import ReadyModelSet
+from .ready_model_sets import ReadyModelSet, ReadyModelSource
 
 
 logger = logging.getLogger(__name__)
@@ -136,11 +136,19 @@ def run_source_fitting(target_name: str, target_g25: str, source_set: ReadyModel
         )
 
 
-def _resolve_source_paths(source_set: ReadyModelSet) -> list[tuple[object, Path | None]]:
-    return [(source, _find_source_path(source.g25_name)) for source in source_set.sources]
+def _resolve_source_paths(source_set: ReadyModelSet) -> list[tuple[ReadyModelSource, Path | None]]:
+    return [(source, _find_source_path(source)) for source in source_set.sources]
 
 
-def _find_source_path(source_name: str) -> Path | None:
+def _find_source_path(source: ReadyModelSource | str) -> Path | None:
+    if isinstance(source, ReadyModelSource):
+        pinned_path = _resolve_catalog_source_path(source.source_path)
+        if pinned_path is not None:
+            return pinned_path if pinned_path.exists() else None
+        source_name = source.g25_name
+    else:
+        source_name = source
+
     candidates = [source_name, _SOURCE_ALIASES.get(source_name, "")]
     for candidate in candidates:
         if not candidate:
@@ -150,3 +158,14 @@ def _find_source_path(source_name: str) -> Path | None:
             if path.exists():
                 return path
     return None
+
+
+def _resolve_catalog_source_path(source_path: str) -> Path | None:
+    cleaned = str(source_path or "").replace("\\", "/").strip().lstrip("/")
+    if not cleaned:
+        return None
+    candidate = (_PANELS_DIR / cleaned).resolve()
+    panels_root = _PANELS_DIR.resolve()
+    if candidate == panels_root or panels_root not in candidate.parents:
+        return None
+    return candidate

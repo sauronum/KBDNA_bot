@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from app.features.modeling import source_sets as modeling_source_sets
 from app.features.vahaduo.ready_model_sets import (
     get_source_set,
+    list_runnable_source_sets,
     list_source_sets,
     load_source_sets,
     source_set_is_runnable,
@@ -17,6 +18,7 @@ from app.features.vahaduo.ready_model_sets import (
 
 class VahaduoReadyModelSetsTests(unittest.TestCase):
     def test_source_sets_catalog_loads_expected_models(self) -> None:
+        panels_root = Path(__file__).resolve().parents[1] / "g25_core" / "panels"
         source_sets = list_source_sets()
         ids = [source_set.id for source_set in source_sets]
 
@@ -24,14 +26,22 @@ class VahaduoReadyModelSetsTests(unittest.TestCase):
         self.assertIn("steppe_russia", ids)
         self.assertIn("karachay_balkar_hypothesis", ids)
         self.assertIn("broad_west_eurasian", ids)
-        self.assertTrue(source_set_is_runnable(get_source_set("steppe_russia")))
+        self.assertFalse(source_set_is_runnable(get_source_set("steppe_russia")))
+        self.assertTrue(source_set_is_runnable(get_source_set("karachay_balkar_hypothesis")))
         self.assertFalse(source_set_is_runnable(get_source_set("alan_sarmatian_hypothesis")))
+        runnable_ids = [source_set.id for source_set in list_runnable_source_sets()]
+        self.assertNotIn("steppe_russia", runnable_ids)
+        self.assertNotIn("caucasus_steppe", runnable_ids)
+        self.assertIn("karachay_balkar_hypothesis", runnable_ids)
         for source_set in source_sets:
             self.assertIn(source_set.status, {"ready", "draft"})
             self.assertEqual(source_set.type, "g25_source_fit")
             self.assertGreater(len(source_set.sources), 0)
             self.assertIn("Это G25-fit модель, не qpAdm.", source_set.interpretation_note)
             self.assertIn("Компоненты являются proxy-источниками.", source_set.interpretation_note)
+            for source in source_set.sources:
+                self.assertTrue(source.source_path, source.g25_name)
+                self.assertTrue((panels_root / source.source_path).is_file(), source.source_path)
 
     def test_invalid_source_sets_file_returns_empty_list(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

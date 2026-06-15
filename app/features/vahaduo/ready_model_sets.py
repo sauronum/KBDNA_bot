@@ -20,6 +20,7 @@ class ReadyModelSource:
     label: str
     emoji: str
     g25_name: str
+    source_path: str = ""
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,10 @@ def load_source_sets(path: Path | None = None) -> list[ReadyModelSet]:
 
 def list_source_sets() -> list[ReadyModelSet]:
     return load_source_sets()
+
+
+def list_runnable_source_sets() -> list[ReadyModelSet]:
+    return [source_set for source_set in list_source_sets() if source_set_is_runnable(source_set)]
 
 
 def get_source_set(set_id: str) -> ReadyModelSet | None:
@@ -126,6 +131,7 @@ def _parse_source(payload: Any) -> ReadyModelSource:
         label=_required_str(payload, "label"),
         emoji=_required_str(payload, "emoji"),
         g25_name=_required_str(payload, "g25_name"),
+        source_path=str(payload.get("source_path") or "").strip(),
     )
 
 

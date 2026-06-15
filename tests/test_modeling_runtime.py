@@ -7,25 +7,26 @@ from app.features.vahaduo.ready_model_sets import ReadyModelSource, ReadyModelSe
 
 
 TARGET_G25 = (
-    "TestTarget,0.105855,0.119832,-0.05242,-0.028101,-0.043085,0.000837,"
-    "0.00893,-0.008538,-0.05154,-0.031527,0.003573,0.004496,-0.012636,"
-    "0.001239,0.002036,0.002917,0.019427,-0.003547,0.001508,0.018384,"
-    "0.007861,-0.002226,-0.006655,0,0.001676"
+    "MixedTarget,0.10204215,0.05361980,-0.00959775,0.00521645,-0.00834005,0.01250845,"
+    "0.00991735,-0.00725725,-0.02947195,-0.02523055,-0.01119655,0.00053965,-0.00709110,"
+    "-0.00624105,0.01034865,0.00704065,0.01158445,-0.00107655,0.00327420,0.01131805,"
+    "0.00958305,0.00527965,-0.00698785,0.00172315,0.00096380"
 )
 
 
 class VahaduoReadyModelsRuntimeTests(unittest.TestCase):
     def test_run_source_fitting_returns_ok_result(self) -> None:
-        source_set = get_source_set("steppe_russia")
+        source_set = get_source_set("karachay_balkar_hypothesis")
         self.assertIsNotNone(source_set)
 
         result = run_source_fitting("Заур", TARGET_G25, source_set)  # type: ignore[arg-type]
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(result.target_name, "Заур")
-        self.assertEqual(result.source_set_id, "steppe_russia")
+        self.assertEqual(result.source_set_id, "karachay_balkar_hypothesis")
         self.assertIsNotNone(result.distance)
-        self.assertGreater(len(result.components), 0)
+        self.assertGreaterEqual(len(result.components), 3)
+        self.assertEqual([component.source_name for component in result.components[:3]], ["Maikop", "Steppe", "YR"])
         self.assertAlmostEqual(sum(component.percent for component in result.components), 100.0, delta=0.2)
 
     def test_run_source_fitting_reports_missing_sources(self) -> None:

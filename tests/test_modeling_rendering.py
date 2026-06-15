@@ -51,19 +51,26 @@ class ModelingRenderingTests(unittest.TestCase):
 
         self.assertEqual(rendered.image_bytes[:8], b"\x89PNG\r\n\x1a\n")
         self.assertIs(rendered.result, result)
-        self.assertIn("📚 Ready models", rendered.caption)
+        self.assertIn("📚 Готовые модели", rendered.caption)
         self.assertIn("G25-профиль: Заур", rendered.caption)
         self.assertIn("Модель: Karachay-Balkar hypothesis", rendered.caption)
-        self.assertIn("Distance: 0.0195", rendered.caption)
+        self.assertIn("Дистанция: 0.0195", rendered.caption)
         self.assertIn("Это G25-fit модель, не qpAdm.", rendered.caption)
 
     def test_source_fit_caption_has_clean_text(self) -> None:
         caption = source_fit_caption(_fit_result())
 
-        self.assertIn("📚 Ready models", caption)
+        self.assertIn("📚 Готовые модели", caption)
         self.assertNotIn("Vahaduo", caption)
         self.assertNotIn("Single", caption)
         self.assertNotIn("Multi", caption)
+
+    def test_source_fit_caption_supports_english(self) -> None:
+        caption = source_fit_caption(_fit_result(), lang="en")
+
+        self.assertIn("📚 Ready models", caption)
+        self.assertIn("G25 profile: Заур", caption)
+        self.assertIn("Distance: 0.0195", caption)
 
     def test_render_source_fit_card_handles_long_title_and_many_components(self) -> None:
         result = SourceFitResult(

@@ -50,7 +50,7 @@ from app.features.vahaduo.ui import (
     _g25vahaduo_target_text,
 )
 from app.features.vahaduo.ready_models_runtime import SourceFitComponent, SourceFitResult
-from app.features.vahaduo.ready_model_sets import get_source_set, list_source_sets
+from app.features.vahaduo.ready_model_sets import get_source_set, list_runnable_source_sets
 from app.main_menu import MainMenuStore
 from g25_core.render_fit_png import _multi_component_header, _single_visible_groups, render_distance_png, render_multi_heatmap_png, render_single_card_png
 
@@ -81,19 +81,19 @@ class VahaduoUiTests(unittest.TestCase):
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
         self.assertEqual(text, "<b>📐 Vahaduo Lab</b>\n\nG25-инструменты")
-        self.assertEqual(labels[:5], ["📚 Мои источники", "📏 Distance", "🧬 Single", "🧩 Multi", "📚 Ready models"])
+        self.assertEqual(labels[:5], ["📚 Мои источники", "📏 Distance", "🧬 Single", "🧩 Multi", "📚 Готовые модели"])
         self.assertEqual(labels[-2:], ["⬅️ Назад", "Отмена"])
 
     def test_ready_models_flow_uses_vahaduo_copy(self) -> None:
-        source_sets = list_source_sets()
-        source_set = get_source_set("steppe_russia")
+        source_sets = list_runnable_source_sets()
+        source_set = get_source_set("karachay_balkar_hypothesis")
         self.assertIsNotNone(source_set)
         target = ReadyModelTarget("coord-1", "Заур", "Za'ur,0,0")
         result = SourceFitResult(
             status="ok",
             target_name="Заур",
-            source_set_id="steppe_russia",
-            source_set_title="Steppe / Russia",
+            source_set_id="karachay_balkar_hypothesis",
+            source_set_title="Карачаево-балкарская гипотеза",
             distance=0.0151,
             components=(SourceFitComponent("Maikop / Caucasus", "🏔", "Maikop", 62.7),),
         )
@@ -107,19 +107,19 @@ class VahaduoUiTests(unittest.TestCase):
         result_text = ready_model_result_text(result, source_set)  # type: ignore[arg-type]
         result_keyboard = build_ready_model_result_keyboard("flow1234")
 
-        self.assertIn("📚 Ready models", targets_text)
-        self.assertIn("Готовые G25-модели источников.", targets_text)
+        self.assertIn("📚 Готовые модели", targets_text)
+        self.assertIn("Кураторские G25-fit модели источников.", targets_text)
         self.assertIn("Выберите G25-профиль.", targets_text)
         self.assertEqual(targets_keyboard.inline_keyboard[0][0].callback_data, "vahaduo:ready_model_target:coord-1")
         self.assertIn("G25-профиль: Заур", sets_text)
-        self.assertIn("Выберите модель.", sets_text)
-        self.assertEqual(sets_keyboard.inline_keyboard[0][0].callback_data, "vahaduo:ready_model_set:flow1234:steppe_russia")
-        self.assertIn("📚 Ready model", confirm_text)
-        self.assertIn("Модель: Steppe / Russia", confirm_text)
+        self.assertIn("Выберите готовую модель.", sets_text)
+        self.assertEqual(sets_keyboard.inline_keyboard[0][0].callback_data, "vahaduo:ready_model_set:flow1234:bronze_age_caucasus")
+        self.assertIn("📚 Готовая модель", confirm_text)
+        self.assertIn("Модель: Карачаево-балкарская гипотеза", confirm_text)
         self.assertIn("Это G25-fit модель, не qpAdm.", confirm_text)
         self.assertIn("▶️ Запустить модель", [button.text for row in confirm_keyboard.inline_keyboard for button in row])
-        self.assertIn("📚 Ready models", result_text)
-        self.assertIn("Distance: 0.0151", result_text)
+        self.assertIn("📚 Готовые модели", result_text)
+        self.assertIn("Дистанция: 0.0151", result_text)
         self.assertIn("🔁 Проверить другую модель", [button.text for row in result_keyboard.inline_keyboard for button in row])
 
     def test_distance_source_picker_uses_clean_labels(self) -> None:

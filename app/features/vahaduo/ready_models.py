@@ -15,7 +15,7 @@ from app.features.my_data.storage import CoordinateAsset, MyDataStore
 
 from .ready_models_rendering import build_rendered_source_fit_card
 from .ready_models_runtime import SourceFitResult, format_fit_quality, run_source_fitting
-from .ready_model_sets import ReadyModelSet, get_source_set, list_source_sets, source_set_is_runnable
+from .ready_model_sets import ReadyModelSet, get_source_set, list_runnable_source_sets, source_set_is_runnable
 
 
 READY_MODELS_FLOW_STORE_KEY = "vahaduo_ready_models_flow_store"
@@ -69,16 +69,45 @@ def flow_store(context: ContextTypes.DEFAULT_TYPE) -> ReadyModelsFlowStore:
     return store
 
 
+def _title(lang: str = "ru") -> str:
+    return "📚 Ready models" if lang == "en" else "📚 Готовые модели"
+
+
+def _model_title(lang: str = "ru") -> str:
+    return "📚 Ready model" if lang == "en" else "📚 Готовая модель"
+
+
+def _fit_quality(distance: float | None, lang: str = "ru") -> str:
+    if lang != "en":
+        return format_fit_quality(distance)
+    if distance is None:
+        return "unknown"
+    if distance <= 0.0200:
+        return "good"
+    if distance <= 0.0300:
+        return "medium"
+    return "weak"
+
+
 def ready_models_targets_text(targets: list[ReadyModelTarget], lang: str = "ru") -> str:
-    lines = [
-        "<b>📚 Ready models</b>",
-        "",
-        "Готовые G25-модели источников.",
-        "",
-        "Выберите G25-профиль.",
-    ]
+    if lang == "en":
+        lines = [
+            f"<b>{_title(lang)}</b>",
+            "",
+            "Curated G25 source-fit models.",
+            "",
+            "Choose a G25 profile.",
+        ]
+    else:
+        lines = [
+            f"<b>{_title(lang)}</b>",
+            "",
+            "Кураторские G25-fit модели источников.",
+            "",
+            "Выберите G25-профиль.",
+        ]
     if not targets:
-        lines.extend(["", "Нет сохранённых G25-профилей."])
+        lines.extend(["", "No saved G25 profiles."] if lang == "en" else ["", "Нет сохранённых G25-профилей."])
     return "\n".join(lines)
 
 
@@ -93,14 +122,14 @@ def build_ready_models_targets_keyboard(targets: list[ReadyModelTarget], lang: s
 
 def ready_models_sets_text(profile_name: str, source_sets: list[ReadyModelSet], lang: str = "ru") -> str:
     lines = [
-        "<b>📚 Ready models</b>",
+        f"<b>{_title(lang)}</b>",
         "",
-        f"G25-профиль: {html.escape(profile_name)}",
+        (f"G25 profile: {html.escape(profile_name)}" if lang == "en" else f"G25-профиль: {html.escape(profile_name)}"),
         "",
-        "Выберите модель.",
+        ("Choose a model." if lang == "en" else "Выберите готовую модель."),
     ]
     if not source_sets:
-        lines.extend(["", "Каталог ready models пока пуст."])
+        lines.extend(["", "The model catalog is empty."] if lang == "en" else ["", "Каталог готовых моделей пока пуст."])
     return "\n".join(lines)
 
 
@@ -115,30 +144,26 @@ def build_ready_models_sets_keyboard(source_sets: list[ReadyModelSet], token: st
 
 def ready_model_confirmation_text(profile_name: str, source_set: ReadyModelSet, lang: str = "ru") -> str:
     lines = [
-        "<b>📚 Ready model</b>",
+        f"<b>{_model_title(lang)}</b>",
         "",
-        f"G25-профиль: {html.escape(profile_name)}",
-        f"Модель: {html.escape(source_set.short_title)}",
+        (f"G25 profile: {html.escape(profile_name)}" if lang == "en" else f"G25-профиль: {html.escape(profile_name)}"),
+        (f"Model: {html.escape(source_set.short_title)}" if lang == "en" else f"Модель: {html.escape(source_set.short_title)}"),
         "",
         html.escape(source_set.description),
         "",
-        "Источники:",
+        ("Sources:" if lang == "en" else "Источники:"),
     ]
     lines.extend(f"{html.escape(source.emoji)} {html.escape(source.label)}" for source in source_set.sources)
-    lines.extend(
-        [
-            "",
-            "Это G25-fit модель, не qpAdm.",
-            "Компоненты являются proxy-источниками.",
-        ]
-    )
+    note = source_set.interpretation_note.strip()
+    if note:
+        lines.extend(["", html.escape(note)])
     return "\n".join(lines)
 
 
 def build_ready_model_confirmation_keyboard(token: str, lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("▶️ Запустить модель", callback_data=f"{VAHADUO_CALLBACK_PREFIX}:ready_model_run:{token}")],
+            [InlineKeyboardButton("▶️ Run model" if lang == "en" else "▶️ Запустить модель", callback_data=f"{VAHADUO_CALLBACK_PREFIX}:ready_model_run:{token}")],
             _footer_row(f"{VAHADUO_CALLBACK_PREFIX}:ready_model_sets:{token}", lang),
         ]
     )
@@ -146,17 +171,17 @@ def build_ready_model_confirmation_keyboard(token: str, lang: str = "ru") -> Inl
 
 def ready_model_result_text(result: SourceFitResult, source_set: ReadyModelSet, lang: str = "ru") -> str:
     lines = [
-        "<b>📚 Ready models</b>",
+        f"<b>{_title(lang)}</b>",
         "",
-        f"G25-профиль: {html.escape(result.target_name)}",
-        f"Модель: {html.escape(result.source_set_title)}",
+        (f"G25 profile: {html.escape(result.target_name)}" if lang == "en" else f"G25-профиль: {html.escape(result.target_name)}"),
+        (f"Model: {html.escape(result.source_set_title)}" if lang == "en" else f"Модель: {html.escape(result.source_set_title)}"),
         "",
     ]
     if result.status == "ok":
         lines.extend(
             [
-                f"Fit: {format_fit_quality(result.distance)}",
-                f"Distance: {float(result.distance or 0.0):.4f}",
+                (f"Fit quality: {_fit_quality(result.distance, lang)}" if lang == "en" else f"Качество fit: {_fit_quality(result.distance, lang)}"),
+                (f"Distance: {float(result.distance or 0.0):.4f}" if lang == "en" else f"Дистанция: {float(result.distance or 0.0):.4f}"),
                 "",
             ]
         )
@@ -164,26 +189,30 @@ def ready_model_result_text(result: SourceFitResult, source_set: ReadyModelSet, 
             f"{html.escape(component.emoji)} {html.escape(component.label)} — {component.percent:.1f}%"
             for component in result.components
         )
-        lines.extend(["", "Это G25-fit модель, не qpAdm.", "Компоненты являются proxy-источниками."])
+        note = source_set.interpretation_note.strip()
+        if note:
+            lines.extend(["", html.escape(note)])
         return "\n".join(lines)
 
-    lines.extend(["Не удалось запустить модель.", ""])
+    lines.extend(["Could not run the model." if lang == "en" else "Не удалось запустить модель.", ""])
     if result.status == "source_missing":
-        lines.append("Не найдены источники:")
+        lines.append("Missing sources:" if lang == "en" else "Не найдены источники:")
         lines.extend(f"- {html.escape(source_name)}" for source_name in result.missing_sources)
         lines.append("")
     elif result.status == "draft":
-        lines.extend(["Эта модель пока в черновике.", ""])
+        lines.extend(["This model is still a draft." if lang == "en" else "Эта модель пока в черновике.", ""])
     elif result.message:
         lines.extend([html.escape(result.message), ""])
-    lines.append("Это G25-fit модель, не qpAdm.")
+    note = source_set.interpretation_note.strip()
+    if note:
+        lines.append(html.escape(note))
     return "\n".join(lines)
 
 
 def build_ready_model_result_keyboard(token: str, lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("🔁 Проверить другую модель", callback_data=f"{VAHADUO_CALLBACK_PREFIX}:ready_model_result_models:{token}")],
+            [InlineKeyboardButton("🔁 Try another model" if lang == "en" else "🔁 Проверить другую модель", callback_data=f"{VAHADUO_CALLBACK_PREFIX}:ready_model_result_models:{token}")],
             _footer_row(f"{VAHADUO_CALLBACK_PREFIX}:ready_model_result_back:{token}", lang),
         ]
     )
@@ -193,14 +222,19 @@ def get_ready_model_confirmation_screen(context: ContextTypes.DEFAULT_TYPE, user
     flow = flow_store(context).get(token, user_id)
     if flow is None:
         return ReadyModelScreen(
-            "<b>📚 Ready models</b>\n\nСессия устарела. Откройте Ready models заново.",
+            f"<b>{_title(lang)}</b>\n\n" + ("Session expired. Open Ready models again." if lang == "en" else "Сессия устарела. Откройте готовые модели заново."),
             _back_to_ready_models_keyboard(lang),
         )
     target = _get_g25_target(context, user_id, str(flow.get("coordinate_id") or ""))
     source_set = get_source_set(str(flow.get("source_set_id") or ""))
     if target is None or source_set is None:
         return ReadyModelScreen(
-            "<b>📚 Ready models</b>\n\nНе удалось открыть выбранную модель.",
+            f"<b>{_title(lang)}</b>\n\n" + ("Could not open the selected model." if lang == "en" else "Не удалось открыть выбранную модель."),
+            _back_to_ready_models_keyboard(lang),
+        )
+    if not source_set_is_runnable(source_set):
+        return ReadyModelScreen(
+            f"<b>{_title(lang)}</b>\n\n" + ("This model is currently unavailable." if lang == "en" else "Эта модель сейчас недоступна."),
             _back_to_ready_models_keyboard(lang),
         )
     return ReadyModelScreen(
@@ -218,7 +252,7 @@ def get_ready_models_sets_screen(context: ContextTypes.DEFAULT_TYPE, user_id: in
             ready_models_targets_text(targets, lang),
             build_ready_models_targets_keyboard(targets, lang),
         )
-    source_sets = list_source_sets()
+    source_sets = list_runnable_source_sets()
     return ReadyModelScreen(
         ready_models_sets_text(target.title, source_sets, lang),
         build_ready_models_sets_keyboard(source_sets, token, lang),
@@ -255,7 +289,7 @@ async def show_ready_models_sets_menu(
     if target is None:
         await _show_message(
             message,
-            "<b>📚 Ready models</b>\n\nG25-профиль не найден.",
+            f"<b>{_title(lang)}</b>\n\n" + ("G25 profile was not found." if lang == "en" else "G25-профиль не найден."),
             _back_to_ready_models_keyboard(lang),
             edit_existing=edit_existing,
         )
@@ -323,7 +357,7 @@ async def show_ready_model_result_menu(
     if flow is None:
         await _show_message(
             message,
-            "<b>📚 Ready models</b>\n\nСессия устарела. Откройте Ready models заново.",
+            f"<b>{_title(lang)}</b>\n\n" + ("Session expired. Open Ready models again." if lang == "en" else "Сессия устарела. Откройте готовые модели заново."),
             _back_to_ready_models_keyboard(lang),
             edit_existing=edit_existing,
         )
@@ -333,7 +367,7 @@ async def show_ready_model_result_menu(
     if target is None or source_set is None:
         await _show_message(
             message,
-            "<b>📚 Ready models</b>\n\nНе удалось открыть выбранную модель.",
+            f"<b>{_title(lang)}</b>\n\n" + ("Could not open the selected model." if lang == "en" else "Не удалось открыть выбранную модель."),
             _back_to_ready_models_keyboard(lang),
             edit_existing=edit_existing,
         )
@@ -341,7 +375,7 @@ async def show_ready_model_result_menu(
     if not source_set_is_runnable(source_set):
         await _show_message(
             message,
-            "<b>📚 Ready models</b>\n\nЭта модель пока в черновике.",
+            f"<b>{_title(lang)}</b>\n\n" + ("This model is currently unavailable." if lang == "en" else "Эта модель сейчас недоступна."),
             _footer_markup(f"{VAHADUO_CALLBACK_PREFIX}:ready_model_confirm:{token}", lang),
             edit_existing=edit_existing,
         )
@@ -349,7 +383,7 @@ async def show_ready_model_result_menu(
     result = run_source_fitting(target.title, target.g25_line, source_set)
     if result.status == "ok":
         try:
-            rendered = build_rendered_source_fit_card(result)
+            rendered = build_rendered_source_fit_card(result, lang=lang)
             photo = BytesIO(rendered.image_bytes)
             photo.name = "vahaduo_ready_model.png"
             sent = await message.reply_photo(

@@ -84,7 +84,7 @@ def _build_g25vahaduo_full_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup
             InlineKeyboardButton("🧩 Multi", callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_mode_multi"),
         ],
         [
-            InlineKeyboardButton("📚 Ready models", callback_data=f"{G25MENU_CALLBACK_PREFIX}:ready_models"),
+            InlineKeyboardButton(_copy(lang, "📚 Готовые модели", "📚 Ready models"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:ready_models"),
         ],
         [
             InlineKeyboardButton(_copy(lang, "⬅️ Назад", "⬅️ Back"), callback_data=f"{MENU_CALLBACK_PREFIX}:root"),

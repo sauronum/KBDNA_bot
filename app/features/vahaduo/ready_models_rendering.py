@@ -33,7 +33,7 @@ class RenderedSourceFitCard:
     result: SourceFitResult
 
 
-def render_source_fit_card(result: SourceFitResult) -> bytes:
+def render_source_fit_card(result: SourceFitResult, *, lang: str = "ru") -> bytes:
     components = [component for component in result.components if component.percent >= 0.1]
     row_h = 70
     components_top = 205
@@ -53,7 +53,7 @@ def render_source_fit_card(result: SourceFitResult) -> bytes:
     _glow_rect(image, (24, 24, width - 24, height - 24), 30, (52, 191, 255), 46)
     draw.rounded_rectangle((24, 24, width - 24, height - 24), radius=30, fill=(8, 18, 32), outline=(73, 104, 138), width=2)
 
-    draw.text((margin, 49), "READY MODEL", font=fonts["title"], fill=(244, 247, 251))
+    draw.text((margin, 49), "READY MODEL" if lang == "en" else "ГОТОВАЯ МОДЕЛЬ", font=fonts["title"], fill=(244, 247, 251))
     context_line = f"{result.source_set_title}  ·  {result.target_name}"
     draw.text((margin, 106), _ellipsize(context_line, fonts["context"], 800, draw), font=fonts["context"], fill=(147, 169, 194))
     draw.line((margin, 148, width - margin, 148), fill=(39, 59, 81), width=1)
@@ -68,8 +68,8 @@ def render_source_fit_card(result: SourceFitResult) -> bytes:
         image,
         fonts,
         (x_fit, card_top, x_fit + card_w, card_top + card_h),
-        "FIT",
-        _title_case(format_fit_quality(result.distance)),
+        "FIT" if lang == "en" else "КАЧЕСТВО",
+        _title_case(_fit_quality(result.distance, lang)),
         _fit_color(result.distance),
         "fit",
     )
@@ -77,14 +77,14 @@ def render_source_fit_card(result: SourceFitResult) -> bytes:
         image,
         fonts,
         (x_distance, card_top, x_distance + card_w, card_top + card_h),
-        "DISTANCE",
+        "DISTANCE" if lang == "en" else "ДИСТАНЦИЯ",
         f"{float(result.distance or 0.0):.4f}",
         _ACCENTS[3],
         "distance",
     )
 
     section_y = components_top - 40
-    draw.text((margin, section_y), "COMPONENTS", font=fonts["section"], fill=(246, 250, 255))
+    draw.text((margin, section_y), "COMPONENTS" if lang == "en" else "КОМПОНЕНТЫ", font=fonts["section"], fill=(246, 250, 255))
     for index, component in enumerate(components):
         row_top = components_top + index * row_h
         _draw_component_row(
@@ -98,7 +98,7 @@ def render_source_fit_card(result: SourceFitResult) -> bytes:
 
     footer_y = height - 70
     draw.line((margin, footer_y - 15, width - margin, footer_y - 15), fill=(38, 58, 78), width=1)
-    footer = "G25-fit model · not qpAdm    ·    Proxy sources"
+    footer = "G25-fit model · not qpAdm    ·    Proxy sources" if lang == "en" else "G25-fit модель · не qpAdm    ·    proxy-источники"
     _draw_centered_text(draw, footer, (margin, footer_y + 4, width - margin, footer_y + 36), fonts["footer"], (132, 151, 173))
 
     buffer = BytesIO()
@@ -106,23 +106,46 @@ def render_source_fit_card(result: SourceFitResult) -> bytes:
     return buffer.getvalue()
 
 
-def source_fit_caption(result: SourceFitResult) -> str:
+def source_fit_caption(result: SourceFitResult, *, lang: str = "ru") -> str:
+    if lang == "en":
+        return "\n".join(
+            [
+                "📚 Ready models",
+                f"G25 profile: {result.target_name}",
+                f"Model: {result.source_set_title}",
+                f"Distance: {float(result.distance or 0.0):.4f}",
+                "",
+                "G25-fit model, not qpAdm.",
+            ]
+        )
     return "\n".join(
         [
-            "📚 Ready models",
+            "📚 Готовые модели",
             f"G25-профиль: {result.target_name}",
             f"Модель: {result.source_set_title}",
-            f"Distance: {float(result.distance or 0.0):.4f}",
+            f"Дистанция: {float(result.distance or 0.0):.4f}",
             "",
             "Это G25-fit модель, не qpAdm.",
         ]
     )
 
 
-def build_rendered_source_fit_card(result: SourceFitResult) -> RenderedSourceFitCard:
+def _fit_quality(distance: float | None, lang: str = "ru") -> str:
+    if lang != "en":
+        return format_fit_quality(distance)
+    if distance is None:
+        return "unknown"
+    if distance <= 0.0200:
+        return "good"
+    if distance <= 0.0300:
+        return "medium"
+    return "weak"
+
+
+def build_rendered_source_fit_card(result: SourceFitResult, *, lang: str = "ru") -> RenderedSourceFitCard:
     return RenderedSourceFitCard(
-        image_bytes=render_source_fit_card(result),
-        caption=source_fit_caption(result),
+        image_bytes=render_source_fit_card(result, lang=lang),
+        caption=source_fit_caption(result, lang=lang),
         result=result,
     )
 
