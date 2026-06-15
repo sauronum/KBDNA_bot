@@ -4,7 +4,7 @@ import html
 import re
 from datetime import datetime
 
-from .domain import DNAPassportData, DNAPassportTraitItem
+from .domain import DNAPassportData, DNAPassportInterestingSnpItem, DNAPassportTraitItem
 
 
 MAX_TELEGRAM_TEXT_LENGTH = 4096
@@ -114,6 +114,7 @@ def _render_ru(data: DNAPassportData) -> str:
     lines.extend(_raw_block_ru(data))
     lines.extend(["", *_g25_block_ru(data)])
     lines.extend(["", *_traits_block_ru(data)])
+    lines.extend(["", *_interesting_snps_block_ru(data)])
     lines.extend(["", *_lineage_block_ru(data)])
     lines.extend(["", *_summary_block_ru(data)])
     lines.extend(["", *_recommendations_block_ru(data)])
@@ -133,6 +134,7 @@ def _render_en(data: DNAPassportData) -> str:
     lines.extend(_raw_block_ru(data))
     lines.extend(["", *_g25_block_ru(data)])
     lines.extend(["", *_traits_block_ru(data)])
+    lines.extend(["", *_interesting_snps_block_ru(data)])
     lines.extend(["", *_lineage_block_ru(data)])
     lines.extend(["", *_summary_block_ru(data)])
     lines.extend(["", *_recommendations_block_ru(data)])
@@ -225,6 +227,29 @@ def _traits_block_ru(data: DNAPassportData) -> list[str]:
     return lines
 
 
+def _interesting_snps_block_ru(data: DNAPassportData) -> list[str]:
+    snps = data.interesting_snps
+    lines = ["<b>🧪 Интересные SNP</b>", ""]
+    if snps is None or snps.status == "unavailable":
+        lines.append("Недоступны без autosomal raw.")
+        return lines
+    if snps.status == "error":
+        lines.append("Не удалось рассчитать этот блок.")
+        return lines
+    if snps.status == "no_matches" or not snps.items:
+        total = f" из {_format_int(snps.total)}" if snps.total else ""
+        lines.append(f"Готовых пользовательских трактовок не найдено{total}.")
+        return lines
+
+    lines.append(f"Найдено с трактовкой: <b>{_format_int(snps.found)}</b> из {_format_int(snps.total)}")
+    lines.append("")
+    for item in snps.items[:3]:
+        lines.append(f"• {_interesting_snp_line(item)}")
+    if snps.found > 3:
+        lines.append(f"• Ещё {_format_int(snps.found - 3)} в SNP Lab")
+    return lines
+
+
 def _lineage_block_ru(data: DNAPassportData) -> list[str]:
     lineage = data.lineage
     lines = ["<b>🌿 Прямые линии</b>", ""]
@@ -311,6 +336,13 @@ def _trait_line(item: DNAPassportTraitItem) -> str:
     if item.percentile is None:
         return f"{label} — недостаточно данных"
     return f"{label} — {_format_trait_percent(item.percentile)} · {_confidence_stars(item.confidence)}"
+
+
+def _interesting_snp_line(item: DNAPassportInterestingSnpItem) -> str:
+    title = _escape(item.title or item.rsid)
+    genotype = _escape(item.genotype or "н/д")
+    interpretation = _escape(_shorten(item.interpretation, limit=72))
+    return f"{title}: {genotype} — {interpretation}"
 
 
 def _trait_label(item: DNAPassportTraitItem) -> str:
@@ -400,6 +432,13 @@ def _join_ru(items: list[str]) -> str:
     if len(items) == 2:
         return f"{items[0]} и {items[1]}"
     return f"{', '.join(items[:-1])} и {items[-1]}"
+
+
+def _shorten(value: object, *, limit: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
 
 
 def _escape(value: object) -> str:

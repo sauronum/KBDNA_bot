@@ -74,6 +74,27 @@ class DNAPassportTraitsSummary:
 
 
 @dataclass(frozen=True)
+class DNAPassportInterestingSnpItem:
+    rsid: str
+    title: str
+    category: str
+    gene: str
+    genotype: str
+    interpretation: str
+
+
+@dataclass(frozen=True)
+class DNAPassportInterestingSnpsSummary:
+    status: str
+    total: int = 0
+    found: int = 0
+    missing: int = 0
+    unsupported: int = 0
+    items: tuple[DNAPassportInterestingSnpItem, ...] = ()
+    error: str = ""
+
+
+@dataclass(frozen=True)
 class DNAPassportLineageReadiness:
     status: str
     y_markers_detected: bool = False
@@ -89,6 +110,7 @@ class DNAPassportData:
     raw: DNAPassportRawSummary | None = None
     g25: DNAPassportG25Summary | None = None
     traits: DNAPassportTraitsSummary | None = None
+    interesting_snps: DNAPassportInterestingSnpsSummary | None = None
     lineage: DNAPassportLineageReadiness | None = None
     warnings: tuple[str, ...] = field(default_factory=tuple)
     generated_at: str = ""

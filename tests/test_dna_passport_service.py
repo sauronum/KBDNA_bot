@@ -20,6 +20,7 @@ rs3,X,300,CC
 rs4,Y,400,TT
 rs5,MT,500,GG
 rs6,1,600,--
+rs4988235,2,136608646,CT
 bad,row
 """
 
@@ -133,9 +134,9 @@ class DNAPassportServiceTests(unittest.TestCase):
         self.assertEqual(data.sample.status, "ok")
         self.assertEqual(data.raw.status, "ok")
         self.assertEqual(data.raw.provider_hint, "23andMe")
-        self.assertEqual(data.raw.total_records, 7)
-        self.assertEqual(data.raw.called_snps, 5)
-        self.assertEqual(data.raw.autosomal_count, 3)
+        self.assertEqual(data.raw.total_records, 8)
+        self.assertEqual(data.raw.called_snps, 6)
+        self.assertEqual(data.raw.autosomal_count, 4)
         self.assertEqual(data.raw.x_count, 1)
         self.assertEqual(data.raw.y_count, 1)
         self.assertEqual(data.raw.mtdna_count, 1)
@@ -146,6 +147,9 @@ class DNAPassportServiceTests(unittest.TestCase):
         self.assertIsNotNone(data.g25.first_distance)
         self.assertIsNotNone(data.g25.first_second_gap)
         self.assertEqual(data.traits.status, "ok")
+        self.assertEqual(data.interesting_snps.status, "ok")
+        self.assertEqual(data.interesting_snps.found, 1)
+        self.assertEqual(data.interesting_snps.items[0].rsid, "rs4988235")
         self.assertEqual(data.lineage.status, "ok")
         self.assertTrue(data.lineage.y_markers_detected)
         self.assertTrue(data.lineage.mtdna_markers_detected)
@@ -194,6 +198,7 @@ class DNAPassportServiceTests(unittest.TestCase):
         self.assertEqual(data.g25.status, "ok")
         self.assertEqual(data.g25.source, "attached")
         self.assertEqual(data.traits.status, "unavailable")
+        self.assertEqual(data.interesting_snps.status, "unavailable")
         self.assertEqual(data.lineage.status, "unavailable")
 
     def test_builds_passport_without_any_sources(self) -> None:
@@ -211,6 +216,7 @@ class DNAPassportServiceTests(unittest.TestCase):
         self.assertEqual(data.raw.status, "unavailable")
         self.assertEqual(data.g25.status, "unavailable")
         self.assertEqual(data.traits.status, "unavailable")
+        self.assertEqual(data.interesting_snps.status, "unavailable")
         self.assertEqual(data.lineage.status, "unavailable")
 
     def test_raw_parser_error_does_not_break_g25(self) -> None:
@@ -236,6 +242,7 @@ class DNAPassportServiceTests(unittest.TestCase):
         self.assertEqual(data.g25.source, "attached")
         self.assertEqual(g25_service.calls, [])
         self.assertEqual(data.traits.status, "ok")
+        self.assertEqual(data.interesting_snps.status, "ok")
         self.assertEqual(data.lineage.status, "unavailable")
 
     def test_unavailable_g25_reference_does_not_break_raw(self) -> None:

@@ -7,6 +7,7 @@ from typing import Any, Sequence
 
 from app.features.coordinate_space.g25_summary import summarize_g25_coordinate
 from app.features.my_data.storage import CoordinateAsset, MyDataStore, RawFileAsset, SampleAsset
+from app.features.snp_report.interesting import InterestingSnpDefinition, analyze_interesting_snps, load_interesting_snps
 from app.features.traits.domain.catalog import TraitCatalog
 from app.features.traits.domain.runtime import TraitsRuntimeService
 from g25_core.command_service import G25CommandError, G25CommandService
@@ -16,6 +17,8 @@ from .domain import (
     DNAPassportData,
     DNAPassportG25Population,
     DNAPassportG25Summary,
+    DNAPassportInterestingSnpItem,
+    DNAPassportInterestingSnpsSummary,
     DNAPassportLineageReadiness,
     DNAPassportRawSummary,
     DNAPassportSampleSummary,
@@ -44,11 +47,13 @@ class DNAPassportService:
         traits_runtime: TraitsRuntimeService | None = None,
         g25_service: G25CommandService | None = None,
         trait_ids: Sequence[str] = DNA_PASSPORT_TRAIT_IDS,
+        interesting_snp_panel: Sequence[InterestingSnpDefinition] | None = None,
     ) -> None:
         self.my_data_store = my_data_store
         self.traits_runtime = traits_runtime or TraitsRuntimeService(TraitCatalog())
         self.g25_service = g25_service
         self.trait_ids = tuple(trait_ids)
+        self.interesting_snp_panel = tuple(interesting_snp_panel) if interesting_snp_panel is not None else None
 
     def build_for_sample(
         self,
@@ -76,6 +81,7 @@ class DNAPassportService:
         )
         g25_summary = self._build_g25_summary(coordinate)
         traits_summary = self._build_traits_summary(raw_path, sample_name=sample.display_name if sample is not None else "")
+        interesting_snps = self._build_interesting_snps_summary(raw_path, sample_id=sample_id, sample_name=sample.display_name if sample is not None else "")
         lineage = self._build_lineage_readiness(raw_summary)
 
         return DNAPassportData(
@@ -83,6 +89,7 @@ class DNAPassportService:
             raw=raw_summary,
             g25=g25_summary,
             traits=traits_summary,
+            interesting_snps=interesting_snps,
             lineage=lineage,
             warnings=tuple(warnings),
             generated_at=datetime.utcnow().isoformat(timespec="seconds") + "Z",
@@ -310,6 +317,47 @@ class DNAPassportService:
             failed_count=failed_count,
             traits=traits,
             failures=failures,
+        )
+
+    def _build_interesting_snps_summary(self, raw_path: Path | None, *, sample_id: str, sample_name: str = "") -> DNAPassportInterestingSnpsSummary:
+        if raw_path is None:
+            return DNAPassportInterestingSnpsSummary(status="unavailable", error="raw file is unavailable")
+        try:
+            panel = self.interesting_snp_panel if self.interesting_snp_panel is not None else load_interesting_snps()
+        except Exception as exc:
+            return DNAPassportInterestingSnpsSummary(status="error", error=str(exc))
+        if not panel:
+            return DNAPassportInterestingSnpsSummary(status="unavailable", error="interesting SNP panel is empty")
+        try:
+            analysis = analyze_interesting_snps(
+                raw_path,
+                tuple(panel),
+                sample_id=sample_id,
+                sample_name=sample_name or str(raw_path.name),
+            )
+        except Exception as exc:
+            return DNAPassportInterestingSnpsSummary(status="error", total=len(panel), error=str(exc))
+
+        items = tuple(
+            DNAPassportInterestingSnpItem(
+                rsid=item.rsid,
+                title=item.title,
+                category=item.category,
+                gene=item.gene,
+                genotype=item.genotype,
+                interpretation=item.interpretation,
+            )
+            for item in analysis.results
+            if item.status == "ok"
+        )
+        status = "ok" if items else "no_matches"
+        return DNAPassportInterestingSnpsSummary(
+            status=status,
+            total=analysis.total,
+            found=analysis.found,
+            missing=analysis.missing,
+            unsupported=analysis.unsupported,
+            items=items,
         )
 
     @staticmethod

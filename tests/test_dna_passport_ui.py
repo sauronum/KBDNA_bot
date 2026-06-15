@@ -9,6 +9,8 @@ from app.features.reports.dna_passport.domain import (
     DNAPassportData,
     DNAPassportG25Population,
     DNAPassportG25Summary,
+    DNAPassportInterestingSnpItem,
+    DNAPassportInterestingSnpsSummary,
     DNAPassportLineageReadiness,
     DNAPassportRawSummary,
     DNAPassportSampleSummary,
@@ -412,15 +414,17 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("Проценты признаков показывают положение результата относительно референсной панели", text)
         self.assertIn("а не вероятность наличия признака", text)
 
-    def test_renderer_omits_interesting_snp_block_without_curated_interpretations(self) -> None:
+    def test_renderer_shows_compact_interesting_snp_block_without_medical_markers(self) -> None:
         rules = load_snp_rules()
         rule_ids = {rule.rsid for rule in rules}
         text = render_dna_passport_html(_passport_data())
 
         self.assertIn("rs4988235", rule_ids)
         self.assertIn("rs429358", rule_ids)
-        self.assertNotIn("🧪 Интересные SNP", text)
-        self.assertNotIn("rs4988235", text)
+        self.assertIn("🧪 Интересные SNP", text)
+        self.assertIn("Найдено с трактовкой: <b>2</b> из 10", text)
+        self.assertIn("Переносимость лактозы: CT", text)
+        self.assertIn("Тип ушной серы: AA", text)
         self.assertNotIn("APOE", text)
         self.assertNotIn("Lactase persistence", text)
         self.assertNotIn("Genotype", text)
@@ -437,7 +441,8 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("Autosomal raw подходит для анализа происхождения", text)
         self.assertIn("По G25 образец относится к кавказскому генетическому пространству", text)
         self.assertIn("➡️ Что исследовать дальше", text)
-        recommendation_lines = [line for line in text.splitlines() if line.startswith("• ")]
+        recommendations_section = text.split("➡️ Что исследовать дальше", 1)[1].split("ℹ️ Важно", 1)[0]
+        recommendation_lines = [line for line in recommendations_section.splitlines() if line.startswith("• ")]
         self.assertLessEqual(len(recommendation_lines), 3)
         self.assertNotIn("DNA-файл прочитан", text)
         self.assertNotIn("G25-сравнение рассчитано", text)
@@ -559,6 +564,7 @@ def _passport_data(
     g25_name: str = "Main",
     population: str = "Balkar",
     raw: DNAPassportRawSummary | None = None,
+    interesting_snps: DNAPassportInterestingSnpsSummary | None = None,
     lineage: DNAPassportLineageReadiness | None = None,
 ) -> DNAPassportData:
     return DNAPassportData(
@@ -600,6 +606,30 @@ def _passport_data(
                 DNAPassportTraitItem("pgs001075_walking_pace", "Walking pace", "limited", percentile=87.0, confidence="low"),
                 DNAPassportTraitItem("pgs001897_skin_pigmentation", "Skin pigmentation", "limited", percentile=11.0, confidence="low"),
                 DNAPassportTraitItem("pgs002011_water_intake", "Water intake", "limited", percentile=79.0, confidence="low"),
+            ),
+        ),
+        interesting_snps=interesting_snps or DNAPassportInterestingSnpsSummary(
+            status="ok",
+            total=10,
+            found=2,
+            missing=8,
+            items=(
+                DNAPassportInterestingSnpItem(
+                    "rs4988235",
+                    "Переносимость лактозы",
+                    "Питание",
+                    "MCM6/LCT",
+                    "CT",
+                    "Промежуточный вариант переносимости лактозы",
+                ),
+                DNAPassportInterestingSnpItem(
+                    "rs17822931",
+                    "Тип ушной серы",
+                    "Внешние признаки",
+                    "ABCC11",
+                    "AA",
+                    "Сухой тип ушной серы",
+                ),
             ),
         ),
         lineage=lineage or DNAPassportLineageReadiness(status="ok", y_markers_detected=True, y_count=184, mtdna_markers_detected=True, mtdna_count=32),
