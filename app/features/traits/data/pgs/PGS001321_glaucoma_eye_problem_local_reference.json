@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Eye problems/disorders (Glaucoma)",
+  "trait_id": "pgs001321_glaucoma_eye_problem",
+  "display_name": "Glaucoma eye-problem research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 45,
+  "sample_count_excluded": 0,
+  "mean": -0.6890966246849999,
+  "sd": 0.18240916345882544,
+  "min": -1.0889749819219998,
+  "max": -0.19299859541099987,
+  "p5": -0.9130027577119995,
+  "p10": -0.8670288598409999,
+  "p25": -0.8114882895409994,
+  "p50": -0.7048319805110003,
+  "p75": -0.5755113444519998,
+  "p90": -0.5062101720691996,
+  "p95": -0.3561208801422003,
+  "scoring_file_name": "PGS001321_glaucoma_eye_problem.txt.gz",
+  "scoring_file_path": "data/pgs/PGS001321_glaucoma_eye_problem.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS001321",
+    "pgs_name": "GBE_BIN_FC2006148",
+    "trait_reported": "Eye problems/disorders (Glaucoma)",
+    "genome_build": "GRCh37",
+    "variants_number": "1103",
+    "weight_type": "NR",
+    "citation": "PGS Catalog PGS001321; PMID 35324888; doi 10.1371/journal.pgen.1010105"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs001321_glaucoma_eye_problem",
+    "display_name": "Glaucoma eye-problem research signal",
+    "reported_name": "Eye problems/disorders (Glaucoma)",
+    "pgs_id": "PGS001321",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": -0.6890966246849999,
+    "sd": 0.18240916345882544,
+    "min": -1.0889749819219998,
+    "max": -0.19299859541099987,
+    "p5": -0.9130027577119995,
+    "p10": -0.8670288598409999,
+    "p25": -0.8114882895409994,
+    "p50": -0.7048319805110003,
+    "p75": -0.5755113444519998,
+    "p90": -0.5062101720691996,
+    "p95": -0.3561208801422003
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 1103,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 45,
+    "median_matched_variants": 226,
+    "median_overlap_percent": 20.489573889392567
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs001321_glaucoma_eye_problem",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 45,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-15T14:20:59Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "cc298629b145db2a2b5b2201192834ba9df9a13d7b45216cc5867d71b9919afc"
+  }
+}

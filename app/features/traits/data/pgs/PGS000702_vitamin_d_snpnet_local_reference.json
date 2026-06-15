@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Vitamin D [nmol/L]",
+  "trait_id": "pgs000702_vitamin_d_snpnet",
+  "display_name": "Vitamin D research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 44,
+  "sample_count_excluded": 1,
+  "mean": -0.022853284369910923,
+  "sd": 0.04427592093537789,
+  "min": -0.1007182889227001,
+  "max": 0.0652909542682999,
+  "p5": -0.09102806586601497,
+  "p10": -0.08294635669282995,
+  "p25": -0.05537085974522503,
+  "p50": -0.017950807887199965,
+  "p75": 0.0026986915881750152,
+  "p90": 0.03824468806505996,
+  "p95": 0.045415739715604954,
+  "scoring_file_name": "PGS000702_vitamin_d_snpnet.txt.gz",
+  "scoring_file_path": "data/pgs/PGS000702_vitamin_d_snpnet.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000702",
+    "pgs_name": "snpnet.Vitamin_D",
+    "trait_reported": "Vitamin D [nmol/L]",
+    "genome_build": "hg19",
+    "variants_number": "8012",
+    "weight_type": "beta",
+    "citation": "PGS Catalog PGS000702; PMID 33462484; doi 10.1038/s41588-020-00757-z"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs000702_vitamin_d_snpnet",
+    "display_name": "Vitamin D research signal",
+    "reported_name": "Vitamin D [nmol/L]",
+    "pgs_id": "PGS000702",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": -0.022853284369910923,
+    "sd": 0.04427592093537789,
+    "min": -0.1007182889227001,
+    "max": 0.0652909542682999,
+    "p5": -0.09102806586601497,
+    "p10": -0.08294635669282995,
+    "p25": -0.05537085974522503,
+    "p50": -0.017950807887199965,
+    "p75": 0.0026986915881750152,
+    "p90": 0.03824468806505996,
+    "p95": 0.045415739715604954
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 8012,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 44,
+    "median_matched_variants": 1508,
+    "median_overlap_percent": 18.821767348976532
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs000702_vitamin_d_snpnet",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 44,
+    "sample_count_excluded": 1,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-15T14:20:59Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "2b945b88337a380f868245c6b9987725e5e811e6b3b705dcb96d2679b1d0b1bc"
+  }
+}

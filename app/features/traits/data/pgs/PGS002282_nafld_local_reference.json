@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Nonalcoholic fatty liver disease",
+  "trait_id": "pgs002282_nafld",
+  "display_name": "Fatty-liver research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 45,
+  "sample_count_excluded": 0,
+  "mean": 0.7086666666666667,
+  "sd": 0.17141920970108762,
+  "min": 0.5,
+  "max": 1.48,
+  "p5": 0.524,
+  "p10": 0.544,
+  "p25": 0.59,
+  "p50": 0.6699999999999999,
+  "p75": 0.77,
+  "p90": 0.8959999999999999,
+  "p95": 0.9200000000000002,
+  "scoring_file_name": "PGS002282_nafld.txt.gz",
+  "scoring_file_path": "data/pgs/PGS002282_nafld.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS002282",
+    "pgs_name": "GRS68_NAFLD",
+    "trait_reported": "Nonalcoholic fatty liver disease",
+    "genome_build": "GRCh37",
+    "variants_number": "68",
+    "weight_type": "beta",
+    "citation": "PGS Catalog PGS002282; PMID 35293152; doi 10.1002/hep4.1932"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs002282_nafld",
+    "display_name": "Fatty-liver research signal",
+    "reported_name": "Nonalcoholic fatty liver disease",
+    "pgs_id": "PGS002282",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": 0.7086666666666667,
+    "sd": 0.17141920970108762,
+    "min": 0.5,
+    "max": 1.48,
+    "p5": 0.524,
+    "p10": 0.544,
+    "p25": 0.59,
+    "p50": 0.6699999999999999,
+    "p75": 0.77,
+    "p90": 0.8959999999999999,
+    "p95": 0.9200000000000002
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 68,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 45,
+    "median_matched_variants": 16,
+    "median_overlap_percent": 23.52941176470588
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs002282_nafld",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 45,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-15T14:20:59Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "191231dc7d194c04e966675f1f282a8530e5e0ae79eb98df73406ddc578034ef"
+  }
+}

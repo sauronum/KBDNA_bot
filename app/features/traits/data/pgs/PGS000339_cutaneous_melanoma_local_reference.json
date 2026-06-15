@@ -1,0 +1,117 @@
+{
+  "artifact_type": "pgs_reference_distribution",
+  "reference_schema_version": 1,
+  "engine_version": "pgs-mvp-1",
+  "registry_version": 3,
+  "trait": "Cutaneous melanoma",
+  "trait_id": "pgs000339_cutaneous_melanoma",
+  "display_name": "Cutaneous melanoma research signal",
+  "reference_type": "local_empirical",
+  "valid": true,
+  "warnings": [],
+  "invalid_reasons": [],
+  "sample_count_total": 45,
+  "sample_count_included": 45,
+  "sample_count_excluded": 0,
+  "mean": -0.8198,
+  "sd": 0.42900146217169766,
+  "min": -1.758,
+  "max": -0.012999999999999956,
+  "p5": -1.4777999999999998,
+  "p10": -1.287,
+  "p25": -1.123,
+  "p50": -0.8119999999999998,
+  "p75": -0.49099999999999994,
+  "p90": -0.2182,
+  "p95": -0.1762000000000002,
+  "scoring_file_name": "PGS000339_cutaneous_melanoma.txt.gz",
+  "scoring_file_path": "data/pgs/PGS000339_cutaneous_melanoma.txt.gz",
+  "scoring_metadata": {
+    "pgs_id": "PGS000339",
+    "pgs_name": "PRS22_CM",
+    "trait_reported": "Cutaneous melanoma",
+    "genome_build": "hg19",
+    "variants_number": "22",
+    "weight_type": "log(OR)",
+    "citation": "PGS Catalog PGS000339; PMID 32716505; doi 10.1093/hmg/ddaa156"
+  },
+  "minimum_reference_samples": 20,
+  "manifest_json": null,
+  "manifest_tsv": null,
+  "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+  "input_format_requested": "auto",
+  "include_glob": [],
+  "exclude_glob": [
+    "KBDNA_bot"
+  ],
+  "minimum_overlap_percent": 10.0,
+  "minimum_matched_variants": 10,
+  "trait_block": {
+    "trait_id": "pgs000339_cutaneous_melanoma",
+    "display_name": "Cutaneous melanoma research signal",
+    "reported_name": "Cutaneous melanoma",
+    "pgs_id": "PGS000339",
+    "registry_status": "usable"
+  },
+  "distribution": {
+    "mean": -0.8198,
+    "sd": 0.42900146217169766,
+    "min": -1.758,
+    "max": -0.012999999999999956,
+    "p5": -1.4777999999999998,
+    "p10": -1.287,
+    "p25": -1.123,
+    "p50": -0.8119999999999998,
+    "p75": -0.49099999999999994,
+    "p90": -0.2182,
+    "p95": -0.1762000000000002
+  },
+  "variant_statistics": {
+    "total_scoring_variants": 22,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "included_score_count": 45,
+    "median_matched_variants": 13,
+    "median_overlap_percent": 59.09090909090909
+  },
+  "source_dataset": {
+    "source_dataset_id": "local_empirical::autosomal_no_bot_staging::pgs000339_cutaneous_melanoma",
+    "source_name": "autosomal_raws_without_bot_staging",
+    "input_dir": "C:\\Users\\zaur\\Desktop\\DNA\\Autosomal",
+    "sample_count_total": 45,
+    "sample_count_included": 45,
+    "sample_count_excluded": 0,
+    "included_sample_ids_preview": [
+      "37MChrom_Autoso_20260306",
+      "37_A_Ata_Chrom_Autoso_20260225",
+      "37_A_Berberov_Chrom_Autoso_20260224",
+      "37_A_Borlakova_Chrom_Autoso_20260202",
+      "37_A_Hogayliev_Chrom_Autoso_20250717",
+      "37_A_Khubiev_Chrom_Autoso_20260206",
+      "37_A_Salpagarova_Chrom_Autoso_20260112",
+      "37_D_Bayramukov_Chrom_Autoso_20251215",
+      "37_E_Ashat_Chrom_Autoso_20251104",
+      "37_E_Aznaur_Chrom_Autoso_20251108"
+    ],
+    "included_sample_ids_truncated": true
+  },
+  "build": {
+    "mode": "local-reference-no-bot-staging",
+    "input_format_requested": "auto",
+    "minimum_reference_samples": 20,
+    "minimum_matched_variants": 10,
+    "minimum_overlap_percent": 10.0,
+    "include_glob": [],
+    "exclude_glob": [
+      "KBDNA_bot"
+    ]
+  },
+  "provenance": {
+    "build_timestamp_utc": "2026-06-15T14:20:59Z",
+    "build_mode": "local-reference-no-bot-staging"
+  },
+  "fingerprint": {
+    "algorithm": "sha256",
+    "scoring_file_sha256": "8a8f41657fdfad5bcda09ac15b1e1750941d90934036a7ab1c8f33e2ea17fc98"
+  }
+}
