@@ -229,13 +229,17 @@ def interesting_sample_picker_text(definition: InterestingSnpDefinition, samples
 
 
 def build_interesting_sample_picker_keyboard(definition: InterestingSnpDefinition, samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
-    return _sample_picker_keyboard(
-        samples,
-        action=f"interesting_snp_sample:{definition.rsid}",
-        page_action=f"interesting_snp_page:{definition.rsid}",
-        page=page,
-        back_callback="snp_report:interesting",
-    )
+    total_pages = _total_pages(samples, PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    start = page * PAGE_SIZE
+    visible_samples = samples[start:start + PAGE_SIZE]
+    rows = [
+        [InlineKeyboardButton(sample.display_name, callback_data=f"snp_report:isp:{definition.rsid}:{sample.asset_id}")]
+        for sample in visible_samples
+    ]
+    _append_page_nav(rows, page=page, total_pages=total_pages, callback_prefix=f"snp_report:ispp:{definition.rsid}")
+    rows.append(_back_cancel_row("snp_report:interesting"))
+    return InlineKeyboardMarkup(rows)
 
 
 def interesting_running_text(sample: SampleAsset, *, lang: str = "ru") -> str:

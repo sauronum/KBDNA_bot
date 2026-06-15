@@ -98,7 +98,7 @@ class SnpReportEntryTests(unittest.TestCase):
 
     def test_dna_lab_snp_report_entry_renders_root_screen(self) -> None:
         message = _FakeMessage()
-        sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
+        sample = SimpleNamespace(asset_id="12345678-1234-1234-1234-123456789abc", display_name="Zaur", raw_file_id="raw-1")
         context = SimpleNamespace(
             application=SimpleNamespace(
                 bot_data={
@@ -212,7 +212,7 @@ class SnpReportEntryTests(unittest.TestCase):
     def test_interesting_snp_entry_starts_from_marker_list(self) -> None:
         panel = load_interesting_snps()
         definition = next(item for item in panel if item.rsid == "rs4988235")
-        sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
+        sample = SimpleNamespace(asset_id="12345678-1234-1234-1234-123456789abc", display_name="Zaur", raw_file_id="raw-1")
 
         text = interesting_picker_text(panel)
         self.assertIn("Сначала выберите интересный SNP", text)
@@ -233,8 +233,9 @@ class SnpReportEntryTests(unittest.TestCase):
             for row in build_interesting_sample_picker_keyboard(definition, [sample]).inline_keyboard
             for button in row
         ]
-        self.assertIn("snp_report:interesting_snp_sample:rs4988235:sample-1", sample_callbacks)
+        self.assertIn("snp_report:isp:rs4988235:12345678-1234-1234-1234-123456789abc", sample_callbacks)
         self.assertIn("snp_report:interesting", sample_callbacks)
+        self.assertLessEqual(max(len(callback or "") for callback in sample_callbacks), 64)
 
         result_callbacks = [
             button.callback_data
