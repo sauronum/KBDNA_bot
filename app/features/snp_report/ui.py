@@ -7,7 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from app.features.my_data.storage import SampleAsset
 
 from .domain import SnpCategorySummary, SnpReportResult, SnpRule
-from .interesting import InterestingSnpAnalysis, InterestingSnpResult
+from .interesting import InterestingSnpAnalysis, InterestingSnpDefinition, InterestingSnpResult
 from .storage import SnpReportRecord
 
 
@@ -150,14 +150,60 @@ def build_report_picker_keyboard(samples: list[SampleAsset], *, lang: str = "ru"
     return _sample_picker_keyboard(samples, action="run", page_action="report_page", page=page, back_callback="snp_report:root")
 
 
-def interesting_picker_text(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> str:
+def interesting_picker_text(panel: tuple[InterestingSnpDefinition, ...], *, lang: str = "ru", page: int = 0) -> str:
+    total_pages = _total_pages(panel, PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    if lang == "en":
+        lines = [
+            "🧪 <b>Interesting SNP</b>",
+            "",
+            "Choose a topic first, then choose a sample.",
+            "The result will show this sample's genotype and a short interpretation.",
+        ]
+        if panel:
+            lines.append(f"Page {page + 1}/{total_pages}.")
+        else:
+            lines.extend(["", "No ready interesting SNP yet."])
+        return "\n".join(lines)
+
+    lines = [
+        "🧪 <b>Интересные SNP</b>",
+        "",
+        "Сначала выберите интересный SNP, потом sample.",
+        "Так сразу понятно, какой признак вы смотрите и какой генотип найден.",
+    ]
+    if panel:
+        lines.append(f"Страница {page + 1}/{total_pages}.")
+    else:
+        lines.extend(["", "Пока нет готовых интересных SNP."])
+    return "\n".join(lines)
+
+
+def build_interesting_picker_keyboard(panel: tuple[InterestingSnpDefinition, ...], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
+    total_pages = _total_pages(panel, PAGE_SIZE)
+    page = _clamp_page(page, total_pages)
+    start = page * PAGE_SIZE
+    visible_items = panel[start:start + PAGE_SIZE]
+    rows = [
+        [InlineKeyboardButton(_interesting_definition_button_label(item), callback_data=f"snp_report:interesting_snp:{item.rsid}")]
+        for item in visible_items
+    ]
+    _append_page_nav(rows, page=page, total_pages=total_pages, callback_prefix="snp_report:interesting_page")
+    rows.append(_back_cancel_row("snp_report:root"))
+    return InlineKeyboardMarkup(rows)
+
+
+def interesting_sample_picker_text(definition: InterestingSnpDefinition, samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> str:
     total_pages = _total_pages(samples, PAGE_SIZE)
     page = _clamp_page(page, total_pages)
     if lang == "en":
         lines = [
             "🧪 <b>Interesting SNP</b>",
             "",
-            "A compact non-medical showcase: nutrition, taste/smell, appearance, and simple physical traits.",
+            f"<code>{html.escape(definition.rsid)}</code> · <b>{html.escape(definition.title)}</b>",
+            f"Gene/locus: <b>{html.escape(definition.gene)}</b>",
+            f"Category: <b>{html.escape(definition.category)}</b>",
+            "",
             "Choose a sample with a raw file.",
         ]
         if samples:
@@ -169,7 +215,10 @@ def interesting_picker_text(samples: list[SampleAsset], *, lang: str = "ru", pag
     lines = [
         "🧪 <b>Интересные SNP</b>",
         "",
-        "Короткая немедицинская витрина: питание, вкус/запах, внешние и простые физические признаки.",
+        f"<code>{html.escape(definition.rsid)}</code> · <b>{html.escape(definition.title)}</b>",
+        f"Gene/locus: <b>{html.escape(definition.gene)}</b>",
+        f"Категория: <b>{html.escape(definition.category)}</b>",
+        "",
         "Выберите sample с raw-файлом.",
     ]
     if samples:
@@ -179,13 +228,13 @@ def interesting_picker_text(samples: list[SampleAsset], *, lang: str = "ru", pag
     return "\n".join(lines)
 
 
-def build_interesting_picker_keyboard(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
+def build_interesting_sample_picker_keyboard(definition: InterestingSnpDefinition, samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
     return _sample_picker_keyboard(
         samples,
-        action="interesting_sample",
-        page_action="interesting_page",
+        action=f"interesting_snp_sample:{definition.rsid}",
+        page_action=f"interesting_snp_page:{definition.rsid}",
         page=page,
-        back_callback="snp_report:root",
+        back_callback="snp_report:interesting",
     )
 
 
@@ -258,6 +307,25 @@ def build_interesting_result_keyboard_for_analysis(analysis: InterestingSnpAnaly
             _back_cancel_row(f"snp_report:sample:{analysis.sample_id}"),
         ]
     )
+    return InlineKeyboardMarkup(rows)
+
+
+def build_interesting_single_result_keyboard(
+    sample_id: str,
+    rsid: str,
+    *,
+    rule_index: int | None = None,
+    lang: str = "ru",
+) -> InlineKeyboardMarkup:
+    rows = []
+    other_sample_label = "👤 Another sample" if lang == "en" else "👤 Другой sample"
+    other_snp_label = "🧪 Other SNP" if lang == "en" else "🧪 Другой SNP"
+    rows.append([InlineKeyboardButton(other_sample_label, callback_data=f"snp_report:interesting_rsid:{rsid}")])
+    rows.append([InlineKeyboardButton(other_snp_label, callback_data="snp_report:interesting")])
+    if rule_index is not None:
+        db_label = "📚 Open in SNP base" if lang == "en" else "📚 Открыть в базе SNP"
+        rows.append([InlineKeyboardButton(db_label, callback_data=f"snp_report:dbsnp:{rule_index}:0:0")])
+    rows.append(_back_cancel_row(f"snp_report:interesting_rsid:{rsid}"))
     return InlineKeyboardMarkup(rows)
 
 
@@ -1144,6 +1212,10 @@ def _interesting_detail_progress(position: int | None, total: int | None) -> str
 def _interesting_button_label(item: InterestingSnpResult) -> str:
     title = str(item.title or item.rsid).split(":")[0].strip()
     return _short_button_label(f"ℹ️ {title}", limit=28)
+
+
+def _interesting_definition_button_label(definition: InterestingSnpDefinition) -> str:
+    return _short_button_label(f"{definition.title} · {definition.rsid}", limit=60)
 
 
 def _short_text(value: str, limit: int) -> str:

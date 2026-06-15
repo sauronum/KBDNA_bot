@@ -21,13 +21,18 @@ from app.features.snp_report.ui import (
     build_db_root_keyboard,
     build_db_rule_keyboard,
     build_interesting_detail_keyboard,
+    build_interesting_picker_keyboard,
     build_interesting_result_keyboard_for_analysis,
+    build_interesting_sample_picker_keyboard,
+    build_interesting_single_result_keyboard,
     build_sample_home_keyboard,
     build_search_result_keyboard_for_rule,
     db_rsid_not_found_text,
     db_rule_text,
     interesting_detail_text,
     interesting_result_text,
+    interesting_picker_text,
+    interesting_sample_picker_text,
     render_html_report,
     result_text,
     sample_home_text,
@@ -203,6 +208,41 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertIn("snp_report:intdetail:sample:rs17822931", detail_callbacks)
         self.assertIn("snp_report:interesting_sample:sample", detail_callbacks)
         self.assertIn("snp_report:sample:sample", detail_callbacks)
+
+    def test_interesting_snp_entry_starts_from_marker_list(self) -> None:
+        panel = load_interesting_snps()
+        definition = next(item for item in panel if item.rsid == "rs4988235")
+        sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
+
+        text = interesting_picker_text(panel)
+        self.assertIn("Сначала выберите интересный SNP", text)
+
+        callbacks = [
+            button.callback_data
+            for row in build_interesting_picker_keyboard(panel).inline_keyboard
+            for button in row
+        ]
+        self.assertIn("snp_report:interesting_snp:rs4988235", callbacks)
+
+        sample_text = interesting_sample_picker_text(definition, [sample])
+        self.assertIn("Переносимость лактозы", sample_text)
+        self.assertIn("Выберите sample", sample_text)
+
+        sample_callbacks = [
+            button.callback_data
+            for row in build_interesting_sample_picker_keyboard(definition, [sample]).inline_keyboard
+            for button in row
+        ]
+        self.assertIn("snp_report:interesting_snp_sample:rs4988235:sample-1", sample_callbacks)
+        self.assertIn("snp_report:interesting", sample_callbacks)
+
+        result_callbacks = [
+            button.callback_data
+            for row in build_interesting_single_result_keyboard("sample-1", "rs4988235").inline_keyboard
+            for button in row
+        ]
+        self.assertIn("snp_report:interesting_rsid:rs4988235", result_callbacks)
+        self.assertIn("snp_report:interesting", result_callbacks)
 
     def test_snp_lab_sample_home_is_lightweight_and_action_first(self) -> None:
         sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")

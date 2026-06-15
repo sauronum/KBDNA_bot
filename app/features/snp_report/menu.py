@@ -29,6 +29,8 @@ from .ui import (
     build_interesting_detail_keyboard,
     build_interesting_result_keyboard,
     build_interesting_result_keyboard_for_analysis,
+    build_interesting_sample_picker_keyboard,
+    build_interesting_single_result_keyboard,
     build_lab_root_keyboard,
     build_popular_snps_keyboard,
     build_report_picker_keyboard,
@@ -52,6 +54,7 @@ from .ui import (
     interesting_picker_text,
     interesting_result_text,
     interesting_running_text,
+    interesting_sample_picker_text,
     lab_root_text,
     popular_snps_text,
     render_html_report,
@@ -88,6 +91,14 @@ def _rules(context: ContextTypes.DEFAULT_TYPE) -> tuple[SnpRule, ...]:
 
 def _interesting_panel(context: ContextTypes.DEFAULT_TYPE) -> tuple[InterestingSnpDefinition, ...]:
     return context.application.bot_data["snp_report_interesting_snps"]
+
+
+def _interesting_definition_by_rsid(
+    panel: tuple[InterestingSnpDefinition, ...],
+    rsid: str,
+) -> InterestingSnpDefinition | None:
+    normalized = str(rsid or "").strip().lower()
+    return next((definition for definition in panel if definition.rsid == normalized), None)
 
 
 def _report_store(context: ContextTypes.DEFAULT_TYPE) -> SnpReportStore:
@@ -342,6 +353,26 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
         await _show_interesting_picker(query.message, context, user_id, edit_existing=True, page=page)
         return
 
+    if action == "interesting_snp":
+        await query.answer()
+        rsid = parts[2] if len(parts) > 2 else ""
+        await _show_interesting_snp_sample_picker(query.message, context, user_id, rsid, edit_existing=True)
+        return
+
+    if action == "interesting_snp_page":
+        await query.answer()
+        rsid = parts[2] if len(parts) > 2 else ""
+        page = _parse_int(parts[3] if len(parts) > 3 else "0")
+        await _show_interesting_snp_sample_picker(query.message, context, user_id, rsid, edit_existing=True, page=page)
+        return
+
+    if action == "interesting_snp_sample":
+        await query.answer()
+        rsid = parts[2] if len(parts) > 2 else ""
+        sample_id = parts[3] if len(parts) > 3 else ""
+        await _run_interesting_snp_for_sample(query.message, update, context, user_id, sample_id, rsid)
+        return
+
     if action == "interesting_sample":
         await query.answer()
         _clear_lookup_pending(context)
@@ -361,7 +392,7 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
     if action == "interesting_rsid":
         await query.answer()
         rsid = parts[2] if len(parts) > 2 else ""
-        await _show_search_picker(query.message, context, user_id, edit_existing=True, prefill_rsid=rsid)
+        await _show_interesting_snp_sample_picker(query.message, context, user_id, rsid, edit_existing=True)
         return
 
     if action == "report":
@@ -618,9 +649,29 @@ async def _show_interesting_picker(
     page: int = 0,
 ) -> None:
     lang = _ui_lang(context, user_id)
+    panel = _interesting_panel(context)
+    text = interesting_picker_text(panel, lang=lang, page=page)
+    markup = build_interesting_picker_keyboard(panel, lang=lang, page=page)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
+
+
+async def _show_interesting_snp_sample_picker(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    rsid: str,
+    *,
+    edit_existing: bool,
+    page: int = 0,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    definition = _interesting_definition_by_rsid(_interesting_panel(context), rsid)
+    if definition is None:
+        await message.edit_text(error_text("SNP Lab", "Интересный SNP не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
     samples = _samples_with_raw(context, user_id)
-    text = interesting_picker_text(samples, lang=lang, page=page)
-    markup = build_interesting_picker_keyboard(samples, lang=lang, page=page)
+    text = interesting_sample_picker_text(definition, samples, lang=lang, page=page)
+    markup = build_interesting_sample_picker_keyboard(definition, samples, lang=lang, page=page)
     await _show_text_menu(message, text, markup, edit_existing=edit_existing)
 
 
@@ -1008,6 +1059,83 @@ async def _run_interesting_snps(
         interesting_result_text(analysis, lang=lang),
         parse_mode="HTML",
         reply_markup=build_interesting_result_keyboard_for_analysis(analysis, lang=lang),
+        disable_web_page_preview=True,
+    )
+
+
+async def _run_interesting_snp_for_sample(
+    message,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    sample_id: str,
+    rsid: str,
+) -> None:
+    store = _my_data_store(context)
+    sample = store.get_sample(user_id, sample_id)
+    lang = _ui_lang(context, user_id)
+    definition = _interesting_definition_by_rsid(_interesting_panel(context), rsid)
+    if definition is None:
+        _record_snp_report_usage(update, context, "interesting_single", success=False)
+        await message.edit_text(error_text("SNP Lab", "Интересный SNP не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+    if sample is None:
+        _record_snp_report_usage(update, context, "interesting_single", success=False)
+        await message.edit_text(error_text("SNP Lab", "Sample не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+
+    raw_file = store.get_sample_raw_file(user_id, sample.asset_id)
+    if raw_file is None:
+        _record_snp_report_usage(update, context, "interesting_single", success=False)
+        await message.edit_text(
+            search_no_raw_text(sample, lang=lang),
+            parse_mode="HTML",
+            reply_markup=build_interesting_single_result_keyboard(sample.asset_id, definition.rsid, lang=lang),
+        )
+        return
+
+    raw_path = store.resolve_raw_file_path(raw_file)
+    if not raw_path.exists():
+        _record_snp_report_usage(update, context, "interesting_single", success=False)
+        await message.edit_text(error_text("SNP Lab", "Raw-файл не найден на диске."), parse_mode="HTML", reply_markup=build_error_keyboard())
+        return
+
+    await message.edit_text(interesting_running_text(sample, lang=lang), parse_mode="HTML")
+    try:
+        analysis = await run_in_heavy_pool(
+            context,
+            _build_interesting_snp_analysis,
+            str(raw_path),
+            _interesting_panel(context),
+            sample.asset_id,
+            sample.display_name,
+        )
+    except Exception:
+        LOGGER.exception("Could not analyze selected interesting SNP")
+        _record_snp_report_usage(update, context, "interesting_single", success=False)
+        await message.edit_text(
+            error_text("SNP Lab", "Не удалось прочитать raw-файл или построить результат."),
+            parse_mode="HTML",
+            reply_markup=build_error_keyboard(),
+        )
+        return
+
+    item = next((result for result in analysis.results if result.rsid == definition.rsid), None)
+    if item is None:
+        _record_snp_report_usage(update, context, "interesting_single", success=False)
+        await message.edit_text(error_text("SNP Lab", "Результат не найден."), parse_mode="HTML", reply_markup=build_interesting_result_keyboard(lang=lang))
+        return
+
+    _record_snp_report_usage(update, context, "interesting_single", success=(item.status == "ok"))
+    await message.edit_text(
+        interesting_detail_text(item, sample.display_name, lang=lang),
+        parse_mode="HTML",
+        reply_markup=build_interesting_single_result_keyboard(
+            sample.asset_id,
+            item.rsid,
+            rule_index=_find_rule_index_by_rsid(_rules(context), item.rsid),
+            lang=lang,
+        ),
         disable_web_page_preview=True,
     )
 
