@@ -675,6 +675,51 @@ def _format_fstats_caption(payload: dict[str, Any], *, flow: dict[str, Any], ela
     )
 
 
+def _fstats_result_markup(lang: str, pending_save_id: str | None = None) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if pending_save_id:
+        rows.append([InlineKeyboardButton("💾 Сохранить результат", callback_data=_cb("saved_save", pending_save_id))])
+    rows.extend(
+        [
+            [InlineKeyboardButton("📊 Новый f-statistics", callback_data=_cb("at2_fstats"))],
+            [InlineKeyboardButton("📝 Populations", callback_data=_cb("at2_fstats_pops"))],
+            _footer_row(_cb("at2_fstats_builder"), lang),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
+
+
+def _fstats_save_payload(
+    payload: dict[str, Any],
+    *,
+    flow: dict[str, Any],
+    text: str,
+    caption: str = "",
+    visual_path: Path | None = None,
+    visual_error: str | None = None,
+) -> dict[str, Any]:
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    statistic = str(result.get("statistic") or flow.get("statistic") or "f4")
+    populations = [str(item) for item in flow.get("populations", []) if str(item)]
+    data_source = result.get("data_source") if isinstance(result.get("data_source"), dict) else {}
+    return {
+        "kind": "fstats_admixtools2",
+        "title": f"ADMIXTOOLS2 {statistic.upper()} · {_dataset_label(flow.get('dataset'))}",
+        "dataset": str(flow.get("dataset") or ""),
+        "engine": "admixtools2_fstats",
+        "engine_label": "ADMIXTOOLS2 f-statistics",
+        "statistic": statistic,
+        "populations": populations,
+        "data_source": data_source,
+        "rows": result.get("rows") if isinstance(result.get("rows"), list) else [],
+        "result_payload": payload,
+        "result_text": text,
+        "caption_text": caption,
+        "visual_path": str(visual_path or ""),
+        "visual_error": visual_error,
+    }
+
+
 def _num(value: object) -> str:
     if isinstance(value, list) and value:
         value = value[0]
@@ -728,12 +773,25 @@ async def _run_fstats(message, update: Update | None, context: ContextTypes.DEFA
     elapsed = time.monotonic() - started
     text = _format_fstats_result(payload, flow=flow, elapsed_seconds=elapsed)
     caption = _format_fstats_caption(payload, flow=flow, elapsed_seconds=elapsed)
-    markup = InlineKeyboardMarkup([_footer_row(_cb("at2_fstats_builder"), lang)])
+    visual_error: str | None = None
     visual_path: Path | None = None
     try:
         visual_path = render_admixtools2_fstats_result(payload, flow=flow, elapsed_seconds=elapsed, output_dir=BOT_AT2_OUTPUT_DIR)
-    except Exception:
+    except Exception as exc:
+        visual_error = str(exc)
         visual_path = None
+    pending_save_id: str | None = None
+    if update is not None and update.effective_user is not None:
+        save_payload = _fstats_save_payload(
+            payload,
+            flow=flow,
+            text=text,
+            caption=caption,
+            visual_path=visual_path,
+            visual_error=visual_error,
+        )
+        pending_save_id = register_pending_save(context, int(update.effective_user.id), save_payload)
+    markup = _fstats_result_markup(lang, pending_save_id)
     await _send_qpgraph_result(message, update, context, text=text, caption=caption, markup=markup, visual_path=visual_path)
 
 

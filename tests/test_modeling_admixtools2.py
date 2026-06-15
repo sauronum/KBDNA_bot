@@ -19,6 +19,8 @@ from app.features.modeling.admixtools2 import (
     _format_cache_status,
     _format_fstats_error,
     _format_fstats_result,
+    _fstats_result_markup,
+    _fstats_save_payload,
     _format_qpgraph_result,
     _new_fstats_flow,
     _new_qpgraph_flow,
@@ -36,7 +38,7 @@ from app.features.modeling.admixtools2 import (
     admixtools2_callback_handler,
 )
 from app.features.modeling.navigation import NAV_CURRENT_KEY, NAV_STACK_KEY, nav_enter, nav_pop
-from app.features.modeling.saved_models import _kind_label
+from app.features.modeling.saved_models import _kind_label, _record_summary
 from app.features.modeling.qpwave import (
     QPWAVE_ENGINE_ADMIXTOOLS2,
     _extract_admixtools2_ranks,
@@ -443,6 +445,41 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         self.assertIn("se=<code>0.0012</code>", text)
         self.assertIn("z=<code>10.2875</code>", text)
 
+    def test_fstats_save_payload_preserves_visual_and_cache_metadata(self) -> None:
+        payload = {
+            "status": "completed",
+            "result": {
+                "statistic": "f4",
+                "rows": [{"est": [0.012], "se": [0.001], "z": [12.0], "p": [0.4]}],
+                "data_source": {"type": "precomputed_f2_cache", "cache_status": "hit"},
+            },
+        }
+
+        saved = _fstats_save_payload(
+            payload,
+            flow={"dataset": "human_origins", "statistic": "f4", "populations": ["A", "B", "C", "D"]},
+            text="result text",
+            caption="caption",
+            visual_path=Path("/tmp/fstats.png"),
+        )
+
+        self.assertEqual(saved["kind"], "fstats_admixtools2")
+        self.assertEqual(saved["statistic"], "f4")
+        self.assertEqual(saved["populations"], ["A", "B", "C", "D"])
+        self.assertEqual(saved["data_source"]["cache_status"], "hit")
+        self.assertEqual(Path(saved["visual_path"]).name, "fstats.png")
+        self.assertEqual(_kind_label(saved), "ADMIXTOOLS2 f-statistics")
+        summary = "\n".join(_record_summary(saved))
+        self.assertIn("Statistic", summary)
+        self.assertIn("Cache", summary)
+
+    def test_fstats_result_markup_exposes_save_button(self) -> None:
+        markup = _fstats_result_markup("ru", "pending123")
+        callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
+
+        self.assertIn("modeling:saved_save:pending123", callbacks)
+        self.assertIn("modeling:at2_fstats", callbacks)
+
     def test_fstats_error_formats_runner_failures_for_user(self) -> None:
         text = _format_fstats_error(
             RuntimeError("block_lengths file not found"),
@@ -524,6 +561,25 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         self.assertEqual(ranks[0]["rank"], 0)
         self.assertEqual(ranks[0]["dof"], 2.0)
         self.assertEqual(ranks[1]["tail"], 0.58)
+
+    def test_saved_model_labels_cover_admixtools2_result_kinds(self) -> None:
+        self.assertEqual(_kind_label({"kind": "qpadm_classic", "engine": "admixtools2_qpadm"}), "ADMIXTOOLS2 qpAdm 2")
+        self.assertEqual(_kind_label({"kind": "qpadm_batch", "engine": "admixtools2_qpadm"}), "ADMIXTOOLS2 qpAdm batch")
+        self.assertEqual(_kind_label({"kind": "qpwave_admixtools2"}), "ADMIXTOOLS2 qpWave 2")
+
+        summary = "\n".join(
+            _record_summary(
+                {
+                    "kind": "qpwave_admixtools2",
+                    "dataset": "v66p1_1240k_public",
+                    "left": ["A", "B"],
+                    "right": ["Mbuti", "Han"],
+                    "data_source": {"type": "precomputed_f2_cache", "cache_status": "hit"},
+                }
+            )
+        )
+        self.assertIn("ADMIXTOOLS2 qpWave 2", summary)
+        self.assertIn("Cache", summary)
 
     def test_qpwave_admixtools2_error_mentions_f2_cache_when_relevant(self) -> None:
         text = _format_qpwave_error(

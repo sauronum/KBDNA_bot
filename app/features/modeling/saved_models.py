@@ -109,12 +109,23 @@ def _save_pending(context: ContextTypes.DEFAULT_TYPE, user_id: int, pending_id: 
 
 def _kind_label(record: dict[str, Any]) -> str:
     kind = str(record.get("kind") or "")
+    engine = str(record.get("engine") or "")
+    if kind == "qpadm_classic" and engine == "admixtools2_qpadm":
+        return "ADMIXTOOLS2 qpAdm 2"
     if kind == "qpadm_classic":
         return "qpAdm classic"
+    if kind == "qpadm_batch" and engine == "admixtools2_qpadm":
+        return "ADMIXTOOLS2 qpAdm batch"
+    if kind == "qpadm_batch":
+        return "qpAdm batch"
+    if kind == "qpwave_admixtools2":
+        return "ADMIXTOOLS2 qpWave 2"
     if kind == "qpwave":
         return "qpWave"
     if kind == "qpgraph_admixtools2":
         return "ADMIXTOOLS2 qpGraph 2"
+    if kind == "fstats_admixtools2":
+        return "ADMIXTOOLS2 f-statistics"
     return kind or "AdmixLab"
 
 
@@ -136,12 +147,35 @@ def _record_summary(record: dict[str, Any]) -> list[str]:
     target = str(record.get("target") or "").strip()
     if target:
         lines.append(f"Target: <code>{html.escape(target)}</code>")
+    targets = record.get("targets")
+    if isinstance(targets, list) and targets:
+        lines.append(f"Targets: <code>{len(targets)}</code>")
+    statistic = str(record.get("statistic") or "").strip()
+    if statistic:
+        lines.append(f"Statistic: <code>{html.escape(statistic)}</code>")
+    populations = record.get("populations")
+    if isinstance(populations, list) and populations:
+        lines.append(f"Populations: <code>{len(populations)}</code>")
     left = record.get("sources") if isinstance(record.get("sources"), list) else record.get("left")
     right = record.get("references") if isinstance(record.get("references"), list) else record.get("right")
     if isinstance(left, list):
         lines.append(f"Left/Sources: <code>{len(left)}</code>")
     if isinstance(right, list):
         lines.append(f"Right/References: <code>{len(right)}</code>")
+    leaves = record.get("leaves")
+    if isinstance(leaves, list) and leaves:
+        lines.append(f"Leaves: <code>{len(leaves)}</code>")
+    edges = record.get("edges")
+    if isinstance(edges, list) and edges:
+        lines.append(f"Edges: <code>{len(edges)}</code>")
+    data_source = record.get("data_source")
+    if isinstance(data_source, dict):
+        source_type = str(data_source.get("type") or "").strip()
+        cache_status = str(data_source.get("cache_status") or "").strip()
+        if source_type:
+            lines.append(f"Data: <code>{html.escape(source_type)}</code>")
+        if cache_status:
+            lines.append(f"Cache: <code>{html.escape(cache_status)}</code>")
     saved_at = str(record.get("saved_at") or record.get("created_at") or "").strip()
     if saved_at:
         lines.append(f"Сохранено: <code>{html.escape(saved_at[:19].replace('T', ' '))}</code>")
