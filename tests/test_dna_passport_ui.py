@@ -429,6 +429,32 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertNotIn("Lactase persistence", text)
         self.assertNotIn("Genotype", text)
 
+    def test_renderer_shows_five_interesting_snps_before_overflow_line(self) -> None:
+        interesting_snps = DNAPassportInterestingSnpsSummary(
+            status="ok",
+            total=10,
+            found=6,
+            missing=4,
+            items=tuple(
+                DNAPassportInterestingSnpItem(
+                    f"rs{i}",
+                    f"SNP {i}",
+                    "Категория",
+                    "GENE",
+                    "AA",
+                    f"Трактовка {i}",
+                )
+                for i in range(1, 7)
+            ),
+        )
+
+        text = render_dna_passport_html(_passport_data(interesting_snps=interesting_snps))
+
+        for i in range(1, 6):
+            self.assertIn(f"SNP {i}: AA", text)
+        self.assertNotIn("SNP 6: AA", text)
+        self.assertIn("Ещё 1 в SNP Lab", text)
+
     def test_renderer_uses_user_friendly_lineage_statuses_summary_and_recommendations(self) -> None:
         data = _passport_data(
             lineage=DNAPassportLineageReadiness(status="ok", y_markers_detected=False, y_count=0, mtdna_markers_detected=True, mtdna_count=179)

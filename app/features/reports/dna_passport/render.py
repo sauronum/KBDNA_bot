@@ -8,6 +8,7 @@ from .domain import DNAPassportData, DNAPassportInterestingSnpItem, DNAPassportT
 
 
 MAX_TELEGRAM_TEXT_LENGTH = 4096
+INTERESTING_SNP_PREVIEW_LIMIT = 5
 
 _TRAIT_LABELS_RU = {
     "pgs003835_height": "Рост",
@@ -243,10 +244,10 @@ def _interesting_snps_block_ru(data: DNAPassportData) -> list[str]:
 
     lines.append(f"Найдено с трактовкой: <b>{_format_int(snps.found)}</b> из {_format_int(snps.total)}")
     lines.append("")
-    for item in snps.items[:3]:
+    for item in snps.items[:INTERESTING_SNP_PREVIEW_LIMIT]:
         lines.append(f"• {_interesting_snp_line(item)}")
-    if snps.found > 3:
-        lines.append(f"• Ещё {_format_int(snps.found - 3)} в SNP Lab")
+    if snps.found > INTERESTING_SNP_PREVIEW_LIMIT:
+        lines.append(f"• Ещё {_format_int(snps.found - INTERESTING_SNP_PREVIEW_LIMIT)} в SNP Lab")
     return lines
 
 
