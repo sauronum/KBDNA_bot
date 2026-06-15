@@ -640,7 +640,7 @@ def build_popular_snps_keyboard(rules: tuple[SnpRule, ...], *, lang: str = "ru")
         if item is None:
             continue
         rule_index, rule = item
-        rows.append([InlineKeyboardButton(f"{rule.rsid} · {_rule_title(rule)[:42]}", callback_data=f"snp_report:dbsnp:{rule_index}:0:0")])
+        rows.append([InlineKeyboardButton(_gene_result_button_label(rule), callback_data=f"snp_report:dbsnp:{rule_index}:0:0")])
     rows.append(_back_cancel_row("snp_report:db"))
     return InlineKeyboardMarkup(rows)
 
@@ -655,7 +655,7 @@ def db_categories_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
                 f"SNP in panel: <b>{len(rules)}</b>",
                 f"Categories: <b>{len(categories)}</b>",
                 "",
-                "Choose a category.",
+                "Sections with richer cards are shown first.",
             ]
         )
     return "\n".join(
@@ -665,7 +665,7 @@ def db_categories_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
             f"SNP в панели: <b>{len(rules)}</b>",
             f"Разделов: <b>{len(categories)}</b>",
             "",
-            "Выберите раздел.",
+            "Сначала показаны разделы, где больше полезных карточек.",
         ]
     )
 
@@ -721,7 +721,7 @@ def build_db_category_keyboard(
     start = page * SNP_PAGE_SIZE
     visible = rules[start:start + SNP_PAGE_SIZE]
     rows = [
-        [InlineKeyboardButton(rule.rsid, callback_data=f"snp_report:dbsnp:{rule_index}:{category_index}:{page}")]
+        [InlineKeyboardButton(_gene_result_button_label(rule), callback_data=f"snp_report:dbsnp:{rule_index}:{category_index}:{page}")]
         for rule_index, rule in visible
     ]
     _append_page_nav(rows, page=page, total_pages=total_pages, callback_prefix=f"snp_report:dbcat:{category_index}")
@@ -1083,15 +1083,22 @@ def _append_page_nav(
 
 
 def _category_button_label(category: str, rules: tuple[SnpRule, ...]) -> str:
-    count = sum(1 for rule in rules if rule.category == category)
-    return f"{category} · {count}"
+    category_rules = [rule for rule in rules if rule.category == category]
+    described = sum(1 for rule in category_rules if _rule_has_card_text(rule))
+    return _short_button_label(f"{category} · {described}/{len(category_rules)}", limit=60)
 
 
 def _category_names(rules: tuple[SnpRule, ...]) -> list[str]:
     seen: dict[str, None] = {}
     for rule in rules:
         seen.setdefault(rule.category, None)
-    return sorted(seen, key=str.casefold)
+    return sorted(seen, key=lambda category: _category_sort_key(category, rules))
+
+
+def _category_sort_key(category: str, rules: tuple[SnpRule, ...]) -> tuple[int, int, str]:
+    category_rules = [rule for rule in rules if rule.category == category]
+    described = sum(1 for rule in category_rules if _rule_has_card_text(rule))
+    return (-described, -len(category_rules), category.casefold())
 
 
 def _rule_title(rule: SnpRule) -> str:
@@ -1110,6 +1117,10 @@ def _gene_result_button_label(rule: SnpRule) -> str:
     if title and title not in {rule.rsid, rule.gene}:
         parts.append(title)
     return _short_button_label(" · ".join(parts), limit=60)
+
+
+def _rule_has_card_text(rule: SnpRule) -> bool:
+    return bool(rule.description or rule.title or rule.gene)
 
 
 def _short_button_label(value: str, *, limit: int = 60) -> str:

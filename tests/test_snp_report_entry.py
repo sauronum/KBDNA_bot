@@ -9,11 +9,13 @@ from types import SimpleNamespace
 import bot
 from PIL import Image
 
-from app.features.snp_report.domain import SnpCategorySummary, SnpReportResult, SnpReportRow, load_snp_rules
+from app.features.snp_report.domain import SnpCategorySummary, SnpReportResult, SnpReportRow, SnpRule, load_snp_rules
 from app.features.snp_report.interesting import analyze_interesting_snps, load_interesting_snps
-from app.features.snp_report.menu import show_snp_report_menu
+from app.features.snp_report.menu import _find_rules_by_gene, show_snp_report_menu
 from app.features.snp_report.storage import SnpReportRecord, SnpReportSummary
 from app.features.snp_report.ui import (
+    build_db_categories_keyboard,
+    build_db_category_keyboard,
     build_db_gene_results_keyboard,
     build_db_rsid_not_found_keyboard,
     build_db_root_keyboard,
@@ -254,6 +256,51 @@ class SnpReportEntryTests(unittest.TestCase):
         labels = [
             button.text
             for row in build_db_gene_results_keyboard("COMT", [(rule_index, rules[rule_index])]).inline_keyboard
+            for button in row
+        ]
+
+        self.assertTrue(any("rs4680" in label and "COMT" in label for label in labels))
+
+    def test_gene_search_prioritizes_exact_gene_and_described_cards(self) -> None:
+        rules = (
+            SnpRule(rsid="rs1", normal_genotype="AA", category="Other", gene="XCOMT", title="Weak match"),
+            SnpRule(rsid="rs2", normal_genotype="GG", category="Methylation", gene="COMT", title="COMT marker", description="Useful card"),
+            SnpRule(rsid="rs3", normal_genotype="CC", category="Methylation", gene="COMT", title=""),
+        )
+
+        matches = _find_rules_by_gene(rules, "COMT")
+
+        self.assertEqual([rule.rsid for _index, rule in matches[:2]], ["rs2", "rs3"])
+
+    def test_categories_prioritize_richer_sections_and_show_counts(self) -> None:
+        rules = (
+            SnpRule(rsid="rs1", normal_genotype="AA", category="Sparse"),
+            SnpRule(rsid="rs2", normal_genotype="GG", category="Rich", gene="COMT", title="COMT marker"),
+            SnpRule(rsid="rs3", normal_genotype="CC", category="Rich", description="Useful card"),
+        )
+
+        labels = [
+            button.text
+            for row in build_db_categories_keyboard(rules).inline_keyboard
+            for button in row
+        ]
+
+        self.assertEqual(labels[0], "Rich · 2/2")
+        self.assertIn("Sparse · 0/1", labels)
+
+    def test_category_snp_buttons_show_rsid_gene_and_title(self) -> None:
+        rule = SnpRule(
+            rsid="rs4680",
+            normal_genotype="GG",
+            category="Methylation",
+            gene="COMT",
+            title="COMT Val158Met",
+            description="Useful card",
+        )
+
+        labels = [
+            button.text
+            for row in build_db_category_keyboard(0, [(0, rule)]).inline_keyboard
             for button in row
         ]
 

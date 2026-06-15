@@ -775,7 +775,10 @@ async def _show_db_category(
         await message.edit_text(error_text("SNP база", "Раздел не найден."), parse_mode="HTML", reply_markup=build_error_keyboard())
         return
     category = categories[category_index]
-    category_rules = [(index, rule) for index, rule in enumerate(rules) if rule.category == category]
+    category_rules = sorted(
+        [(index, rule) for index, rule in enumerate(rules) if rule.category == category],
+        key=_rule_card_sort_key,
+    )
     text = db_category_text(category, category_rules, lang=lang, page=page)
     markup = build_db_category_keyboard(category_index, category_rules, lang=lang, page=page)
     if edit_existing:
@@ -1259,7 +1262,7 @@ def _find_rules_by_gene(rules: tuple[SnpRule, ...], query_text: str) -> list[tup
         haystack = " ".join([rule.gene, rule.title, rule.description]).upper()
         if query in haystack:
             matches.append((index, rule))
-    return matches
+    return sorted(matches, key=lambda item: _gene_match_sort_key(query, item))
 
 
 def _looks_like_navigation_text(value: str) -> bool:
@@ -1279,8 +1282,11 @@ def _looks_like_navigation_text(value: str) -> bool:
         "🧪 Интересные SNP",
         "📊 Нагрузка по категориям",
         "🔎 Проверить rsID",
+        "🔎 Найти rsID",
         "🔎 По rsID",
+        "🧬 Найти gene/locus",
         "🧬 По gene",
+        "📂 Разделы базы",
         "📂 По категории",
         "⭐ Популярные SNP",
         "📚 Открыть в базе SNP",
@@ -1305,7 +1311,37 @@ def _category_names(rules: tuple[SnpRule, ...]) -> list[str]:
     seen: dict[str, None] = {}
     for rule in rules:
         seen.setdefault(rule.category, None)
-    return sorted(seen, key=str.casefold)
+    return sorted(seen, key=lambda category: _category_sort_key(category, rules))
+
+
+def _category_sort_key(category: str, rules: tuple[SnpRule, ...]) -> tuple[int, int, str]:
+    category_rules = [rule for rule in rules if rule.category == category]
+    described = sum(1 for rule in category_rules if _rule_has_card_text(rule))
+    return (-described, -len(category_rules), category.casefold())
+
+
+def _gene_match_sort_key(query: str, item: tuple[int, SnpRule]) -> tuple[int, int, int, int, str, str]:
+    _index, rule = item
+    gene = rule.gene.upper()
+    return (
+        0 if gene == query else 1,
+        0 if gene.startswith(query) else 1,
+        *_rule_card_sort_key(item),
+    )
+
+
+def _rule_card_sort_key(item: tuple[int, SnpRule]) -> tuple[int, int, str, str]:
+    _index, rule = item
+    return (
+        0 if rule.description else 1,
+        0 if (rule.title or rule.gene) else 1,
+        rule.gene.casefold(),
+        rule.rsid,
+    )
+
+
+def _rule_has_card_text(rule: SnpRule) -> bool:
+    return bool(rule.description or rule.title or rule.gene)
 
 
 def _parse_int(value: str) -> int:
