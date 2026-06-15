@@ -22,7 +22,10 @@ from app.features.modeling.datasets import DATASET_LABELS, dataset_choices, data
 from app.features.modeling.admixtools2 import _dataset_files as _at2_dataset_files
 from app.features.modeling.admixtools2 import run_admixtools2_runner
 from app.features.modeling.saved_models import register_pending_save
+from app.features.modeling.source_sets import _dataset_matches
+from app.features.modeling.source_sets import _dataset_mismatch_lines
 from app.features.modeling.source_sets import _get_record as _get_source_set
+from app.features.modeling.source_sets import _record_dataset_label
 from app.features.modeling.source_sets import _user_records as _user_source_sets
 from app.features.modeling.ui import footer_row as _footer_row
 from app.features.modeling.ui import modeling_cb as _cb
@@ -726,8 +729,14 @@ async def _apply_source_set(message, update: Update, context: ContextTypes.DEFAU
     if item is None:
         await _show_source_sets(message, update, context, lang=lang)
         return
-    if str(item.get("dataset") or "") != str(flow.get("dataset") or ""):
-        text = "<b>📚 Source set</b>\n\nЭтот набор относится к другому dataset."
+    if not _dataset_matches(item, str(flow.get("dataset") or "")):
+        text = "\n".join(
+            [
+                "<b>📚 Source set</b>",
+                "",
+                *_dataset_mismatch_lines(flow.get("dataset"), _record_dataset_label(item)),
+            ]
+        )
         await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("qpwave_sets"), lang)]), edit_existing=True)
         return
     flow["left"] = [str(value) for value in item.get("sources", []) if str(value)]

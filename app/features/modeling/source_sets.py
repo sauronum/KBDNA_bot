@@ -93,6 +93,32 @@ def _default_set_name(dataset: str, sources: list[str], references: list[str]) -
     return f"{first} · {len(sources)}L/{len(references)}R · {stamp}"
 
 
+def _record_dataset(item: dict[str, Any] | None) -> str:
+    if not isinstance(item, dict):
+        return ""
+    dataset = str(item.get("dataset") or "").strip()
+    return dataset if dataset in DATASET_LABELS else ""
+
+
+def _record_dataset_label(item: dict[str, Any] | None) -> str:
+    dataset = _record_dataset(item)
+    return _dataset_label(dataset) if dataset else "unknown / legacy"
+
+
+def _dataset_matches(item: dict[str, Any], dataset: str | None) -> bool:
+    expected = str(dataset or "").strip()
+    return bool(expected and _record_dataset(item) == expected)
+
+
+def _dataset_mismatch_lines(model_dataset: object, set_dataset: object) -> list[str]:
+    return [
+        f"Model dataset: <code>{html.escape(_dataset_label(model_dataset))}</code>",
+        f"Source set dataset: <code>{html.escape(_dataset_label(set_dataset))}</code>",
+        "",
+        "Use this Source set only with the same dataset.",
+    ]
+
+
 def _read_records() -> list[dict[str, Any]]:
     return read_record_list(SOURCE_SETS_PATH)
 
@@ -106,7 +132,7 @@ def _user_records(user_id: int, *, dataset: str | None = None) -> list[dict[str,
     for item in _read_records():
         if int(item.get("owner_user_id") or 0) != int(user_id):
             continue
-        if dataset is not None and str(item.get("dataset") or "") != dataset:
+        if dataset is not None and not _dataset_matches(item, dataset):
             continue
         rows.append(item)
     return sorted(rows, key=lambda item: str(item.get("created_at") or ""), reverse=True)
@@ -120,6 +146,8 @@ def _get_record(user_id: int, set_id: str) -> dict[str, Any] | None:
 
 
 def _save_record(user_id: int, *, dataset: str, name: str, sources: list[str], references: list[str]) -> dict[str, Any]:
+    if dataset not in DATASET_LABELS:
+        raise ValueError(f"unknown source set dataset: {dataset}")
     records = _read_records()
     item = {
         "id": uuid4().hex[:12],
@@ -214,7 +242,7 @@ def _apply_target_context(context: ContextTypes.DEFAULT_TYPE, item: dict[str, An
     if target is None:
         return None
     kind, flow = target
-    if str(flow.get("dataset") or "") != str(item.get("dataset") or ""):
+    if not _dataset_matches(item, str(flow.get("dataset") or "")):
         return None
     return kind, flow
 
@@ -266,7 +294,7 @@ def _source_set_summary(item: dict[str, Any]) -> list[str]:
     sources = item.get("sources") if isinstance(item.get("sources"), list) else []
     references = item.get("references") if isinstance(item.get("references"), list) else []
     return [
-        f"Dataset: <code>{html.escape(_dataset_label(item.get('dataset')))}</code>",
+        f"Dataset: <code>{html.escape(_record_dataset_label(item))}</code>",
         f"Sources: <code>{len(sources)}</code>",
         f"References: <code>{len(references)}</code>",
     ]
@@ -366,6 +394,10 @@ async def _show_list(
     user_id = int(update.effective_user.id) if update.effective_user is not None else 0
     page_action = "ss_pick_page" if apply_mode else "ss_list_page"
     nav_enter(context, _cb(page_action, page))
+    if apply_mode and not dataset:
+        text = "<b>📚 Source set</b>\n\nOpen qpAdm or qpWave and select a dataset first."
+        await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("source_sets"), lang)]), edit_existing=True)
+        return
     rows = _user_records(user_id, dataset=dataset)
     title = "📚 Выбор Source set" if apply_mode else "📁 Мои Source sets"
     lines = [f"<b>{title}</b>"]
@@ -386,7 +418,8 @@ async def _show_list(
         for item in rows:
             sources = item.get("sources") if isinstance(item.get("sources"), list) else []
             references = item.get("references") if isinstance(item.get("references"), list) else []
-            label = f"{str(item.get('name') or 'Source set')[:32]} · {len(sources)}L/{len(references)}R"
+            dataset_prefix = "" if dataset else f"{_record_dataset_label(item)} · "
+            label = f"{dataset_prefix}{str(item.get('name') or 'Source set')[:32]} · {len(sources)}L/{len(references)}R"
             action = "ss_apply" if apply_mode else "ss_view"
             buttons.append([InlineKeyboardButton(label, callback_data=_cb(action, item.get("id")))])
         if page_count > 1:
@@ -404,15 +437,17 @@ async def _show_view(message, update: Update, context: ContextTypes.DEFAULT_TYPE
     nav_enter(context, _cb("ss_view", set_id))
     sources = item.get("sources") if isinstance(item.get("sources"), list) else []
     references = item.get("references") if isinstance(item.get("references"), list) else []
+    active_target = _preferred_apply_flow(context)
     compatible = _apply_target_context(context, item) is not None
     lines = [
         f"<b>📚 {html.escape(str(item.get('name') or 'Source set'))}</b>",
         "",
         *_source_set_summary(item),
-        "",
-        "<b>Sources</b>",
-        *[f"• <code>{html.escape(str(value))}</code>" for value in sources],
     ]
+    if active_target is not None and not compatible:
+        _kind, active_flow = active_target
+        lines.extend(["", "<b>Compatibility</b>", *_dataset_mismatch_lines(active_flow.get("dataset"), _record_dataset_label(item))])
+    lines.extend(["", "<b>Sources</b>", *[f"• <code>{html.escape(str(value))}</code>" for value in sources]])
     lines.extend(["", "<b>References</b>"])
     lines.extend([f"• <code>{html.escape(str(value))}</code>" for value in references])
 
@@ -438,15 +473,12 @@ async def _apply_to_current_model(message, update: Update, context: ContextTypes
         return
 
     kind, flow = target
-    if str(flow.get("dataset") or "") != str(item.get("dataset") or ""):
+    if not _dataset_matches(item, str(flow.get("dataset") or "")):
         text = "\n".join(
             [
                 "<b>📚 Source set</b>",
                 "",
-                f"Dataset модели: <code>{html.escape(_dataset_label(flow.get('dataset')))}</code>",
-                f"Dataset набора: <code>{html.escape(_dataset_label(item.get('dataset')))}</code>",
-                "",
-                "Набор можно применить только к модели в том же dataset.",
+                *_dataset_mismatch_lines(flow.get("dataset"), _record_dataset_label(item)),
             ]
         )
         await _show_message(message, text, InlineKeyboardMarkup([_footer_row(_cb("ss_list"), lang)]), edit_existing=True)
