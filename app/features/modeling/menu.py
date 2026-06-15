@@ -187,6 +187,7 @@ async def _dispatch_modeling_action(
         or action == "at2_f2_cache"
         or action.startswith("at2_qpgraph_")
         or action.startswith("at2_fstats_")
+        or action.startswith("at2_f2_")
     ):
         handled = await admixtools2_callback_handler(update, context, action, parts, lang=lang)
         if handled:

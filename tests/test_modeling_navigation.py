@@ -5,10 +5,11 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 from app.features.modeling import saved_models
 from app.features.modeling.admixtools2 import show_f2_cache_status, show_fstats_dataset_menu, show_qpgraph_dataset_menu
-from app.features.modeling.menu import show_admixtools2_pending
+from app.features.modeling.menu import _dispatch_modeling_action, show_admixtools2_pending
 from app.features.modeling.navigation import (
     NAV_CURRENT_KEY,
     NAV_STACK_KEY,
@@ -167,6 +168,40 @@ class ModelingNavigationTests(unittest.TestCase):
         self.assertEqual(context.user_data[NAV_STACK_KEY], ["modeling:root", "modeling:at2"])
         self.assertEqual(_footer_back_callback(fstats_message), nav_back_callback())
         self.assertEqual(nav_pop(context), "modeling:at2")
+
+    def test_admixtools2_f2_warm_routes_through_modeling_dispatcher(self) -> None:
+        async def fake_runner(payload, *, timeout_seconds):
+            return {
+                "status": "completed",
+                "result": {
+                    "data_source": {"cache_status": "hit", "path": "/cache/f2_smoke"},
+                    "ranks": [{"tail": [0.5]}],
+                },
+            }
+
+        message = Message()
+        context = SimpleNamespace(user_data={})
+
+        with mock.patch(
+            "app.features.modeling.admixtools2._dataset_files",
+            return_value={"geno_prefix": "/data/v66", "f2_cache_dir": "/cache"},
+        ), mock.patch(
+            "app.features.modeling.admixtools2.run_admixtools2_runner",
+            side_effect=fake_runner,
+        ) as runner:
+            asyncio.run(
+                _dispatch_modeling_action(
+                    _update(message),
+                    context,
+                    "at2_f2_warm",
+                    ["modeling", "at2_f2_warm", "v66p1_1240k_public"],
+                    lang="ru",
+                )
+            )
+
+        self.assertIn("hit", message.text)
+        self.assertEqual(runner.call_args.args[0]["command"], "qpwave")
+        self.assertEqual(runner.call_args.args[0]["dataset"], "v66p1_1240k_public")
 
     def test_admixtools2_pending_screen_uses_nav_back(self) -> None:
         message = Message()
