@@ -386,7 +386,7 @@ def search_no_raw_text(sample: SampleAsset, *, lang: str = "ru") -> str:
     return f"🔎 <b>Поиск SNP</b>\n\nУ sample <b>{html.escape(sample.display_name)}</b> нет raw-файла."
 
 
-def search_result_text(sample: SampleAsset, result: object, *, lang: str = "ru") -> str:
+def search_result_text(sample: SampleAsset, result: object, *, rule: SnpRule | None = None, lang: str = "ru") -> str:
     rsid = html.escape(str(getattr(result, "rsid", "") or ""))
     genotype = html.escape(str(getattr(result, "genotype", "") or "--"))
     chromosome = getattr(result, "chromosome", None)
@@ -394,40 +394,74 @@ def search_result_text(sample: SampleAsset, result: object, *, lang: str = "ru")
     found = bool(getattr(result, "found", False))
     error = getattr(result, "error", None)
     sample_name = html.escape(sample.display_name)
+    rule_title = _rule_title(rule) if rule is not None else ""
+    status = _panel_status_for_genotype(str(getattr(result, "genotype", "") or ""), rule.normal_genotype) if rule is not None and found else ""
 
     if lang == "en":
-        lines = ["🔎 <b>Поиск SNP</b>", "", f"Sample: <b>{sample_name}</b>", f"SNP: <b>{rsid}</b>", ""]
+        lines = ["🔎 <b>SNP in sample</b>", ""]
+        if rule is not None:
+            lines.extend([f"<code>{rsid}</code> · <b>{html.escape(rule_title)}</b>"])
+            if rule.gene:
+                lines.append(f"Gene/locus: <b>{html.escape(rule.gene)}</b>")
+            lines.append(f"Section: <b>{html.escape(rule.category)}</b>")
+        else:
+            lines.append(f"SNP: <b>{rsid}</b>")
+        lines.extend([f"Sample: <b>{sample_name}</b>", ""])
         if error:
             lines.extend(["Could not read the raw file.", "", "Try again later or upload the raw file again."])
         elif found:
             lines.extend(
                 [
                     f"Genotype: <b>{genotype}</b>",
-                    f"Chromosome: {html.escape(str(chromosome or ''))}",
-                    f"Position: {html.escape(str(position or ''))}",
-                    "",
-                    "Source: sample raw file.",
                 ]
             )
+            if rule is not None:
+                lines.extend(
+                    [
+                        f"Panel norm: <code>{html.escape(rule.normal_genotype)}</code>",
+                        f"Panel status: <b>{html.escape(_panel_status_label(status, lang=lang))}</b>",
+                    ]
+                )
+            if chromosome or position:
+                lines.extend(["", f"Chromosome: {html.escape(str(chromosome or ''))}", f"Position: {html.escape(str(position or ''))}"])
         else:
-            lines.extend(["SNP was not found in the raw file.", "", "This can depend on the chip, test version, or raw format."])
+            if rule is not None:
+                lines.extend(["This SNP has a base card, but it was not found in this sample raw file.", "", "This can depend on the chip, test version, or raw format."])
+            else:
+                lines.extend(["SNP was not found in the raw file.", "", "This can depend on the chip, test version, or raw format."])
         return "\n".join(lines)
 
-    lines = ["🔎 <b>Поиск SNP</b>", "", f"Sample: <b>{sample_name}</b>", f"SNP: <b>{rsid}</b>", ""]
+    lines = ["🔎 <b>SNP в sample</b>", ""]
+    if rule is not None:
+        lines.extend([f"<code>{rsid}</code> · <b>{html.escape(rule_title)}</b>"])
+        if rule.gene:
+            lines.append(f"Gene/locus: <b>{html.escape(rule.gene)}</b>")
+        lines.append(f"Раздел: <b>{html.escape(rule.category)}</b>")
+    else:
+        lines.append(f"SNP: <b>{rsid}</b>")
+    lines.extend([f"Sample: <b>{sample_name}</b>", ""])
     if error:
         lines.extend(["Не удалось прочитать raw-файл.", "", "Попробуйте позже или загрузите raw-файл заново."])
     elif found:
         lines.extend(
             [
-                f"Genotype: <b>{genotype}</b>",
-                f"Chromosome: {html.escape(str(chromosome or ''))}",
-                f"Position: {html.escape(str(position or ''))}",
-                "",
-                "Источник: raw-файл sample.",
+                f"Генотип sample: <b>{genotype}</b>",
             ]
         )
+        if rule is not None:
+            lines.extend(
+                [
+                    f"Норма панели: <code>{html.escape(rule.normal_genotype)}</code>",
+                    f"Статус в панели: <b>{html.escape(_panel_status_label(status, lang=lang))}</b>",
+                ]
+            )
+        if chromosome or position:
+            lines.extend(["", f"Chromosome: {html.escape(str(chromosome or ''))}", f"Position: {html.escape(str(position or ''))}"])
     else:
-        lines.extend(["SNP не найден в raw-файле.", "", "Это может зависеть от чипа, версии теста или формата raw."])
+        if rule is not None:
+            lines.extend(["Карточка SNP есть в базе, но в raw этого sample rsID не найден.", "", "Это может зависеть от чипа, версии теста или формата raw."])
+        else:
+            lines.extend(["SNP не найден в raw-файле.", "", "Это может зависеть от чипа, версии теста или формата raw."])
     return "\n".join(lines)
 
 
@@ -697,41 +731,55 @@ def build_db_category_keyboard(
 
 def db_rule_text(rule: SnpRule, *, lang: str = "ru") -> str:
     title = _rule_title(rule)
-    description = _rule_description(rule, lang=lang)
+    description = str(rule.description or "").strip()
     sources = _rule_sources_line(rule, lang=lang)
     if lang == "en":
-        return "\n".join(
+        lines = [
+            "📚 <b>SNP base</b>",
+            "",
+            f"<code>{html.escape(rule.rsid)}</code> · <b>{html.escape(title)}</b>",
+        ]
+        if rule.gene:
+            lines.append(f"Gene/locus: <b>{html.escape(rule.gene)}</b>")
+        lines.extend(
             [
-                "📚 <b>SNP base</b>",
+                f"Topic: <b>{html.escape(rule.category)}</b>",
                 "",
-                f"rsID: <code>{html.escape(rule.rsid)}</code>",
-                f"Name: <b>{html.escape(title)}</b>",
-                *([f"Gene: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
-                f"Category: <b>{html.escape(rule.category)}</b>",
-                f"Panel norm: <code>{html.escape(rule.normal_genotype)}</code>",
+                "<b>What is known</b>",
+                html.escape(description) if description else "No detailed description has been added yet. This card shows the panel section and reference genotype.",
                 "",
-                f"Description: {html.escape(description)}",
+                "<b>In the panel</b>",
+                f"Reference genotype: <code>{html.escape(rule.normal_genotype)}</code>",
+                f"Section: <b>{html.escape(rule.category)}</b>",
                 sources,
                 "",
-                "Reference card only. This is not a medical interpretation.",
+                "Reference card, not a medical interpretation.",
             ]
         )
-    return "\n".join(
-        [
+        return "\n".join(lines)
+    lines = [
             "📚 <b>SNP база</b>",
             "",
-            f"rsID: <code>{html.escape(rule.rsid)}</code>",
-            f"Название: <b>{html.escape(title)}</b>",
-            *([f"Ген: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
-            f"Раздел: <b>{html.escape(rule.category)}</b>",
-            f"Норма панели: <code>{html.escape(rule.normal_genotype)}</code>",
+            f"<code>{html.escape(rule.rsid)}</code> · <b>{html.escape(title)}</b>",
+    ]
+    if rule.gene:
+        lines.append(f"Gene/locus: <b>{html.escape(rule.gene)}</b>")
+    lines.extend(
+        [
+            f"Тема: <b>{html.escape(rule.category)}</b>",
             "",
-            f"Описание: {html.escape(description)}",
+            "<b>Что известно</b>",
+            html.escape(description) if description else "Подробного описания для этого SNP пока нет. Карточка показывает раздел панели и норму панели.",
+            "",
+            "<b>В панели</b>",
+            f"Норма: <code>{html.escape(rule.normal_genotype)}</code>",
+            f"Раздел: <b>{html.escape(rule.category)}</b>",
             sources,
             "",
-            "Справочная карточка. Это не медицинская интерпретация.",
+            "Справочная карточка, не медицинский вывод.",
         ]
     )
+    return "\n".join(lines)
 
 
 def build_db_rule_keyboard(rule: SnpRule, rule_index: int, category_index: int, page: int, *, lang: str = "ru") -> InlineKeyboardMarkup:
@@ -806,30 +854,7 @@ def build_db_rule_sample_picker_keyboard(
 
 
 def db_rule_lookup_result_text(rule: SnpRule, sample: SampleAsset, result: object, *, lang: str = "ru") -> str:
-    base = search_result_text(sample, result, lang=lang)
-    if lang == "en":
-        return "\n".join(
-            [
-                base,
-                "",
-                f"Name: <b>{html.escape(_rule_title(rule))}</b>",
-                *([f"Gene: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
-                f"Panel norm: <code>{html.escape(rule.normal_genotype)}</code>",
-                f"Description: {html.escape(_rule_description(rule, lang=lang))}",
-                _rule_sources_line(rule, lang=lang),
-            ]
-        )
-    return "\n".join(
-        [
-            base,
-            "",
-            f"Название: <b>{html.escape(_rule_title(rule))}</b>",
-            *([f"Ген: <b>{html.escape(rule.gene)}</b>"] if rule.gene else []),
-            f"Норма панели: <code>{html.escape(rule.normal_genotype)}</code>",
-            f"Описание: {html.escape(_rule_description(rule, lang=lang))}",
-            _rule_sources_line(rule, lang=lang),
-        ]
-    )
+    return search_result_text(sample, result, rule=rule, lang=lang)
 
 
 def build_db_rule_lookup_result_keyboard(
@@ -1094,18 +1119,55 @@ def _short_button_label(value: str, *, limit: int = 60) -> str:
     return clean[: max(1, limit - 1)].rstrip() + "…"
 
 
+def _panel_status_for_genotype(user_genotype: str, normal_genotype: str) -> str:
+    user = _canonical_genotype(user_genotype)
+    normal = _canonical_genotype(normal_genotype)
+    if not user or user in {"--", "00"}:
+        return "missing"
+    if user == normal:
+        return "ok"
+    if len(user) == 2 and len(normal) == 2:
+        normal_alleles = set(normal)
+        matched = sum(1 for allele in user if allele in normal_alleles)
+        if matched >= 1:
+            return "warn"
+        return "bad"
+    return "warn"
+
+
+def _panel_status_label(status: str, *, lang: str = "ru") -> str:
+    if lang == "en":
+        return {
+            "ok": "matches panel norm",
+            "warn": "heterozygous / variant",
+            "bad": "homozygous variant",
+            "missing": "no data",
+        }.get(status, "variant")
+    return {
+        "ok": "норма панели",
+        "warn": "гетеро / вариант",
+        "bad": "гомо-вариант",
+        "missing": "нет данных",
+    }.get(status, "вариант")
+
+
+def _canonical_genotype(value: object) -> str:
+    genotype = str(value or "").strip().upper()
+    if not genotype or genotype in {"-", "--", "N/A", "NA", "NULL", "NONE"}:
+        return ""
+    for separator in ("/", "\\", "|", " "):
+        genotype = genotype.replace(separator, "")
+    if len(genotype) == 2 and all(base in "ACGT" for base in genotype):
+        return "".join(sorted(genotype))
+    return genotype
+
+
 def _rule_description(rule: SnpRule, *, lang: str = "ru") -> str:
     if rule.description:
         return rule.description
     if lang == "en":
-        return (
-            f"Marker from the {rule.category} section. The panel compares the sample genotype "
-            f"with the reference value {rule.normal_genotype}; use the rsID links for source-level interpretation."
-        )
-    return (
-        f"Маркер из раздела «{rule.category}». Панель сравнивает генотип sample "
-        f"с референсным значением {rule.normal_genotype}; для биологической трактовки откройте источники по rsID."
-    )
+        return "No detailed description has been added yet. This card shows the panel section and reference genotype."
+    return "Подробного описания для этого SNP пока нет. Карточка показывает раздел панели и норму панели."
 
 
 def _rule_sources_line(rule: SnpRule, *, lang: str = "ru") -> str:

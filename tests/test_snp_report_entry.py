@@ -27,6 +27,7 @@ from app.features.snp_report.ui import (
     render_html_report,
     result_text,
     sample_home_text,
+    search_result_text,
 )
 from app.features.snp_report.visuals import render_category_load_png
 
@@ -265,7 +266,10 @@ class SnpReportEntryTests(unittest.TestCase):
 
         text = db_rule_text(rule)
         self.assertIn("COMT", text)
-        self.assertIn("Описание:", text)
+        self.assertIn("Что известно", text)
+        self.assertIn("В панели", text)
+        self.assertIn("Норма:", text)
+        self.assertNotIn("Описание:", text)
         self.assertIn("dbSNP", text)
         self.assertIn("SNPedia", text)
 
@@ -281,6 +285,36 @@ class SnpReportEntryTests(unittest.TestCase):
         ]
         self.assertIn(f"snp_report:dbcheck:{rule_index}:2:3:0", callbacks)
         self.assertNotIn("📋 Скопировать rsID", labels)
+
+    def test_snp_base_card_without_description_is_honest(self) -> None:
+        rule = next(rule for rule in load_snp_rules() if not rule.description)
+
+        text = db_rule_text(rule)
+
+        self.assertIn("Подробного описания для этого SNP пока нет", text)
+        self.assertIn("Норма:", text)
+
+    def test_sample_lookup_result_explains_panel_status_for_known_snp(self) -> None:
+        rule = next(rule for rule in load_snp_rules() if rule.rsid == "rs4680")
+        sample = SimpleNamespace(display_name="Demo")
+        result = SimpleNamespace(rsid=rule.rsid, found=True, genotype=rule.normal_genotype, chromosome="22", position=19963748, error=None)
+
+        text = search_result_text(sample, result, rule=rule)
+
+        self.assertIn("SNP в sample", text)
+        self.assertIn("COMT", text)
+        self.assertIn("Норма панели:", text)
+        self.assertIn("Статус в панели:", text)
+        self.assertIn("норма панели", text)
+
+    def test_sample_lookup_result_mentions_known_card_when_raw_is_missing_snp(self) -> None:
+        rule = next(rule for rule in load_snp_rules() if rule.rsid == "rs4680")
+        sample = SimpleNamespace(display_name="Demo")
+        result = SimpleNamespace(rsid=rule.rsid, found=False, genotype="--", chromosome=None, position=None, error=None)
+
+        text = search_result_text(sample, result, rule=rule)
+
+        self.assertIn("Карточка SNP есть в базе", text)
 
     def test_html_report_includes_snp_annotation(self) -> None:
         rule = next(rule for rule in load_snp_rules() if rule.rsid == "rs4680")

@@ -464,14 +464,16 @@ async def snp_report_text_input_handler(update: Update, context: ContextTypes.DE
 
     raw_path = store.resolve_raw_file_path(raw_file)
     result = await run_in_heavy_pool(context, _lookup_snp_in_raw_path, str(raw_path), rsid)
-    rule_index = _find_rule_index_by_rsid(_rules(context), rsid)
+    rules = _rules(context)
+    rule_index = _find_rule_index_by_rsid(rules, rsid)
+    rule = rules[rule_index] if rule_index is not None else None
     _clear_lookup_pending(context)
     _record_snp_report_usage(update, context, "lookup", success=(getattr(result, "error", None) is None), input_mode="text")
     await _edit_pending_lookup_message(
         context,
         chat_id,
         message_id,
-        search_result_text(sample, result, lang=lang),
+        search_result_text(sample, result, rule=rule, lang=lang),
         build_search_result_keyboard_for_rule(sample.asset_id, rule_index=rule_index, lang=lang),
     )
     raise ApplicationHandlerStop
@@ -928,10 +930,12 @@ async def _run_prefilled_snp_lookup(
 
     raw_path = store.resolve_raw_file_path(raw_file)
     result = await run_in_heavy_pool(context, _lookup_snp_in_raw_path, str(raw_path), normalized_rsid)
-    rule_index = _find_rule_index_by_rsid(_rules(context), normalized_rsid)
+    rules = _rules(context)
+    rule_index = _find_rule_index_by_rsid(rules, normalized_rsid)
+    rule = rules[rule_index] if rule_index is not None else None
     _record_snp_report_usage(update, context, "lookup", success=(getattr(result, "error", None) is None), input_mode="callback")
     await message.edit_text(
-        search_result_text(sample, result, lang=lang),
+        search_result_text(sample, result, rule=rule, lang=lang),
         parse_mode="HTML",
         reply_markup=build_search_result_keyboard_for_rule(sample.asset_id, rule_index=rule_index, lang=lang),
     )
