@@ -237,17 +237,13 @@ def _interesting_snps_block_ru(data: DNAPassportData) -> list[str]:
     if snps.status == "error":
         lines.append("Не удалось рассчитать этот блок.")
         return lines
-    if snps.status == "no_matches" or not snps.items:
-        total = f" из {_format_int(snps.total)}" if snps.total else ""
-        lines.append(f"Готовых пользовательских трактовок не найдено{total}.")
+    items = _dedupe_interesting_snp_items(snps.items)
+    if snps.status == "no_matches" or not items:
+        lines.append("Готовых пользовательских трактовок не найдено.")
         return lines
 
-    lines.append(f"Найдено с трактовкой: <b>{_format_int(snps.found)}</b> из {_format_int(snps.total)}")
-    lines.append("")
-    for item in snps.items[:INTERESTING_SNP_PREVIEW_LIMIT]:
+    for item in items[:INTERESTING_SNP_PREVIEW_LIMIT]:
         lines.append(f"• {_interesting_snp_line(item)}")
-    if snps.found > INTERESTING_SNP_PREVIEW_LIMIT:
-        lines.append(f"• Ещё {_format_int(snps.found - INTERESTING_SNP_PREVIEW_LIMIT)} в SNP Lab")
     return lines
 
 
@@ -344,6 +340,26 @@ def _interesting_snp_line(item: DNAPassportInterestingSnpItem) -> str:
     genotype = _escape(item.genotype or "н/д")
     interpretation = _escape(_shorten(item.interpretation, limit=72))
     return f"{title}: {genotype} — {interpretation}"
+
+
+def _dedupe_interesting_snp_items(items: tuple[DNAPassportInterestingSnpItem, ...]) -> tuple[DNAPassportInterestingSnpItem, ...]:
+    result: list[DNAPassportInterestingSnpItem] = []
+    seen: set[str] = set()
+    for item in items:
+        key = _interesting_snp_topic_key(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return tuple(result)
+
+
+def _interesting_snp_topic_key(item: DNAPassportInterestingSnpItem) -> str:
+    title = str(item.title or "").strip().lower()
+    if ":" in title:
+        title = title.split(":", 1)[0].strip()
+    title = re.sub(r"\s+", " ", title)
+    return title or str(item.rsid or "").strip().lower()
 
 
 def _trait_label(item: DNAPassportTraitItem) -> str:

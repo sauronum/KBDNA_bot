@@ -422,14 +422,15 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("rs4988235", rule_ids)
         self.assertIn("rs429358", rule_ids)
         self.assertIn("🧪 Интересные SNP", text)
-        self.assertIn("Найдено с трактовкой: <b>2</b> из 10", text)
         self.assertIn("Переносимость лактозы: CT", text)
         self.assertIn("Тип ушной серы: AA", text)
+        self.assertNotIn("Найдено с трактовкой", text)
+        self.assertNotIn("SNP Lab", text)
         self.assertNotIn("APOE", text)
         self.assertNotIn("Lactase persistence", text)
         self.assertNotIn("Genotype", text)
 
-    def test_renderer_shows_five_interesting_snps_before_overflow_line(self) -> None:
+    def test_renderer_shows_five_interesting_snps_without_overflow_count(self) -> None:
         interesting_snps = DNAPassportInterestingSnpsSummary(
             status="ok",
             total=10,
@@ -453,7 +454,39 @@ class DNAPassportUiTests(unittest.TestCase):
         for i in range(1, 6):
             self.assertIn(f"SNP {i}: AA", text)
         self.assertNotIn("SNP 6: AA", text)
-        self.assertIn("Ещё 1 в SNP Lab", text)
+        self.assertNotIn("Ещё 1 в SNP Lab", text)
+        self.assertNotIn("Найдено с трактовкой", text)
+
+    def test_renderer_deduplicates_interesting_snp_topics(self) -> None:
+        interesting_snps = DNAPassportInterestingSnpsSummary(
+            status="ok",
+            total=10,
+            found=2,
+            missing=8,
+            items=(
+                DNAPassportInterestingSnpItem(
+                    "rs713598",
+                    "Горький вкус: TAS2R38",
+                    "Вкус и запах",
+                    "TAS2R38",
+                    "GG",
+                    "Чаще более низкая чувствительность к PTC/PROP",
+                ),
+                DNAPassportInterestingSnpItem(
+                    "rs10246939",
+                    "Горький вкус: TAS2R38-3",
+                    "Вкус и запах",
+                    "TAS2R38",
+                    "CC",
+                    "Чаще более высокая чувствительность к PTC/PROP",
+                ),
+            ),
+        )
+
+        text = render_dna_passport_html(_passport_data(interesting_snps=interesting_snps))
+
+        self.assertIn("Горький вкус: TAS2R38: GG", text)
+        self.assertNotIn("Горький вкус: TAS2R38-3", text)
 
     def test_renderer_uses_user_friendly_lineage_statuses_summary_and_recommendations(self) -> None:
         data = _passport_data(
