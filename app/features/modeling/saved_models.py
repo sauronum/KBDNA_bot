@@ -24,9 +24,49 @@ from app.main_menu import set_active_main_menu_message
 SAVED_MODELS_PATH = Path(os.getenv("KBDNA_SAVED_MODELS_PATH", "/opt/kbdnabot/storage/modeling/saved_models.json"))
 PENDING_SAVES_KEY = "admixlab_pending_model_saves"
 SAVED_MODELS_PAGE_SIZE = 8
+TARGET_TYPE_LABELS = {
+    "dataset_population": "dataset population",
+    "raw_file": "raw sample",
+}
+
 
 def _dataset_label(dataset: object) -> str:
     return dataset_label(dataset)
+
+
+def _known_dataset(dataset: object) -> str:
+    value = str(dataset or "").strip()
+    return value if value in DATASET_LABELS else ""
+
+
+def _record_dataset_label(record: dict[str, Any]) -> str:
+    dataset = _known_dataset(record.get("dataset"))
+    return _dataset_label(dataset) if dataset else "unknown / legacy"
+
+
+def _as_text_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _inline_items(values: list[str], *, limit: int = 5) -> str:
+    shown = values[:limit]
+    suffix = f", +{len(values) - limit} more" if len(values) > limit else ""
+    return ", ".join(shown) + suffix
+
+
+def _target_type(record: dict[str, Any]) -> str:
+    value = str(record.get("target_type") or "").strip()
+    return value if value in TARGET_TYPE_LABELS else ""
+
+
+def _normalize_saved_record(record: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(record)
+    dataset = str(normalized.get("dataset") or "").strip()
+    normalized["dataset"] = dataset
+    normalized["dataset_valid"] = bool(_known_dataset(dataset))
+    return normalized
 
 
 def _safe_page(value: object) -> int:
@@ -96,7 +136,7 @@ def _save_pending(context: ContextTypes.DEFAULT_TYPE, user_id: int, pending_id: 
     if not isinstance(pending, dict) or int(pending.get("owner_user_id") or 0) != int(user_id):
         return None
     records = _read_records()
-    record = dict(pending)
+    record = _normalize_saved_record(dict(pending))
     record.pop("pending_id", None)
     record["id"] = uuid4().hex[:12]
     record["owner_user_id"] = int(user_id)
@@ -133,23 +173,38 @@ def _record_title(record: dict[str, Any]) -> str:
     title = str(record.get("title") or "").strip()
     if title:
         return title
-    return f"{_kind_label(record)} · {_dataset_label(record.get('dataset'))}"
+    return f"{_kind_label(record)} · {_record_dataset_label(record)}"
 
 
 def _record_summary(record: dict[str, Any]) -> list[str]:
     lines = [
         f"Тип: <code>{html.escape(_kind_label(record))}</code>",
-        f"Dataset: <code>{html.escape(_dataset_label(record.get('dataset')))}</code>",
+        f"Dataset: <code>{html.escape(_record_dataset_label(record))}</code>",
     ]
+    if not _known_dataset(record.get("dataset")):
+        lines.append("Dataset status: <code>unknown / legacy</code>")
     engine = str(record.get("engine_label") or record.get("engine") or "").strip()
     if engine:
         lines.append(f"Engine: <code>{html.escape(engine)}</code>")
+    target_type = _target_type(record)
+    if target_type:
+        lines.append(f"Target mode: <code>{html.escape(TARGET_TYPE_LABELS[target_type])}</code>")
     target = str(record.get("target") or "").strip()
     if target:
         lines.append(f"Target: <code>{html.escape(target)}</code>")
-    targets = record.get("targets")
-    if isinstance(targets, list) and targets:
+    targets = _as_text_list(record.get("targets"))
+    target_labels = _as_text_list(record.get("target_labels"))
+    target_entries = record.get("target_entries") if isinstance(record.get("target_entries"), list) else []
+    if not target_labels and target_entries:
+        for entry in target_entries:
+            if isinstance(entry, dict):
+                label = str(entry.get("target_label") or entry.get("target") or "").strip()
+                if label:
+                    target_labels.append(label)
+    if targets:
         lines.append(f"Targets: <code>{len(targets)}</code>")
+    if target_labels and (len(target_labels) > 1 or target_labels != targets):
+        lines.append(f"Target labels: <code>{html.escape(_inline_items(target_labels))}</code>")
     statistic = str(record.get("statistic") or "").strip()
     if statistic:
         lines.append(f"Statistic: <code>{html.escape(statistic)}</code>")
@@ -168,6 +223,19 @@ def _record_summary(record: dict[str, Any]) -> list[str]:
     edges = record.get("edges")
     if isinstance(edges, list) and edges:
         lines.append(f"Edges: <code>{len(edges)}</code>")
+    raw_sample = record.get("raw_sample") if isinstance(record.get("raw_sample"), dict) else {}
+    raw_label = str(raw_sample.get("label") or "").strip()
+    raw_token = str(raw_sample.get("token") or "").strip()
+    if raw_label:
+        lines.append(f"Raw sample: <code>{html.escape(raw_label)}</code>")
+    if raw_token:
+        lines.append(f"Raw token: <code>{html.escape(raw_token)}</code>")
+    result_payload = record.get("result_payload") if isinstance(record.get("result_payload"), dict) else {}
+    result = result_payload.get("result") if isinstance(result_payload.get("result"), dict) else {}
+    raw_runtime = result.get("raw_runtime") if isinstance(result.get("raw_runtime"), dict) else {}
+    raw_runtime_status = str(raw_runtime.get("materialization_status") or "").strip()
+    if raw_runtime_status:
+        lines.append(f"Raw runtime: <code>{html.escape(raw_runtime_status)}</code>")
     data_source = record.get("data_source")
     if isinstance(data_source, dict):
         source_type = str(data_source.get("type") or "").strip()

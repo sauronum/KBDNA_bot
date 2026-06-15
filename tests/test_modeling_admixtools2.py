@@ -407,6 +407,38 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         self.assertEqual(payload["leaves"], ["Mbuti.DG", "Han.DG"])
         self.assertEqual(_kind_label(payload), "ADMIXTOOLS2 qpGraph 2")
 
+    def test_qpgraph_save_payload_preserves_raw_sample_metadata_without_path(self) -> None:
+        payload = _qpgraph_save_payload(
+            {
+                "status": "completed",
+                "result": {
+                    "leaf_populations": ["Sample A", "Mbuti.DG", "Han.DG"],
+                    "raw_runtime": {"materialization_status": "completed"},
+                },
+            },
+            flow={
+                "dataset": "human_origins",
+                "graph_text": "edge R raw_sample_a",
+                "raw_sample": {
+                    "sample_id": "sample-a",
+                    "raw_file_id": "raw-a",
+                    "label": "Sample A",
+                    "token": "raw_sample_a",
+                    "path": "/srv/private/raw-a.txt",
+                },
+            },
+            text="result",
+        )
+
+        self.assertEqual(payload["target_type"], "raw_file")
+        self.assertEqual(payload["raw_sample"]["label"], "Sample A")
+        self.assertEqual(payload["raw_sample"]["token"], "raw_sample_a")
+        self.assertNotIn("path", payload["raw_sample"])
+        summary = "\n".join(_record_summary(payload))
+        self.assertIn("Target mode", summary)
+        self.assertIn("Raw sample", summary)
+        self.assertIn("Raw runtime", summary)
+
     def test_qpgraph_builder_enables_run_after_graph_text(self) -> None:
         class Message:
             async def edit_text(self, text, reply_markup=None, parse_mode=None):
@@ -580,6 +612,28 @@ class ModelingAdmixtools2Tests(unittest.TestCase):
         )
         self.assertIn("ADMIXTOOLS2 qpWave 2", summary)
         self.assertIn("Cache", summary)
+
+    def test_saved_model_summary_flags_unknown_dataset_and_target_labels(self) -> None:
+        summary = "\n".join(
+            _record_summary(
+                {
+                    "kind": "qpadm_batch",
+                    "engine": "admixtools2_qpadm",
+                    "dataset": "v66_made_up",
+                    "target_type": "raw_file",
+                    "targets": ["/data/raw/a.txt", "/data/raw/b.txt"],
+                    "target_labels": ["Sample A", "Sample B"],
+                    "sources": ["Turkey_N"],
+                    "references": ["Mbuti"],
+                }
+            )
+        )
+
+        self.assertIn("unknown / legacy", summary)
+        self.assertIn("Target mode", summary)
+        self.assertIn("raw sample", summary)
+        self.assertIn("Target labels", summary)
+        self.assertIn("Sample A", summary)
 
     def test_qpwave_admixtools2_error_mentions_f2_cache_when_relevant(self) -> None:
         text = _format_qpwave_error(

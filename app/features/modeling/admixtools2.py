@@ -809,6 +809,18 @@ def _qpgraph_raw_sample(flow: dict[str, Any]) -> dict[str, Any] | None:
     return raw_sample if isinstance(raw_sample, dict) else None
 
 
+def _qpgraph_saved_raw_sample(flow: dict[str, Any]) -> dict[str, str] | None:
+    raw_sample = _qpgraph_raw_sample(flow)
+    if raw_sample is None:
+        return None
+    saved: dict[str, str] = {}
+    for key in ("sample_id", "raw_file_id", "label", "token"):
+        value = str(raw_sample.get(key) or "").strip()
+        if value:
+            saved[key] = value
+    return saved or None
+
+
 def _qpgraph_raw_token(sample_id: object, label: object = "") -> str:
     base = _safe_name(sample_id or label or "sample").replace("-", "_")
     return f"raw_{base}"
@@ -1285,6 +1297,7 @@ def _qpgraph_save_payload(
     result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
     graph_text = str(flow.get("graph_text") or "").strip()
     leaves = result.get("leaf_populations") if isinstance(result.get("leaf_populations"), list) else []
+    raw_sample = _qpgraph_saved_raw_sample(flow)
     title_bits = ["ADMIXTOOLS2 qpGraph 2", _dataset_label(flow.get("dataset"))]
     if leaves:
         title_bits.append(", ".join(str(item) for item in leaves[:3]))
@@ -1294,6 +1307,8 @@ def _qpgraph_save_payload(
         "dataset": str(flow.get("dataset") or ""),
         "engine": "admixtools2_qpgraph",
         "engine_label": "ADMIXTOOLS2 qpGraph 2",
+        "target_type": "raw_file" if raw_sample else "dataset_population",
+        "raw_sample": raw_sample,
         "graph_text": graph_text,
         "score": result.get("score"),
         "worst_residual": result.get("worst_residual"),

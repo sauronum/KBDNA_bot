@@ -24,6 +24,7 @@ from app.features.modeling.qpadm_classic import (
     _qpadm_backend_config_for_engine,
     _qpadm_env,
     _qpadm_title,
+    _run_qpadm_batch_job,
     _run_qpadm_job,
     _has_supported_target_for_engine,
     _snapshot_flow,
@@ -437,6 +438,63 @@ class QpadmClassicJobTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("population_not_found", text)
         self.assertIn("Missing_Source.AG", text)
         self.assertEqual(save_payload["result_payload"], summary)
+        self.assertEqual(save_payload["visual_error"], "visual skipped")
+        self.assertEqual(save_payload["target_type"], "dataset_population")
+        self.assertEqual(save_payload["target_label"], "Ramazan")
+        self.assertEqual(save_payload["targets"], ["Ramazan"])
+        self.assertEqual(save_payload["target_labels"], ["Ramazan"])
+
+    async def test_run_qpadm_batch_job_preserves_raw_target_metadata_for_saved_models(self) -> None:
+        flow = {
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "dataset": "human_origins",
+            "target_type": "raw_file",
+            "target": "/tmp/sample_a.txt",
+            "target_label": "Sample A",
+            "targets": ["/tmp/sample_a.txt", "/tmp/sample_b.txt"],
+            "target_labels": ["Sample A", "Sample B"],
+            "sources": ["Barcin_N"],
+            "references": ["Mbuti.DG"],
+        }
+        summary = {
+            "status": "completed",
+            "engine": QPADM_ENGINE_ADMIXTOOLS2,
+            "fit": {"p_value": 0.5},
+            "feasibility": {"status": "PASS"},
+            "weights": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+
+            async def fake_run_process_result(*args, **kwargs):
+                return 0, json.dumps({"status": "completed"}), ""
+
+            with patch("app.features.modeling.qpadm_classic.BOT_QPADM_OUTPUT_DIR", output_dir), patch(
+                "app.features.modeling.qpadm_classic.time.time",
+                return_value=1,
+            ), patch(
+                "app.features.modeling.qpadm_classic._run_process_result",
+                new=AsyncMock(side_effect=fake_run_process_result),
+            ), patch(
+                "app.features.modeling.qpadm_classic._load_qpadm_summary",
+                new=AsyncMock(return_value=summary),
+            ), patch(
+                "app.features.modeling.qpadm_classic.render_admixtools2_qpadm_batch_result",
+                side_effect=RuntimeError("visual skipped"),
+            ):
+                _text, save_payload = await _run_qpadm_batch_job(flow, 100, job_id=7, lang="en")
+
+        self.assertEqual(save_payload["target_type"], "raw_file")
+        self.assertEqual(save_payload["targets"], ["/tmp/sample_a.txt", "/tmp/sample_b.txt"])
+        self.assertEqual(save_payload["target_labels"], ["Sample A", "Sample B"])
+        self.assertEqual(
+            save_payload["target_entries"],
+            [
+                {"target_type": "raw_file", "target": "/tmp/sample_a.txt", "target_label": "Sample A"},
+                {"target_type": "raw_file", "target": "/tmp/sample_b.txt", "target_label": "Sample B"},
+            ],
+        )
         self.assertEqual(save_payload["visual_error"], "visual skipped")
 
 
