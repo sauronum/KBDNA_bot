@@ -76,7 +76,11 @@ class SnpReportEntryTests(unittest.TestCase):
             'dna_lab_snp_report_callback_handler), pattern=fr"^{DNA_LAB_SNP_REPORT_CALLBACK_PREFIX}:"',
             source,
         )
-        self.assertIn("dna_lab_snp_report_text_input_handler), group=-2", source)
+        self.assertIn("dna_lab_snp_report_text_input_handler), group=-7", source)
+        self.assertLess(
+            source.index("dna_lab_snp_report_text_input_handler), group=-7"),
+            source.index("MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, text_lookup_command)"),
+        )
 
     def test_dna_lab_snp_report_entry_renders_root_screen(self) -> None:
         message = _FakeMessage()

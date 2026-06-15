@@ -2087,12 +2087,12 @@ def main() -> None:
         ),
         group=-6,
     )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_snp_report_text_input_handler), group=-7)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_my_data_text_input_handler), group=-5)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_vahaduo_text_input_handler), group=-4)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_haplogroups_text_input_handler), group=-3)
     app.add_handler(MessageHandler(filters.Document.ALL, ystr_document_input_handler), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_matching_text_input_handler), group=-2)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_snp_report_text_input_handler), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, pending_text_router), group=-2)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dna_lab_modeling_text_input_handler), group=-1)
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, text_lookup_command))
