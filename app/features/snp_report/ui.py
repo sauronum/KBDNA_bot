@@ -196,6 +196,7 @@ def interesting_running_text(sample: SampleAsset, *, lang: str = "ru") -> str:
 
 
 def interesting_result_text(analysis: InterestingSnpAnalysis, *, lang: str = "ru") -> str:
+    category_lines = _interesting_category_lines(analysis.results, lang=lang)
     if lang == "en":
         lines = [
             "🧪 <b>Interesting SNP</b>",
@@ -207,8 +208,11 @@ def interesting_result_text(analysis: InterestingSnpAnalysis, *, lang: str = "ru
             lines.append(f"Found without interpretation: <b>{analysis.unsupported}</b>")
         if analysis.missing:
             lines.append(f"Not found in raw: <b>{analysis.missing}</b>")
-        lines.extend(["", "<b>Results</b>"])
+        if category_lines:
+            lines.extend(["", "<b>By section</b>", *category_lines])
+        lines.extend(["", "<b>Found</b>"])
         lines.extend(_interesting_result_lines(analysis.results, lang=lang))
+        lines.append("Open cards for descriptions, limits, and sources.")
         return "\n".join(lines)
 
     lines = [
@@ -221,8 +225,11 @@ def interesting_result_text(analysis: InterestingSnpAnalysis, *, lang: str = "ru
         lines.append(f"Найдено без трактовки: <b>{analysis.unsupported}</b>")
     if analysis.missing:
         lines.append(f"Не найдено в raw: <b>{analysis.missing}</b>")
-    lines.extend(["", "<b>Результаты</b>"])
+    if category_lines:
+        lines.extend(["", "<b>По разделам</b>", *category_lines])
+    lines.extend(["", "<b>Найдено</b>"])
     lines.extend(_interesting_result_lines(analysis.results, lang=lang))
+    lines.append("Карточки ниже: описание, ограничения и источники.")
     return "\n".join(lines)
 
 
@@ -238,11 +245,10 @@ def build_interesting_result_keyboard(*, lang: str = "ru") -> InlineKeyboardMark
 
 def build_interesting_result_keyboard_for_analysis(analysis: InterestingSnpAnalysis, *, lang: str = "ru") -> InlineKeyboardMarkup:
     detail_items = [item for item in analysis.results if item.status == "ok"]
-    detail_buttons = [
-        InlineKeyboardButton(_interesting_button_label(item), callback_data=f"snp_report:intdetail:{analysis.sample_id}:{item.rsid}")
-        for item in detail_items
-    ]
-    rows = [detail_buttons[index:index + 2] for index in range(0, len(detail_buttons), 2)]
+    rows = []
+    if detail_items:
+        details_label = f"▶️ Cards ({len(detail_items)})" if lang == "en" else f"▶️ Смотреть карточки ({len(detail_items)})"
+        rows.append([InlineKeyboardButton(details_label, callback_data=f"snp_report:intdetail:{analysis.sample_id}:{detail_items[0].rsid}")])
     another_label = "👤 Another sample" if lang == "en" else "👤 Другой sample"
     db_label = "📚 SNP base" if lang == "en" else "📚 База SNP"
     rows.extend(
@@ -255,7 +261,15 @@ def build_interesting_result_keyboard_for_analysis(analysis: InterestingSnpAnaly
     return InlineKeyboardMarkup(rows)
 
 
-def interesting_detail_text(item: InterestingSnpResult, sample_name: str, *, lang: str = "ru") -> str:
+def interesting_detail_text(
+    item: InterestingSnpResult,
+    sample_name: str,
+    *,
+    position: int | None = None,
+    total: int | None = None,
+    lang: str = "ru",
+) -> str:
+    progress = _interesting_detail_progress(position, total)
     if lang == "en":
         lines = [
             "🧪 <b>Interesting SNP</b>",
@@ -264,10 +278,16 @@ def interesting_detail_text(item: InterestingSnpResult, sample_name: str, *, lan
             f"Gene/locus: <b>{html.escape(item.gene)}</b>",
             f"Category: <b>{html.escape(item.category)}</b>",
             f"Sample: <b>{html.escape(sample_name)}</b>",
-            "",
-            f"Genotype: <b>{html.escape(item.genotype)}</b>",
-            f"Result: <b>{html.escape(item.interpretation)}</b>",
         ]
+        if progress:
+            lines.append(f"Card: <b>{progress}</b>")
+        lines.extend(
+            [
+                "",
+                f"Genotype: <b>{html.escape(item.genotype)}</b>",
+                f"Result: <b>{html.escape(item.interpretation)}</b>",
+            ]
+        )
         if item.description:
             lines.extend(["", "<b>What it means</b>", html.escape(item.description)])
         if item.limitations:
@@ -290,10 +310,16 @@ def interesting_detail_text(item: InterestingSnpResult, sample_name: str, *, lan
         f"Gene/locus: <b>{html.escape(item.gene)}</b>",
         f"Категория: <b>{html.escape(item.category)}</b>",
         f"Sample: <b>{html.escape(sample_name)}</b>",
-        "",
-        f"Генотип sample: <b>{html.escape(item.genotype)}</b>",
-        f"Итог: <b>{html.escape(item.interpretation)}</b>",
     ]
+    if progress:
+        lines.append(f"Карточка: <b>{progress}</b>")
+    lines.extend(
+        [
+            "",
+            f"Генотип sample: <b>{html.escape(item.genotype)}</b>",
+            f"Итог: <b>{html.escape(item.interpretation)}</b>",
+        ]
+    )
     if item.description:
         lines.extend(["", "<b>Что это значит</b>", html.escape(item.description)])
     if item.limitations:
@@ -310,14 +336,31 @@ def interesting_detail_text(item: InterestingSnpResult, sample_name: str, *, lan
     return "\n".join(lines)
 
 
-def build_interesting_detail_keyboard(sample_id: str, rsid: str, *, rule_index: int | None = None, lang: str = "ru") -> InlineKeyboardMarkup:
+def build_interesting_detail_keyboard(
+    sample_id: str,
+    rsid: str,
+    *,
+    rule_index: int | None = None,
+    previous_rsid: str | None = None,
+    next_rsid: str | None = None,
+    lang: str = "ru",
+) -> InlineKeyboardMarkup:
     rows = []
+    nav_row = []
+    if previous_rsid:
+        nav_row.append(InlineKeyboardButton("◀️ Previous" if lang == "en" else "◀️ Предыдущая", callback_data=f"snp_report:intdetail:{sample_id}:{previous_rsid}"))
+    if next_rsid:
+        nav_row.append(InlineKeyboardButton("Next ▶️" if lang == "en" else "Следующая ▶️", callback_data=f"snp_report:intdetail:{sample_id}:{next_rsid}"))
+    if nav_row:
+        rows.append(nav_row)
+    summary_label = "↩️ Summary" if lang == "en" else "↩️ Сводка"
+    rows.append([InlineKeyboardButton(summary_label, callback_data=f"snp_report:interesting_sample:{sample_id}")])
     if rule_index is not None:
         db_label = "📚 Open in SNP base" if lang == "en" else "📚 Открыть в базе SNP"
         rows.append([InlineKeyboardButton(db_label, callback_data=f"snp_report:dbsnp:{rule_index}:0:0")])
     other_label = "👤 Check another sample" if lang == "en" else "👤 Проверить в другом sample"
     rows.append([InlineKeyboardButton(other_label, callback_data=f"snp_report:interesting_rsid:{rsid}")])
-    rows.append(_back_cancel_row(f"snp_report:interesting_sample:{sample_id}"))
+    rows.append(_back_cancel_row(f"snp_report:sample:{sample_id}"))
     return InlineKeyboardMarkup(rows)
 
 
@@ -1041,12 +1084,10 @@ def _sample_picker_keyboard(
 
 def _interesting_result_lines(results: tuple[InterestingSnpResult, ...], *, lang: str) -> list[str]:
     lines: list[str] = []
-    missing: list[InterestingSnpResult] = []
     unsupported: list[InterestingSnpResult] = []
 
     for item in results:
         if item.status == "missing":
-            missing.append(item)
             continue
         if item.status == "unsupported":
             unsupported.append(item)
@@ -1056,18 +1097,20 @@ def _interesting_result_lines(results: tuple[InterestingSnpResult, ...], *, lang
             lines.extend(
                 [
                     f"• <b>{html.escape(item.title)}</b> — {html.escape(item.interpretation)}",
-                    f"  <code>{html.escape(item.rsid)}</code> · {html.escape(item.gene)} · genotype <b>{html.escape(item.genotype)}</b>",
+                    f"  <code>{html.escape(item.rsid)}</code> · {html.escape(item.gene)} · <b>{html.escape(item.genotype)}</b>",
                 ]
             )
         else:
             lines.extend(
                 [
                     f"• <b>{html.escape(item.title)}</b> — {html.escape(item.interpretation)}",
-                    f"  <code>{html.escape(item.rsid)}</code> · {html.escape(item.gene)} · генотип <b>{html.escape(item.genotype)}</b>",
+                    f"  <code>{html.escape(item.rsid)}</code> · {html.escape(item.gene)} · <b>{html.escape(item.genotype)}</b>",
                 ]
             )
-        if item.description:
-            lines.append(f"  {html.escape(_short_text(item.description, 150))}")
+        lines.append("")
+
+    if not lines:
+        lines.append("No interpreted SNP found in this raw." if lang == "en" else "В этом raw пока нет SNP с готовой трактовкой.")
         lines.append("")
 
     if unsupported:
@@ -1075,12 +1118,27 @@ def _interesting_result_lines(results: tuple[InterestingSnpResult, ...], *, lang
         values = ", ".join(f"{item.rsid} ({item.genotype})" for item in unsupported)
         lines.extend([f"<b>{label}</b>", html.escape(values), ""])
 
-    if missing:
-        label = "Not found in raw" if lang == "en" else "Не найдено в raw"
-        values = ", ".join(item.rsid for item in missing)
-        lines.extend([f"<b>{label}</b>", html.escape(values)])
-
     return lines
+
+
+def _interesting_category_lines(results: tuple[InterestingSnpResult, ...], *, lang: str) -> list[str]:
+    counts: dict[str, int] = {}
+    for item in results:
+        if item.status != "ok":
+            continue
+        counts[item.category] = counts.get(item.category, 0) + 1
+    if not counts:
+        return []
+    return [
+        f"• {html.escape(category)}: <b>{count}</b>"
+        for category, count in sorted(counts.items(), key=lambda value: (-value[1], value[0]))
+    ]
+
+
+def _interesting_detail_progress(position: int | None, total: int | None) -> str:
+    if position is None or total is None or position <= 0 or total <= 0:
+        return ""
+    return f"{position}/{total}"
 
 
 def _interesting_button_label(item: InterestingSnpResult) -> str:

@@ -1050,17 +1050,28 @@ async def _show_interesting_detail(
         await message.edit_text(error_text("SNP Lab", "Не удалось прочитать raw-файл."), parse_mode="HTML", reply_markup=build_error_keyboard())
         return
 
-    item = next((result for result in analysis.results if result.rsid == rsid and result.status == "ok"), None)
+    ok_items = [result for result in analysis.results if result.status == "ok"]
+    item_index = next((index for index, result in enumerate(ok_items) if result.rsid == rsid), -1)
+    item = ok_items[item_index] if item_index >= 0 else None
     if item is None:
         _record_snp_report_usage(update, context, "interesting_detail", success=False)
         await message.edit_text(error_text("SNP Lab", "Результат не найден."), parse_mode="HTML", reply_markup=build_interesting_result_keyboard(lang=lang))
         return
 
+    previous_rsid = ok_items[item_index - 1].rsid if item_index > 0 else None
+    next_rsid = ok_items[item_index + 1].rsid if item_index + 1 < len(ok_items) else None
     _record_snp_report_usage(update, context, "interesting_detail")
     await message.edit_text(
-        interesting_detail_text(item, sample.display_name, lang=lang),
+        interesting_detail_text(item, sample.display_name, position=item_index + 1, total=len(ok_items), lang=lang),
         parse_mode="HTML",
-        reply_markup=build_interesting_detail_keyboard(sample.asset_id, item.rsid, rule_index=_find_rule_index_by_rsid(_rules(context), item.rsid), lang=lang),
+        reply_markup=build_interesting_detail_keyboard(
+            sample.asset_id,
+            item.rsid,
+            rule_index=_find_rule_index_by_rsid(_rules(context), item.rsid),
+            previous_rsid=previous_rsid,
+            next_rsid=next_rsid,
+            lang=lang,
+        ),
         disable_web_page_preview=True,
     )
 

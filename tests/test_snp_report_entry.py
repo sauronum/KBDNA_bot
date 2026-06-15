@@ -20,6 +20,7 @@ from app.features.snp_report.ui import (
     build_db_rsid_not_found_keyboard,
     build_db_root_keyboard,
     build_db_rule_keyboard,
+    build_interesting_detail_keyboard,
     build_interesting_result_keyboard_for_analysis,
     build_sample_home_keyboard,
     build_search_result_keyboard_for_rule,
@@ -185,11 +186,23 @@ class SnpReportEntryTests(unittest.TestCase):
             for button in row
         ]
         self.assertIn("snp_report:intdetail:sample:rs4988235", callbacks)
+        self.assertNotIn("snp_report:intdetail:sample:rs17822931", callbacks)
         self.assertLessEqual(max(len(row) for row in keyboard), 2)
 
-        detail = interesting_detail_text(by_rsid["rs4988235"], "Demo")
+        detail = interesting_detail_text(by_rsid["rs4988235"], "Demo", position=1, total=result.found)
         self.assertIn("Что это значит", detail)
         self.assertIn("Итог:", detail)
+        self.assertIn("Карточка: <b>1/", detail)
+
+        detail_keyboard = build_interesting_detail_keyboard("sample", "rs4988235", next_rsid="rs17822931").inline_keyboard
+        detail_callbacks = [
+            button.callback_data
+            for row in detail_keyboard
+            for button in row
+        ]
+        self.assertIn("snp_report:intdetail:sample:rs17822931", detail_callbacks)
+        self.assertIn("snp_report:interesting_sample:sample", detail_callbacks)
+        self.assertIn("snp_report:sample:sample", detail_callbacks)
 
     def test_snp_lab_sample_home_is_lightweight_and_action_first(self) -> None:
         sample = SimpleNamespace(asset_id="sample-1", display_name="Zaur", raw_file_id="raw-1")
