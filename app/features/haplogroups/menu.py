@@ -49,6 +49,8 @@ from .ui import (
 
 HAPLOGROUPS_CALLBACK_PREFIX = "haplogroups"
 _PAGE_SIZE = 8
+_RECORDS_PAGE_SIZE = 8
+HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES = 20 * 1024 * 1024
 _TEXT_ADD_ACTION = "haplogroup_add"
 _FILE_UPLOAD_ACTION = "haplogroup_file_upload"
 _STR_COMPARE_ACTION = "haplogroup_str_compare"
@@ -62,6 +64,22 @@ def _copy(lang: str, ru: str, en: str) -> str:
 
 def _next_label(lang: str) -> str:
     return _copy(lang, "Далее", "Next")
+
+
+def _parse_page(value: str | None) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _file_too_large_text(lang: str) -> str:
+    size_mb = HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES // (1024 * 1024)
+    return _copy(
+        lang,
+        f"Файл слишком большой для Haplogroups. Пришлите .txt/.csv/.tsv до {size_mb} MB.",
+        f"The file is too large for Haplogroups. Send a .txt/.csv/.tsv file up to {size_mb} MB.",
+    )
 
 
 class HaplogroupFlowStore:
@@ -121,6 +139,13 @@ def _paginate(items: list[SampleAsset], page: int) -> tuple[list[SampleAsset], i
     return items[start:start + _PAGE_SIZE], normalized_page, total_pages
 
 
+def _paginate_records(records: list[HaplogroupRecord], page: int) -> tuple[list[HaplogroupRecord], int, int]:
+    total_pages = max(1, ceil(len(records) / _RECORDS_PAGE_SIZE)) if records else 1
+    normalized_page = max(0, min(page, total_pages - 1))
+    start = normalized_page * _RECORDS_PAGE_SIZE
+    return records[start:start + _RECORDS_PAGE_SIZE], normalized_page, total_pages
+
+
 async def _show_or_edit(message, text_value: str, reply_markup, *, edit_existing: bool = False) -> None:
     if edit_existing:
         await message.edit_text(text_value, reply_markup=reply_markup, parse_mode="HTML")
@@ -141,7 +166,7 @@ async def show_haplogroups_menu(
         [InlineKeyboardButton("🧬 Y-DNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:y")],
         [InlineKeyboardButton("🧬 mtDNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt")],
         [InlineKeyboardButton("🧮 Y-STR", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:str")],
-        [InlineKeyboardButton("📚 Saved by sample", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved")],
+        [InlineKeyboardButton(_copy(lang, "📚 Записи по sample", "📚 Saved by sample"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved")],
     ]
     await _show_or_edit(message, haplogroups_root_text(lang), build_markup(rows, "main:root", lang=lang), edit_existing=edit_existing)
 
@@ -151,10 +176,10 @@ async def show_lineage_menu(message, type_code: str, *, lang: str = "ru", edit_e
     if haplogroup_type is None:
         return
     rows = [
-        [InlineKeyboardButton("🧬 Detect from raw", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:{type_code}:0")],
-        [InlineKeyboardButton("📤 Upload test result", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:upload")],
+        [InlineKeyboardButton(_copy(lang, "🧬 Определить из raw", "🧬 Detect from raw"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:{type_code}:0")],
+        [InlineKeyboardButton(_copy(lang, "📤 Загрузить результат", "📤 Upload test result"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:upload")],
         [InlineKeyboardButton(_copy(lang, "🌿 Добавить гаплогруппу", "🌿 Add haplogroup"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:add:{type_code}:0")],
-        [InlineKeyboardButton("💾 Saved results", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:{type_code}")],
+        [InlineKeyboardButton(_copy(lang, "💾 Сохранённые записи", "💾 Saved results"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:{type_code}")],
     ]
     await _show_or_edit(
         message,
@@ -166,8 +191,8 @@ async def show_lineage_menu(message, type_code: str, *, lang: str = "ru", edit_e
 
 async def show_detect_type_menu(message, *, lang: str = "ru", edit_existing: bool = False) -> None:
     rows = [
-        [InlineKeyboardButton("🧬 Y-DNA SNP scan", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:y:0")],
-        [InlineKeyboardButton("🧬 mtDNA marker scan", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:mt:0")],
+        [InlineKeyboardButton(_copy(lang, "🧬 Y-DNA из raw", "🧬 Y-DNA SNP scan"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:y:0")],
+        [InlineKeyboardButton(_copy(lang, "🧬 mtDNA из raw", "🧬 mtDNA marker scan"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:mt:0")],
     ]
     await _show_or_edit(message, raw_detect_type_text(lang), build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang), edit_existing=edit_existing)
 
@@ -291,7 +316,7 @@ async def show_raw_scan_result(
     if raw_file is None:
         await _show_or_edit(
             message,
-            error_text("Detect from raw", _copy(lang, "У sample нет исходного raw-файла.", "This sample has no source raw file.")),
+            error_text(_copy(lang, "Определить из raw", "Detect from raw"), _copy(lang, "У sample нет исходного raw-файла.", "This sample has no source raw file.")),
             build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:{type_code}:0", lang=lang),
             edit_existing=edit_existing,
         )
@@ -300,7 +325,7 @@ async def show_raw_scan_result(
     scan = scan_raw_haplogroup_markers(raw_path, haplogroup_type)
     rows = []
     if type_code == "y" and scan.called_markers:
-        rows.append([InlineKeyboardButton("🧬 Predict Y haplogroup", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:yp:{sample.asset_id}")])
+        rows.append([InlineKeyboardButton(_copy(lang, "🧬 Прогноз Y-DNA", "🧬 Predict Y haplogroup"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:yp:{sample.asset_id}")])
     await _show_or_edit(
         message,
         raw_scan_result_text(sample, scan, lang=lang),
@@ -326,7 +351,7 @@ async def show_y_prediction(
     if raw_file is None:
         await _show_or_edit(
             message,
-            error_text("Y-DNA prediction", _copy(lang, "У sample нет исходного raw-файла.", "This sample has no source raw file.")),
+            error_text(_copy(lang, "Прогноз Y-DNA", "Y-DNA prediction"), _copy(lang, "У sample нет исходного raw-файла.", "This sample has no source raw file.")),
             build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:y:0", lang=lang),
             edit_existing=edit_existing,
         )
@@ -404,6 +429,8 @@ async def show_records_menu(
     *,
     sample_id: str | None = None,
     haplogroup_type: str | None = None,
+    page: int = 0,
+    page_callback_base: str | None = None,
     back_callback: str = f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
     record_action: str = "o",
     lang: str = "ru",
@@ -413,6 +440,14 @@ async def show_records_menu(
     records = _store(context).list_sample_records(user_id, sample_id) if sample_id else _store(context).list_records(user_id)
     if haplogroup_type:
         records = [record for record in records if record.haplogroup_type == haplogroup_type]
+    page_records, current_page, total_pages = _paginate_records(records, page)
+    if page_callback_base is None:
+        if sample_id:
+            page_action = "hsample" if record_action == "ho" else "sample"
+            page_callback_base = f"{HAPLOGROUPS_CALLBACK_PREFIX}:{page_action}:{sample_id}"
+        else:
+            type_code = next((code for code, value in _TYPE_CODES.items() if value == haplogroup_type), "all")
+            page_callback_base = f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:{type_code}"
     rows = [
         [
             InlineKeyboardButton(
@@ -420,8 +455,16 @@ async def show_records_menu(
                 callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:{record_action}:{record.record_id}",
             )
         ]
-        for record in records[:20]
+        for record in page_records
     ]
+    if page_callback_base and total_pages > 1:
+        pager = []
+        if current_page > 0:
+            pager.append(InlineKeyboardButton(t("nav.back", lang), callback_data=f"{page_callback_base}:{current_page - 1}"))
+        if current_page + 1 < total_pages:
+            pager.append(InlineKeyboardButton(_next_label(lang), callback_data=f"{page_callback_base}:{current_page + 1}"))
+        if pager:
+            rows.append(pager)
     if sample is not None:
         rows.append([InlineKeyboardButton(_copy(lang, "🌿 Добавить Y-DNA", "🌿 Add Y-DNA"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:pick:y:{sample.asset_id}")])
         rows.append([InlineKeyboardButton(_copy(lang, "🌿 Добавить mtDNA", "🌿 Add mtDNA"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:pick:mt:{sample.asset_id}")])
@@ -492,8 +535,8 @@ async def show_str_profiles_menu(
         for profile in profiles
     ]
     if len(profiles) >= 2:
-        rows.insert(0, [InlineKeyboardButton("🧮 Compare STR distance", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:scmp")])
-    rows.append([InlineKeyboardButton("📤 Upload Y-STR result", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:upload")])
+        rows.insert(0, [InlineKeyboardButton(_copy(lang, "🧮 Сравнить STR", "🧮 Compare STR distance"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:scmp")])
+    rows.append([InlineKeyboardButton(_copy(lang, "📤 Загрузить Y-STR", "📤 Upload Y-STR result"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:upload")])
     await _show_or_edit(message, str_profiles_text(profiles, lang), build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang), edit_existing=edit_existing)
 
 
@@ -510,14 +553,14 @@ async def show_str_profile_detail(
     if profile is None:
         await _show_or_edit(
             message,
-            error_text("Y-STR profile", "Profile not found."),
+            error_text(_copy(lang, "Y-STR профиль", "Y-STR profile"), _copy(lang, "Профиль не найден.", "Profile not found.")),
             build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:str", lang=lang),
             edit_existing=edit_existing,
         )
         return
     rows = []
     if len(_store(context).list_y_str_profiles(user_id)) >= 2:
-        rows.append([InlineKeyboardButton("🧮 Compare STR distance", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:stra:{profile.profile_id}")])
+        rows.append([InlineKeyboardButton(_copy(lang, "🧮 Сравнить STR", "🧮 Compare STR distance"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:stra:{profile.profile_id}")])
     await _show_or_edit(
         message,
         str_profile_detail_text(profile, lang),
@@ -573,7 +616,7 @@ async def show_str_distance_result(
     if left is None or right is None:
         await _show_or_edit(
             message,
-            error_text("Y-STR distance", "Profile not found."),
+            error_text(_copy(lang, "Y-STR сравнение", "Y-STR distance"), _copy(lang, "Профиль не найден.", "Profile not found.")),
             build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:str", lang=lang),
             edit_existing=edit_existing,
         )
@@ -741,6 +784,10 @@ async def haplogroups_document_input_handler(update: Update, context: ContextTyp
         raise ApplicationHandlerStop
 
     document = update.message.document
+    if document.file_size and document.file_size > HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES:
+        await update.message.reply_text(_file_too_large_text(lang), do_quote=False)
+        raise ApplicationHandlerStop
+
     file_name = document.file_name or "haplogroup-result.txt"
     temp_path = _my_data_store(context).build_temp_path(user_id, file_name)
     status_message = await update.message.reply_text(
@@ -795,7 +842,7 @@ async def haplogroups_document_input_handler(update: Update, context: ContextTyp
     flow.clear(chat_id, user_id)
     if not records:
         if str_profile is not None:
-            rows = [[InlineKeyboardButton("📈 Open Y-STR profiles", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:str")]]
+            rows = [[InlineKeyboardButton(_copy(lang, "📈 Открыть Y-STR", "📈 Open Y-STR profiles"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:str")]]
             await status_message.edit_text(
                 imported_str_profile_text(sample, str_profile, lang),
                 reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:str", lang=lang),
@@ -882,7 +929,7 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             query.message,
             context,
             user_id,
-            page=int(parts[2] if len(parts) > 2 else 0),
+            page=_parse_page(parts[2] if len(parts) > 2 else None),
             lang=lang,
             edit_existing=True,
         )
@@ -892,7 +939,7 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             query.message,
             context,
             user_id,
-            page=int(parts[2] if len(parts) > 2 else 0),
+            page=_parse_page(parts[2] if len(parts) > 2 else None),
             lang=lang,
             edit_existing=True,
         )
@@ -958,7 +1005,7 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             context,
             user_id,
             parts[2] if len(parts) > 2 else "",
-            page=int(parts[3] if len(parts) > 3 else 0),
+            page=_parse_page(parts[3] if len(parts) > 3 else None),
             mode="manual",
             back_callback=f"{HAPLOGROUPS_CALLBACK_PREFIX}:manual_add_data" if back_to_add_data else None,
             lang=lang,
@@ -971,7 +1018,7 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             context,
             user_id,
             parts[2] if len(parts) > 2 else "",
-            page=int(parts[3] if len(parts) > 3 else 0),
+            page=_parse_page(parts[3] if len(parts) > 3 else None),
             mode="detect",
             lang=lang,
             edit_existing=True,
@@ -1012,11 +1059,19 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
         return
     if action == "list":
         type_code = parts[2] if len(parts) > 2 else ""
+        page_text = parts[3] if len(parts) > 3 else None
+        if type_code == "all":
+            type_code = ""
+        elif type_code and type_code not in _TYPE_CODES and type_code.isdigit():
+            page_text = type_code
+            type_code = ""
         await show_records_menu(
             query.message,
             context,
             user_id,
             haplogroup_type=_TYPE_CODES.get(type_code),
+            page=_parse_page(page_text),
+            page_callback_base=f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:{type_code or 'all'}",
             back_callback=f"{HAPLOGROUPS_CALLBACK_PREFIX}:{type_code}" if type_code in _TYPE_CODES else f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
             lang=lang,
             edit_existing=True,
@@ -1028,6 +1083,8 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             context,
             user_id,
             sample_id=parts[2] if len(parts) > 2 else "",
+            page=_parse_page(parts[3] if len(parts) > 3 else None),
+            page_callback_base=f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{parts[2]}" if len(parts) > 2 else None,
             back_callback=f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved",
             record_action="ho",
             lang=lang,
@@ -1040,6 +1097,8 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             context,
             user_id,
             sample_id=parts[2] if len(parts) > 2 else "",
+            page=_parse_page(parts[3] if len(parts) > 3 else None),
+            page_callback_base=f"{HAPLOGROUPS_CALLBACK_PREFIX}:sample:{parts[2]}" if len(parts) > 2 else None,
             back_callback="my_data:samples_view",
             lang=lang,
             edit_existing=True,

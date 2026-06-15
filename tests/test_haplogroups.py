@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 import unittest
 from tempfile import TemporaryDirectory
 from pathlib import Path
+
+from telegram.ext import ApplicationHandlerStop
 
 from app.features.haplogroups.domain import (
     DEFAULT_Y_SNP_REFERENCE_PATH,
@@ -13,8 +16,16 @@ from app.features.haplogroups.domain import (
     predict_y_haplogroup_from_raw,
     scan_raw_haplogroup_markers,
 )
-from app.features.haplogroups.menu import HAPLOGROUPS_CALLBACK_PREFIX, parse_haplogroup_input
-from app.features.haplogroups.storage import HaplogroupStore
+from app.features.haplogroups.menu import (
+    HAPLOGROUPS_CALLBACK_PREFIX,
+    HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES,
+    HaplogroupFlowStore,
+    _FILE_UPLOAD_ACTION,
+    _paginate_records,
+    haplogroups_document_input_handler,
+    parse_haplogroup_input,
+)
+from app.features.haplogroups.storage import HaplogroupRecord, HaplogroupStore
 from app.features.haplogroups.ui import raw_scan_result_text
 from app.features.my_data.storage import SampleAsset
 
@@ -23,6 +34,21 @@ def _write_raw(path: Path, rows: list[tuple[str, str, int, str]]) -> None:
     body = ["rsid\tchromosome\tposition\tgenotype"]
     body.extend(f"{rsid}\t{chromosome}\t{position}\t{genotype}" for rsid, chromosome, position, genotype in rows)
     path.write_text("\n".join(body) + "\n", encoding="utf-8")
+
+
+def _haplogroup_record(index: int) -> HaplogroupRecord:
+    return HaplogroupRecord(
+        record_id=f"record-{index}",
+        sample_id="sample-1",
+        sample_name="Sample One",
+        haplogroup_type="Y-DNA",
+        haplogroup=f"J{index}",
+        terminal_snp="",
+        source="",
+        confidence="user-entered",
+        note="",
+        created_at="2026-06-16T00:00:00",
+    )
 
 
 class HaplogroupTests(unittest.TestCase):
@@ -383,8 +409,11 @@ class HaplogroupTests(unittest.TestCase):
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:scmp",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:stra:{record_id}",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:strb:{record_id}",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:all:1",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:y",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:y:1",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:mt",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:list:mt:1",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:add:y:0",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:add:mt:0",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:y:0",
@@ -396,13 +425,93 @@ class HaplogroupTests(unittest.TestCase):
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:yp:{asset_id}",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:upick:{asset_id}",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:sample:{asset_id}",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:sample:{asset_id}:1",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{asset_id}",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{asset_id}:1",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:o:{record_id}",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:ho:{record_id}",
         ]
 
         for callback in callbacks:
             self.assertLessEqual(len(callback.encode("utf-8")), 64, callback)
+
+    def test_records_pagination_clamps_pages(self) -> None:
+        records = [_haplogroup_record(index) for index in range(21)]
+
+        first, first_page, total_pages = _paginate_records(records, 0)
+        middle, middle_page, _ = _paginate_records(records, 1)
+        last, last_page, _ = _paginate_records(records, 99)
+
+        self.assertEqual(len(first), 8)
+        self.assertEqual(first_page, 0)
+        self.assertEqual(total_pages, 3)
+        self.assertEqual(len(middle), 8)
+        self.assertEqual(middle_page, 1)
+        self.assertEqual(len(last), 5)
+        self.assertEqual(last_page, 2)
+
+
+class _LargeDocument:
+    file_name = "huge-haplogroups.csv"
+    file_size = HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES + 1
+
+    def __init__(self) -> None:
+        self.get_file_called = False
+
+    async def get_file(self):
+        self.get_file_called = True
+        return SimpleNamespace(download_to_drive=lambda custom_path: None)
+
+
+class _DocumentMessage:
+    def __init__(self, document: _LargeDocument) -> None:
+        self.document = document
+        self.replies: list[str] = []
+
+    async def reply_text(self, text: str, **kwargs):
+        self.replies.append(text)
+        return SimpleNamespace(message_id=10)
+
+
+class _MyDataStub:
+    def __init__(self) -> None:
+        self.build_temp_path_called = False
+
+    def get_sample(self, user_id: int, sample_id: str) -> SampleAsset | None:
+        return SampleAsset(sample_id, "Sample One", "raw-1", [], "2026-06-16T00:00:00")
+
+    def build_temp_path(self, user_id: int, file_name: str) -> Path:
+        self.build_temp_path_called = True
+        return Path(file_name)
+
+
+class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_document_upload_rejects_oversized_file_before_download(self) -> None:
+        flow = HaplogroupFlowStore()
+        flow.expect(10, 123, {"sample_id": "sample-1"}, action=_FILE_UPLOAD_ACTION)
+        my_data_store = _MyDataStub()
+        context = SimpleNamespace(
+            application=SimpleNamespace(
+                bot_data={
+                    "haplogroup_flow_store": flow,
+                    "my_data_store": my_data_store,
+                }
+            )
+        )
+        document = _LargeDocument()
+        message = _DocumentMessage(document)
+        update = SimpleNamespace(
+            message=message,
+            effective_chat=SimpleNamespace(id=10),
+            effective_user=SimpleNamespace(id=123),
+        )
+
+        with self.assertRaises(ApplicationHandlerStop):
+            await haplogroups_document_input_handler(update, context)
+
+        self.assertFalse(document.get_file_called)
+        self.assertFalse(my_data_store.build_temp_path_called)
+        self.assertIn("слишком большой", message.replies[0])
 
 
 if __name__ == "__main__":
