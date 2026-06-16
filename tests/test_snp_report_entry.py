@@ -20,6 +20,7 @@ from app.features.snp_report.ui import (
     build_db_rsid_not_found_keyboard,
     build_db_root_keyboard,
     build_db_rule_keyboard,
+    build_db_sources_keyboard,
     build_interesting_detail_keyboard,
     build_interesting_picker_keyboard,
     build_interesting_result_keyboard_for_analysis,
@@ -29,6 +30,8 @@ from app.features.snp_report.ui import (
     build_search_result_keyboard_for_rule,
     db_rsid_not_found_text,
     db_rule_text,
+    db_root_text,
+    db_sources_text,
     interesting_detail_text,
     interesting_result_text,
     interesting_picker_text,
@@ -286,10 +289,31 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertIn("🔎 Найти rsID", labels)
         self.assertIn("🧬 Найти gene/locus", labels)
         self.assertIn("📂 Разделы базы", labels)
+        self.assertIn("ℹ️ Источники базы", labels)
         self.assertIn("snp_report:db_search", callbacks)
         self.assertIn("snp_report:db_gene", callbacks)
         self.assertIn("snp_report:dbcats", callbacks)
         self.assertIn("snp_report:dbpopular", callbacks)
+        self.assertIn("snp_report:db_sources", callbacks)
+
+    def test_snp_base_sources_are_explicit(self) -> None:
+        rules = load_snp_rules()
+
+        root_text = db_root_text(rules)
+        self.assertIn("Источников панели:", root_text)
+        self.assertIn("Слоёв описаний:", root_text)
+
+        sources_text = db_sources_text(rules)
+        self.assertIn("Слой генотипов панели", sources_text)
+        self.assertIn("legacy-импорт панели отчёта", sources_text)
+        self.assertIn("Норма панели", sources_text)
+
+        callbacks = [
+            button.callback_data
+            for row in build_db_sources_keyboard().inline_keyboard
+            for button in row
+        ]
+        self.assertIn("snp_report:db", callbacks)
 
     def test_snp_base_rsid_miss_can_be_checked_in_sample(self) -> None:
         text = db_rsid_not_found_text("rs999999")
@@ -378,7 +402,9 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertIn("COMT", text)
         self.assertIn("Что известно", text)
         self.assertIn("В панели", text)
-        self.assertIn("Норма:", text)
+        self.assertIn("Норма панели:", text)
+        self.assertIn("Источник нормы:", text)
+        self.assertIn("Источник описания:", text)
         self.assertNotIn("Описание:", text)
         self.assertIn("dbSNP", text)
         self.assertIn("SNPedia", text)
@@ -402,7 +428,7 @@ class SnpReportEntryTests(unittest.TestCase):
         text = db_rule_text(rule)
 
         self.assertIn("Подробного описания для этого SNP пока нет", text)
-        self.assertIn("Норма:", text)
+        self.assertIn("Норма панели:", text)
 
     def test_sample_lookup_result_explains_panel_status_for_known_snp(self) -> None:
         rule = next(rule for rule in load_snp_rules() if rule.rsid == "rs4680")

@@ -624,27 +624,33 @@ def build_search_result_keyboard_for_rule(sample_id: str, *, rule_index: int | N
 def db_root_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
     categories = _category_names(rules)
     annotated = sum(1 for rule in rules if rule.description or rule.gene or rule.title)
+    panel_sources = _source_count(rules, "panel_source")
+    annotation_sources = _source_count(rules, "annotation_source")
     if lang == "en":
         return "\n".join(
             [
                 "📚 <b>SNP base</b>",
                 "",
-                f"SNP in panel: <b>{len(rules)}</b>",
+                f"Panel markers: <b>{len(rules)}</b>",
                 f"Annotated cards: <b>{annotated}</b>",
                 f"Categories: <b>{len(categories)}</b>",
+                f"Panel sources: <b>{len(panel_sources)}</b>",
+                f"Annotation layers: <b>{len(annotation_sources)}</b>",
                 "",
-                "Choose a search mode. rsID is exact, gene/locus is broader, categories are for browsing.",
+                "This is a panel catalog plus annotations, not a universal medical database.",
             ]
         )
     return "\n".join(
         [
             "📚 <b>База SNP</b>",
             "",
-            f"SNP в панели: <b>{len(rules)}</b>",
+            f"Маркеров панели: <b>{len(rules)}</b>",
             f"Карточек с описанием: <b>{annotated}</b>",
             f"Разделов: <b>{len(categories)}</b>",
+            f"Источников панели: <b>{len(panel_sources)}</b>",
+            f"Слоёв описаний: <b>{len(annotation_sources)}</b>",
             "",
-            "Выберите режим поиска. rsID — точный поиск, gene/locus — шире, разделы — для просмотра панели.",
+            "Это каталог панели с аннотациями, а не универсальная медицинская база.",
         ]
     )
 
@@ -654,15 +660,57 @@ def build_db_root_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
     gene_label = "🧬 Find gene/locus" if lang == "en" else "🧬 Найти gene/locus"
     cats_label = "📂 Base sections" if lang == "en" else "📂 Разделы базы"
     popular_label = "⭐ Popular SNP" if lang == "en" else "⭐ Популярные SNP"
+    sources_label = "ℹ️ Sources" if lang == "en" else "ℹ️ Источники базы"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(rsid_label, callback_data="snp_report:db_search")],
             [InlineKeyboardButton(gene_label, callback_data="snp_report:db_gene")],
             [InlineKeyboardButton(cats_label, callback_data="snp_report:dbcats")],
             [InlineKeyboardButton(popular_label, callback_data="snp_report:dbpopular")],
+            [InlineKeyboardButton(sources_label, callback_data="snp_report:db_sources")],
             _back_cancel_row("snp_report:root"),
         ]
     )
+
+
+def db_sources_text(rules: tuple[SnpRule, ...], *, lang: str = "ru") -> str:
+    panel_sources = _source_count(rules, "panel_source")
+    annotation_sources = _source_count(rules, "annotation_source")
+    panel_lines = _source_count_lines(panel_sources, lang=lang)
+    annotation_lines = _source_count_lines(annotation_sources, lang=lang)
+    if lang == "en":
+        return "\n".join(
+            [
+                "ℹ️ <b>SNP base sources</b>",
+                "",
+                "<b>Panel genotype layer</b>",
+                *panel_lines,
+                "",
+                "<b>Annotation layer</b>",
+                *(annotation_lines or ["No annotation layer is attached."]),
+                "",
+                "Panel genotype means the reference value used by this report panel. It is not a universal biological norm.",
+                "External links in cards point to dbSNP and SNPedia for manual checking.",
+            ]
+        )
+    return "\n".join(
+        [
+            "ℹ️ <b>Источники SNP базы</b>",
+            "",
+            "<b>Слой генотипов панели</b>",
+            *panel_lines,
+            "",
+            "<b>Слой описаний</b>",
+            *(annotation_lines or ["Слой описаний не подключён."]),
+            "",
+            "Норма панели — это reference-значение текущей панели отчёта. Это не универсальная биологическая норма.",
+            "В карточках также есть ссылки на dbSNP и SNPedia для ручной проверки.",
+        ]
+    )
+
+
+def build_db_sources_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([_back_cancel_row("snp_report:db")])
 
 
 def db_search_input_text(*, mode: str, lang: str = "ru") -> str:
@@ -876,11 +924,16 @@ def db_rule_text(rule: SnpRule, *, lang: str = "ru") -> str:
                 html.escape(description) if description else "No detailed description has been added yet. This card shows the panel section and reference genotype.",
                 "",
                 "<b>In the panel</b>",
-                f"Reference genotype: <code>{html.escape(rule.normal_genotype)}</code>",
+                f"Panel reference genotype: <code>{html.escape(rule.normal_genotype)}</code>",
                 f"Section: <b>{html.escape(rule.category)}</b>",
+                f"Panel source: <b>{html.escape(_source_label(rule.panel_source, lang=lang))}</b>",
+                f"Evidence type: <b>{html.escape(_evidence_label(rule.evidence, lang=lang))}</b>",
+                f"Annotation source: <b>{html.escape(_source_label(rule.annotation_source, lang=lang))}</b>"
+                if rule.annotation_source else
+                "Annotation source: not attached",
                 sources,
                 "",
-                "Reference card, not a medical interpretation.",
+                "Reference card, not a medical interpretation. The panel reference genotype is not a universal norm.",
             ]
         )
         return "\n".join(lines)
@@ -899,11 +952,16 @@ def db_rule_text(rule: SnpRule, *, lang: str = "ru") -> str:
             html.escape(description) if description else "Подробного описания для этого SNP пока нет. Карточка показывает раздел панели и норму панели.",
             "",
             "<b>В панели</b>",
-            f"Норма: <code>{html.escape(rule.normal_genotype)}</code>",
+            f"Норма панели: <code>{html.escape(rule.normal_genotype)}</code>",
             f"Раздел: <b>{html.escape(rule.category)}</b>",
+            f"Источник нормы: <b>{html.escape(_source_label(rule.panel_source, lang=lang))}</b>",
+            f"Тип доказательности: <b>{html.escape(_evidence_label(rule.evidence, lang=lang))}</b>",
+            f"Источник описания: <b>{html.escape(_source_label(rule.annotation_source, lang=lang))}</b>"
+            if rule.annotation_source else
+            "Источник описания: не подключён",
             sources,
             "",
-            "Справочная карточка, не медицинский вывод.",
+            "Справочная карточка, не медицинский вывод. Норма панели не является универсальной нормой.",
         ]
     )
     return "\n".join(lines)
@@ -1353,6 +1411,57 @@ def _rule_sources_line(rule: SnpRule, *, lang: str = "ru") -> str:
         f'{title}: <a href="https://www.ncbi.nlm.nih.gov/snp/{rsid}">dbSNP</a> · '
         f'<a href="https://www.snpedia.com/index.php/{rsid.capitalize()}">SNPedia</a>'
     )
+
+
+def _source_count(rules: tuple[SnpRule, ...], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for rule in rules:
+        value = str(getattr(rule, field, "") or "").strip()
+        if not value:
+            continue
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def _source_count_lines(counts: dict[str, int], *, lang: str = "ru") -> list[str]:
+    return [
+        f"• {html.escape(_source_label(source, lang=lang))}: <b>{count}</b>"
+        for source, count in sorted(counts.items(), key=lambda item: (-item[1], _source_label(item[0], lang=lang).casefold()))
+    ]
+
+
+def _source_label(source: str, *, lang: str = "ru") -> str:
+    normalized = str(source or "").strip()
+    if not normalized:
+        return "not attached" if lang == "en" else "не подключён"
+    labels = {
+        "legacy_panel": (
+            "legacy report panel import",
+            "legacy-импорт панели отчёта",
+        ),
+        "kbdna_annotations": (
+            "KBDNA curated annotation layer",
+            "кураторский слой описаний KBDNA",
+        ),
+    }
+    if normalized in labels:
+        return labels[normalized][0 if lang == "en" else 1]
+    return normalized.replace("_", " ")
+
+
+def _evidence_label(evidence: str, *, lang: str = "ru") -> str:
+    normalized = str(evidence or "").strip()
+    labels = {
+        "panel_norm": (
+            "panel reference genotype",
+            "reference-генотип панели",
+        ),
+    }
+    if normalized in labels:
+        return labels[normalized][0 if lang == "en" else 1]
+    if not normalized:
+        return "not specified" if lang == "en" else "не указано"
+    return normalized.replace("_", " ")
 
 
 def _row_summary(row: object) -> str:

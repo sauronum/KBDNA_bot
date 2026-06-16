@@ -10,6 +10,8 @@ from g25_core.g25_engine import parse_raw_dna
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_RULES_PATH = DATA_DIR / "snp_norms.csv"
 DEFAULT_ANNOTATIONS_PATH = DATA_DIR / "snp_annotations.csv"
+DEFAULT_PANEL_SOURCE = "legacy_panel"
+DEFAULT_ANNOTATION_SOURCE = "kbdna_annotations"
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,7 @@ class SnpAnnotation:
     gene: str
     title: str
     description: str
+    source: str = DEFAULT_ANNOTATION_SOURCE
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,9 @@ class SnpRule:
     gene: str = ""
     title: str = ""
     description: str = ""
+    panel_source: str = DEFAULT_PANEL_SOURCE
+    annotation_source: str = ""
+    evidence: str = "panel_norm"
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,9 @@ class SnpReportRow:
     gene: str = ""
     title: str = ""
     description: str = ""
+    panel_source: str = DEFAULT_PANEL_SOURCE
+    annotation_source: str = ""
+    evidence: str = "panel_norm"
 
 
 @dataclass(frozen=True)
@@ -82,6 +91,8 @@ def load_snp_rules(
             category = parts[2].strip()
             annotation = annotations.get(rsid)
             description = parts[3].strip() if len(parts) >= 4 else ""
+            panel_source = parts[4].strip() if len(parts) >= 5 and parts[4].strip() else DEFAULT_PANEL_SOURCE
+            evidence = parts[5].strip() if len(parts) >= 6 and parts[5].strip() else "panel_norm"
             if rsid.startswith("rs") and normal and category:
                 rules.append(
                     SnpRule(
@@ -91,6 +102,9 @@ def load_snp_rules(
                         gene=annotation.gene if annotation is not None else "",
                         title=annotation.title if annotation is not None else "",
                         description=description or (annotation.description if annotation is not None else ""),
+                        panel_source=panel_source,
+                        annotation_source=annotation.source if annotation is not None else "",
+                        evidence=evidence,
                     )
                 )
     return tuple(rules)
@@ -125,6 +139,9 @@ def build_snp_report(
                 gene=rule.gene,
                 title=rule.title,
                 description=rule.description,
+                panel_source=rule.panel_source,
+                annotation_source=rule.annotation_source,
+                evidence=rule.evidence,
             )
         )
 
@@ -212,5 +229,6 @@ def _load_snp_annotations(path: Path) -> dict[str, SnpAnnotation]:
                 gene=str(row.get("gene") or "").strip(),
                 title=str(row.get("title") or "").strip(),
                 description=str(row.get("description") or "").strip(),
+                source=str(row.get("source") or DEFAULT_ANNOTATION_SOURCE).strip(),
             )
     return annotations

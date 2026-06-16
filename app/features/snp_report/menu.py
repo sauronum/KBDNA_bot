@@ -24,6 +24,7 @@ from .ui import (
     build_db_rsid_not_found_keyboard,
     build_db_root_keyboard,
     build_db_search_input_keyboard,
+    build_db_sources_keyboard,
     build_error_keyboard,
     build_interesting_picker_keyboard,
     build_interesting_detail_keyboard,
@@ -49,6 +50,7 @@ from .ui import (
     db_rsid_not_found_text,
     db_root_text,
     db_search_input_text,
+    db_sources_text,
     error_text,
     interesting_detail_text,
     interesting_picker_text,
@@ -279,6 +281,11 @@ async def snp_report_callback_handler(update: Update, context: ContextTypes.DEFA
     if action == "dbpopular":
         await query.answer()
         await _show_popular_snps(query.message, context, user_id, edit_existing=True)
+        return
+
+    if action == "db_sources":
+        await query.answer()
+        await _show_db_sources(query.message, context, user_id, edit_existing=True)
         return
 
     if action == "dbcat":
@@ -821,6 +828,19 @@ async def _show_popular_snps(
     lang = _ui_lang(context, user_id)
     text = popular_snps_text(lang=lang)
     markup = build_popular_snps_keyboard(_rules(context), lang=lang)
+    await _show_text_menu(message, text, markup, edit_existing=edit_existing)
+
+
+async def _show_db_sources(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    *,
+    edit_existing: bool,
+) -> None:
+    lang = _ui_lang(context, user_id)
+    text = db_sources_text(_rules(context), lang=lang)
+    markup = build_db_sources_keyboard(lang=lang)
     await _show_text_menu(message, text, markup, edit_existing=edit_existing)
 
 
