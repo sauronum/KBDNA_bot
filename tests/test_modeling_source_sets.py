@@ -8,6 +8,8 @@ from types import SimpleNamespace
 
 from app.features.modeling import source_sets as modeling_source_sets
 from app.features.vahaduo.ready_model_sets import (
+    ReadyModelSet,
+    ReadyModelSource,
     get_source_set,
     list_runnable_source_sets,
     list_source_sets,
@@ -49,6 +51,23 @@ class VahaduoReadyModelSetsTests(unittest.TestCase):
             path.write_text(json.dumps({"version": 1, "sets": [{"id": "broken"}]}), encoding="utf-8")
 
             self.assertEqual(load_source_sets(path), [])
+
+    def test_source_set_is_runnable_requires_valid_source_paths(self) -> None:
+        def make_set(source_path: str) -> ReadyModelSet:
+            return ReadyModelSet(
+                id="path_check",
+                title="Path check",
+                short_title="Path check",
+                status="ready",
+                type="g25_source_fit",
+                description="Checks source path health.",
+                interpretation_note="Это G25-fit модель, не qpAdm. Компоненты являются proxy-источниками.",
+                sources=(ReadyModelSource("Maikop", "🏔", "Maikop", source_path),),
+            )
+
+        self.assertTrue(source_set_is_runnable(make_set("custom_sources/Maikop.txt")))
+        self.assertFalse(source_set_is_runnable(make_set("custom_sources/Definitely_Missing_Source.txt")))
+        self.assertFalse(source_set_is_runnable(make_set("../data/vahaduo/ready_models.json")))
 
 
 class ModelingSourceSetsDatasetTests(unittest.TestCase):

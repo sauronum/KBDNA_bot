@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 _ROOT_DIR = Path(__file__).resolve().parents[3]
 _READY_MODELS_PATH = _ROOT_DIR / "data" / "vahaduo" / "ready_models.json"
+_PANELS_DIR = _ROOT_DIR / "g25_core" / "panels"
 _VALID_STATUSES = {"ready", "draft"}
 _VALID_TYPES = {"g25_source_fit"}
 
@@ -68,12 +69,30 @@ def get_source_set(set_id: str) -> ReadyModelSet | None:
 
 
 def source_set_is_runnable(source_set: ReadyModelSet | None) -> bool:
-    return (
-        source_set is not None
-        and source_set.status == "ready"
-        and source_set.type in _VALID_TYPES
-        and bool(source_set.sources)
-    )
+    if (
+        source_set is None
+        or source_set.status != "ready"
+        or source_set.type not in _VALID_TYPES
+        or not source_set.sources
+    ):
+        return False
+    return all(_catalog_source_path_exists(source.source_path) for source in source_set.sources)
+
+
+def _catalog_source_path_exists(source_path: str) -> bool:
+    candidate = _resolve_catalog_source_path(source_path)
+    return bool(candidate and candidate.is_file())
+
+
+def _resolve_catalog_source_path(source_path: str) -> Path | None:
+    cleaned = str(source_path or "").replace("\\", "/").strip().lstrip("/")
+    if not cleaned:
+        return None
+    candidate = (_PANELS_DIR / cleaned).resolve()
+    panels_root = _PANELS_DIR.resolve()
+    if candidate == panels_root or panels_root not in candidate.parents:
+        return None
+    return candidate
 
 
 def _parse_source_sets(payload: Any) -> list[ReadyModelSet]:
