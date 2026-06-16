@@ -75,13 +75,13 @@ def _build_g25vahaduo_full_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup
             InlineKeyboardButton(_copy(lang, "📚 Мои источники", "📚 My sources"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data"),
         ],
         [
-            InlineKeyboardButton("📏 Distance", callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_mode_distance"),
+            InlineKeyboardButton(_vahaduo_mode_title("distance", lang=lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_mode_distance"),
         ],
         [
-            InlineKeyboardButton("🧬 Single", callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_mode_single"),
+            InlineKeyboardButton(_vahaduo_mode_title("single", lang=lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_mode_single"),
         ],
         [
-            InlineKeyboardButton("🧩 Multi", callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_mode_multi"),
+            InlineKeyboardButton(_vahaduo_mode_title("multi", lang=lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_mode_multi"),
         ],
         [
             InlineKeyboardButton(_copy(lang, "📚 Готовые модели", "📚 Ready models"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:ready_models"),
@@ -101,20 +101,20 @@ def _g25vahaduo_full_text(*, lang: str = "ru") -> str:
     ])
 
 
-def _vahaduo_mode_label(mode: str) -> str:
+def _vahaduo_mode_label(mode: str, *, lang: str = "ru") -> str:
     if mode == "single":
-        return "Single"
+        return _copy(lang, "один профиль", "Single")
     if mode == "multi":
-        return "Multi"
-    return "Distance"
+        return _copy(lang, "несколько профилей", "Multi")
+    return _copy(lang, "дистанции", "Distance")
 
 
-def _vahaduo_mode_title(mode: str) -> str:
+def _vahaduo_mode_title(mode: str, *, lang: str = "ru") -> str:
     if mode == "single":
-        return "🧬 Single"
+        return _copy(lang, "🧬 Один профиль", "🧬 Single")
     if mode == "multi":
-        return "🧩 Multi"
-    return "📏 Distance"
+        return _copy(lang, "🧩 Несколько профилей", "🧩 Multi")
+    return _copy(lang, "📏 Дистанции", "📏 Distance")
 
 
 def _vahaduo_source_set_label(raw_label: str, *, lang: str = "ru") -> str:
@@ -190,15 +190,15 @@ def _vahaduo_model_context_lines(state: dict[str, object], *, include_count: boo
     return lines
 
 
-def _vahaduo_source_button_label(item: dict[str, object]) -> str:
+def _vahaduo_source_button_label(item: dict[str, object], *, lang: str = "ru") -> str:
     key = str(item.get("key") or "").strip().lower()
     label = str(item.get("label") or "").strip()
     if key == "modern" or label.lower() == "modern":
-        return "🌍 Modern"
+        return _copy(lang, "🌍 Современные", "🌍 Modern")
     if key in {"origin", "ancestry", "ancient"} or label.lower() in {"ancestry", "ancient"}:
-        return "🏺 Ancient"
+        return _copy(lang, "🏺 Древние", "🏺 Ancient")
     if key in {"panel1", "panel2"} or label.lower() in {"steppe_russia", "eba"}:
-        return _vahaduo_source_set_label(label or key)
+        return _vahaduo_source_set_label(label or key, lang=lang)
     return label
 
 
@@ -208,9 +208,9 @@ def _vahaduo_source_display_label(state: dict[str, object], *, lang: str = "ru")
     input_mode = str(state.get("source_input_mode") or "").strip().lower()
     label_lower = label.lower()
     if key == "modern" or label_lower == "modern":
-        return "🌍 Modern"
+        return _copy(lang, "🌍 Современные", "🌍 Modern")
     if key in {"origin", "ancestry", "ancient"} or label_lower in {"origin", "ancestry", "ancient"}:
-        return "🏺 Ancient"
+        return _copy(lang, "🏺 Древние", "🏺 Ancient")
     if key.startswith("saved_") or input_mode in {"saved", "source-text", "source-file"}:
         return _copy(lang, "📚 Мои источники", "📚 My sources")
     return label or _copy(lang, "📚 Мои источники", "📚 My sources")
@@ -218,7 +218,7 @@ def _vahaduo_source_display_label(state: dict[str, object], *, lang: str = "ru")
 
 def _vahaduo_target_section_label(source: str, *, lang: str = "ru") -> str:
     if source == "samples":
-        return "🧬 Samples"
+        return _copy(lang, "🧬 Примеры", "🧬 Samples")
     return _copy(lang, "📍 G25-профили", "📍 G25 profiles")
 
 
@@ -232,7 +232,7 @@ def _build_g25vahaduo_source_menu_keyboard(
     rows = [
         [
             InlineKeyboardButton(
-                _vahaduo_source_button_label(item),
+                _vahaduo_source_button_label(item, lang=lang),
                 callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_preset:{item['key']}",
             )
         ]
@@ -250,7 +250,7 @@ def _build_g25vahaduo_source_menu_keyboard(
 
 def _g25vahaduo_source_menu_text(state: dict[str, object], *, lang: str = "ru") -> str:
     mode = str(state.get("mode") or "distance")
-    return f"{_vahaduo_mode_title(mode)}\n\n{_copy(lang, 'Выберите источники', 'Choose sources')}"
+    return f"{_vahaduo_mode_title(mode, lang=lang)}\n\n{_copy(lang, 'Выберите источники', 'Choose sources')}"
 
 
 def _build_g25vahaduo_data_mode_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
@@ -259,10 +259,10 @@ def _build_g25vahaduo_data_mode_keyboard(*, lang: str = "ru") -> InlineKeyboardM
             InlineKeyboardButton(_my_g25_label(lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_targets"),
         ],
         [
-            InlineKeyboardButton(_copy(lang, "Мои источники для Distance", "My sources for Distance"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_distance"),
+            InlineKeyboardButton(_copy(lang, "Мои источники для дистанций", "My sources for Distance"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_distance"),
         ],
         [
-            InlineKeyboardButton(_copy(lang, "Мои источники для Single / Multi", "My sources for Single / Multi"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_single"),
+            InlineKeyboardButton(_copy(lang, "Мои источники для моделей", "My sources for Single / Multi"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_single"),
         ],
         [
             InlineKeyboardButton(_back_label(lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_full"),
@@ -304,7 +304,7 @@ def _build_g25vahaduo_data_source_keyboard(state: dict[str, object], *, lang: st
 def _g25vahaduo_data_source_text(state: dict[str, object], prefix: str = "", *, lang: str = "ru") -> str:
     source_label = str(state.get("source_label") or "source")
     source_count = int(state.get("source_count") or 0)
-    mode = _vahaduo_mode_label(str(state.get("mode") or ""))
+    mode = _vahaduo_mode_label(str(state.get("mode") or ""), lang=lang)
     saved_id = int(state.get("source_saved_id") or 0)
     lines = [
         "\U0001F9EC Vahaduo Lab",
@@ -390,7 +390,7 @@ def _g25vahaduo_single_components_text(
         labels.append(f"{prefix}{item['label']}")
     chosen = "\n".join(f"- {label}" for label in labels) if labels else _copy(lang, "- пока ничего", "- nothing yet")
     return (
-        f"{_vahaduo_mode_title(mode)}\n\n"
+        f"{_vahaduo_mode_title(mode, lang=lang)}\n\n"
         f"{_copy(lang, 'Набор', 'Set')}: {_vahaduo_source_set_label(panel_label, lang=lang)}\n\n"
         f"{_copy(lang, 'Выберите источники модели.', 'Choose model sources.')}\n\n"
         f"{_copy(lang, 'Выбрано', 'Selected')}:\n{chosen}"
@@ -449,7 +449,7 @@ def _g25vahaduo_saved_components_text(
         labels.append(f"{prefix}{item.get('label') or item.get('key')}")
     chosen = "\n".join(f"- {label}" for label in labels) if labels else _copy(lang, "- пока ничего", "- nothing yet")
     return (
-        f"{_vahaduo_mode_title(str(state.get('mode') or 'single'))}\n\n"
+        f"{_vahaduo_mode_title(str(state.get('mode') or 'single'), lang=lang)}\n\n"
         f"{_copy(lang, 'Набор', 'Set')}: {_vahaduo_source_set_label(source_label, lang=lang)}\n\n"
         f"{_copy(lang, 'Выберите источники модели.', 'Choose model sources.')}\n\n"
         f"{_copy(lang, 'Выбрано', 'Selected')}:\n{chosen}"
@@ -503,10 +503,10 @@ def _build_g25vahaduo_saved_keyboard(
 
 def _g25vahaduo_saved_text(items: list[dict[str, object]], mode: str, *, delete_mode: bool = False, lang: str = "ru") -> str:
     if not items:
-        return f"\U0001F9EC Vahaduo Lab\n\n{_copy(lang, 'Режим', 'Mode')}: {_vahaduo_mode_label(mode)}\n\n{_copy(lang, 'У вас пока нет сохраненных наборов для этого режима.', 'You do not have saved sets for this mode yet.')}"
+        return f"\U0001F9EC Vahaduo Lab\n\n{_copy(lang, 'Режим', 'Mode')}: {_vahaduo_mode_label(mode, lang=lang)}\n\n{_copy(lang, 'У вас пока нет сохраненных наборов для этого режима.', 'You do not have saved sets for this mode yet.')}"
     if delete_mode:
-        return f"\U0001F9EC Vahaduo Lab\n\n{_copy(lang, 'Режим', 'Mode')}: {_vahaduo_mode_label(mode)}\n\n{_copy(lang, 'Выберите набор, который нужно удалить:', 'Choose the set to delete:')}"
-    return f"\U0001F9EC Vahaduo Lab\n\n{_copy(lang, 'Режим', 'Mode')}: {_vahaduo_mode_label(mode)}\n\n{_copy(lang, 'Ваши сохраненные SOURCE-наборы:', 'Your saved SOURCE sets:')}"
+        return f"\U0001F9EC Vahaduo Lab\n\n{_copy(lang, 'Режим', 'Mode')}: {_vahaduo_mode_label(mode, lang=lang)}\n\n{_copy(lang, 'Выберите набор, который нужно удалить:', 'Choose the set to delete:')}"
+    return f"\U0001F9EC Vahaduo Lab\n\n{_copy(lang, 'Режим', 'Mode')}: {_vahaduo_mode_label(mode, lang=lang)}\n\n{_copy(lang, 'Ваши сохраненные SOURCE-наборы:', 'Your saved SOURCE sets:')}"
 
 
 def _build_g25vahaduo_target_library_keyboard(*, for_run: bool = False, lang: str = "ru") -> InlineKeyboardMarkup:
@@ -514,7 +514,7 @@ def _build_g25vahaduo_target_library_keyboard(*, for_run: bool = False, lang: st
     other_action = "vahaduo_targets_other_for_run" if for_run else "vahaduo_targets_other"
     back_action = "vahaduo_target" if for_run else "vahaduo_data"
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🧬 Samples", callback_data=f"{G25MENU_CALLBACK_PREFIX}:{samples_action}")],
+        [InlineKeyboardButton(_vahaduo_target_section_label("samples", lang=lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:{samples_action}")],
         [InlineKeyboardButton(_copy(lang, "📍 G25-профили", "📍 G25 profiles"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:{other_action}")],
         [
             InlineKeyboardButton(_copy(lang, "⬅️ Назад", "⬅️ Back"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:{back_action}"),
@@ -533,7 +533,7 @@ def _g25vahaduo_target_library_text(
         current_state = state or {}
         mode = str(current_state.get("mode") or "distance")
         return (
-            f"{_vahaduo_mode_title(mode)}\n\n"
+            f"{_vahaduo_mode_title(mode, lang=lang)}\n\n"
             f"{chr(10).join(_vahaduo_model_context_lines(current_state, lang=lang))}\n\n"
             f"{_copy(lang, 'Выберите G25-профили.', 'Choose G25 profiles.') if mode == 'multi' else _copy(lang, 'Выберите G25-профиль.', 'Choose a G25 profile.')}"
         )
@@ -614,7 +614,7 @@ def _g25vahaduo_targets_text(
         else:
             tail = _copy(lang, "Выберите G25-профиль.", "Choose a G25 profile.")
         return (
-            f"{_vahaduo_mode_title(mode)}\n\n"
+            f"{_vahaduo_mode_title(mode, lang=lang)}\n\n"
             f"{chr(10).join(_vahaduo_model_context_lines(current_state, lang=lang))}\n"
             f"{section}\n\n"
             f"{tail}"
@@ -682,13 +682,13 @@ def _g25vahaduo_multi_targets_text(
     section = _vahaduo_target_section_label(source, lang=lang)
     if not items:
         return (
-            f"{_vahaduo_mode_title(mode)}\n\n"
+            f"{_vahaduo_mode_title(mode, lang=lang)}\n\n"
             f"{chr(10).join(_vahaduo_model_context_lines(current_state, lang=lang))}\n"
             f"{section}\n\n"
             f"{_copy(lang, 'В этом разделе пока нет G25-профилей.', 'There are no G25 profiles in this section yet.')}"
         )
     return (
-        f"{_vahaduo_mode_title(mode)}\n\n"
+        f"{_vahaduo_mode_title(mode, lang=lang)}\n\n"
         f"{chr(10).join(_vahaduo_model_context_lines(current_state, lang=lang))}\n"
         f"{section}\n\n"
         f"{_copy(lang, 'Выберите G25-профили.', 'Choose G25 profiles.')}\n\n"
@@ -959,7 +959,7 @@ def _build_g25vahaduo_target_keyboard(state: dict[str, object], *, lang: str = "
 def _g25vahaduo_target_text(state: dict[str, object], *, lang: str = "ru") -> str:
     mode = str(state.get("mode") or "distance")
     return (
-        f"{_vahaduo_mode_title(mode)}\n\n"
+        f"{_vahaduo_mode_title(mode, lang=lang)}\n\n"
         f"{chr(10).join(_vahaduo_model_context_lines(state, include_count=True, lang=lang))}\n"
         "\n"
         f"{_copy(lang, 'Отправьте G25 текстом или файлом.', 'Send G25 as text or a file.')}\n"
@@ -971,7 +971,7 @@ def _g25vahaduo_distance_result_caption(state: dict[str, object], target_name: s
     clean_target = (target_name or "").strip() or _copy(lang, "введён вручную", "entered manually")
     source_label = _vahaduo_source_display_label(state, lang=lang)
     return (
-        "📏 Distance\n\n"
+        f"{_vahaduo_mode_title('distance', lang=lang)}\n\n"
         f"{_copy(lang, 'G25-профиль', 'G25 profile')}: {clean_target}\n"
         f"{_copy(lang, 'Источник', 'Source')}: {source_label}"
     )
@@ -981,13 +981,13 @@ def _g25vahaduo_single_result_caption(state: dict[str, object], result, *, lang:
     target_name = str(getattr(result, "target_name", "") or "").strip() or _copy(lang, "введён вручную", "entered manually")
     panel_label = str(getattr(result, "panel_name", "") or str(state.get("source_label") or "").split(":", 1)[0]).strip()
     lines = [
-        f"Source: {_vahaduo_source_set_label(panel_label, lang=lang)}",
-        f"Target: {target_name}",
-        f"Distance: {float(getattr(result, 'distance', 0.0) or 0.0) * 100:.4f}% / {float(getattr(result, 'distance', 0.0) or 0.0):.6f}",
+        f"{_copy(lang, 'Источник', 'Source')}: {_vahaduo_source_set_label(panel_label, lang=lang)}",
+        f"{_copy(lang, 'G25-профиль', 'Target')}: {target_name}",
+        f"{_copy(lang, 'Дистанция', 'Distance')}: {float(getattr(result, 'distance', 0.0) or 0.0) * 100:.4f}% / {float(getattr(result, 'distance', 0.0) or 0.0):.6f}",
         (
-            f"Sources: {int(getattr(result, 'sources', 0) or 0)} | "
-            f"Cycles: {int(getattr(result, 'iterations', 0) or 0)} | "
-            f"Time: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
+            f"{_copy(lang, 'Источников', 'Sources')}: {int(getattr(result, 'sources', 0) or 0)} | "
+            f"{_copy(lang, 'Циклов', 'Cycles')}: {int(getattr(result, 'iterations', 0) or 0)} | "
+            f"{_copy(lang, 'Время', 'Time')}: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
         ),
         "",
     ]
@@ -1002,17 +1002,17 @@ def _g25vahaduo_single_result_caption(state: dict[str, object], result, *, lang:
 def _g25vahaduo_multi_result_caption(state: dict[str, object], result, *, lang: str = "ru") -> str:
     panel_label = str(getattr(result, "panel_name", "") or str(state.get("source_label") or "").split(":", 1)[0]).strip()
     return "\n".join([
-        f"Source: {_vahaduo_source_set_label(panel_label, lang=lang)}",
-        f"Targets: {int(getattr(result, 'target_count', 0) or 0)}",
+        f"{_copy(lang, 'Источник', 'Source')}: {_vahaduo_source_set_label(panel_label, lang=lang)}",
+        f"{_copy(lang, 'Профилей', 'Targets')}: {int(getattr(result, 'target_count', 0) or 0)}",
         (
-            "Average distance: "
+            f"{_copy(lang, 'Средняя дистанция', 'Average distance')}: "
             f"{float(getattr(result, 'average_distance', 0.0) or 0.0) * 100:.4f}% / "
             f"{float(getattr(result, 'average_distance', 0.0) or 0.0):.7f}"
         ),
         (
-            f"Sources: {int(getattr(result, 'sources', 0) or 0)} | "
-            f"Cycles: {int(getattr(result, 'iterations', 0) or 0)} | "
-            f"Time: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
+            f"{_copy(lang, 'Источников', 'Sources')}: {int(getattr(result, 'sources', 0) or 0)} | "
+            f"{_copy(lang, 'Циклов', 'Cycles')}: {int(getattr(result, 'iterations', 0) or 0)} | "
+            f"{_copy(lang, 'Время', 'Time')}: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
         ),
     ])
 
