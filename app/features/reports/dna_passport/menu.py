@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
 from math import ceil
+from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
@@ -14,6 +16,7 @@ from g25_core.command_service import G25CommandService
 
 from .render import render_dna_passport_html
 from .service import DNAPassportService
+from .visual import render_dna_passport_visual_png
 
 
 logger = logging.getLogger(__name__)
@@ -163,6 +166,7 @@ async def run_passport(
             g25_coordinate_id=coordinate_id,
         )
         text = render_dna_passport_html(data, lang=lang)
+        await _send_passport_visual(message, data, lang=lang)
     except Exception:
         logger.exception("Could not build DNA passport")
         text = (
@@ -171,6 +175,38 @@ async def run_passport(
         )
     back_callback = f"{PASSPORT_CALLBACK_PREFIX}:samples:0"
     await message.edit_text(text, reply_markup=build_passport_result_keyboard(back_callback=back_callback, lang=lang), parse_mode="HTML")
+
+
+async def _send_passport_visual(message, data, *, lang: str = "ru") -> None:
+    if not hasattr(message, "reply_photo"):
+        return
+    path: Path | None = None
+    try:
+        path = await asyncio.to_thread(_render_passport_visual_temp, data)
+        with path.open("rb") as handle:
+            await message.reply_photo(photo=handle, caption=_passport_visual_caption(data, lang=lang), do_quote=False)
+    except Exception:
+        logger.exception("Could not send DNA passport visual")
+    finally:
+        if path is not None:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                logger.debug("Could not delete DNA passport visual temp file", exc_info=True)
+
+
+def _render_passport_visual_temp(data) -> Path:
+    handle = tempfile.NamedTemporaryFile(prefix="kbdna_passport_", suffix=".png", delete=False)
+    path = Path(handle.name)
+    handle.close()
+    return render_dna_passport_visual_png(data, path)
+
+
+def _passport_visual_caption(data, *, lang: str = "ru") -> str:
+    sample = getattr(getattr(data, "sample", None), "display_name", "") or "sample"
+    if lang == "en":
+        return f"DNA passport · {sample}"
+    return f"DNA-паспорт · {sample}"
 
 
 def _passport_service(context: ContextTypes.DEFAULT_TYPE) -> DNAPassportService:

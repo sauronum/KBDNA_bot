@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+from PIL import Image
 
 from app.features.my_data.storage import CoordinateAsset, SampleAsset
 from app.features.reports.dna_passport.domain import (
@@ -27,6 +31,7 @@ from app.features.reports.dna_passport.menu import (
     show_sample_picker_menu,
 )
 from app.features.reports.dna_passport.render import render_dna_passport_html
+from app.features.reports.dna_passport.visual import render_dna_passport_visual_png
 from app.features.reports.menu import (
     REPORT_PRODUCTS,
     build_report_detail_keyboard,
@@ -47,6 +52,10 @@ class _FakeMessage:
 
     async def reply_text(self, text, reply_markup=None, parse_mode=None, do_quote=False):
         self.calls.append(("reply_text", text, reply_markup, parse_mode))
+        return self
+
+    async def reply_photo(self, photo, caption=None, reply_markup=None, do_quote=False):
+        self.calls.append(("reply_photo", caption, reply_markup, None))
         return self
 
 
@@ -205,7 +214,22 @@ class DNAPassportUiTests(unittest.TestCase):
             _run(reports_callback_handler(update, _context(store, admin_ids={1})))
 
         self.assertEqual(service.calls[0]["sample_id"], "sample-1")
+        self.assertIn("reply_photo", [call[0] for call in message.calls])
         self.assertEqual(message.calls[-1][3], "HTML")
+
+    def test_passport_visual_png_renders_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "passport.png"
+
+            result_path = render_dna_passport_visual_png(_passport_data(), output_path)
+
+            self.assertEqual(result_path, output_path)
+            self.assertTrue(output_path.exists())
+            with Image.open(output_path) as image:
+                self.assertEqual(image.format, "PNG")
+                self.assertEqual(image.size, (1440, 1860))
+                extrema = image.convert("L").getextrema()
+            self.assertGreater(extrema[1] - extrema[0], 20)
 
     def test_regular_user_direct_passport_callback_is_closed_before_service(self) -> None:
         store = _FakeStore(samples=[_sample("sample-1", "Zaur", raw_file_id="raw-1")])
