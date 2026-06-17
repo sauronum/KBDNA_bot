@@ -31,6 +31,7 @@ from app.features.reports.dna_passport.menu import (
     show_sample_picker_menu,
 )
 from app.features.reports.dna_passport.render import render_dna_passport_html
+from app.features.reports.dna_passport.render_visual import render_dna_passport_pages, visual_page_order
 from app.features.reports.dna_passport.visual import render_dna_passport_visual_png
 from app.features.reports.menu import (
     REPORT_PRODUCTS,
@@ -45,7 +46,7 @@ from app.features.reports.menu import (
 
 class _FakeMessage:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str, object, str | None]] = []
+        self.calls: list[tuple[str, object, object, str | None]] = []
 
     async def edit_text(self, text, reply_markup=None, parse_mode=None):
         self.calls.append(("edit_text", text, reply_markup, parse_mode))
@@ -57,6 +58,13 @@ class _FakeMessage:
     async def reply_photo(self, photo, caption=None, reply_markup=None, do_quote=False):
         self.calls.append(("reply_photo", caption, reply_markup, None))
         return self
+
+    async def reply_media_group(self, media, do_quote=False):
+        self.calls.append(("reply_media_group", len(media), None, None))
+        return [self for _ in media]
+
+    async def delete(self):
+        self.calls.append(("delete", "", None, None))
 
 
 class _FakeQuery:
@@ -199,10 +207,11 @@ class DNAPassportUiTests(unittest.TestCase):
         store = _FakeStore(samples=[sample])
         service = _FakePassportService()
         message = _FakeMessage()
+        context = _context(store, admin_ids={1})
 
         update = _callback_update("reports:info:passport", user_id=1, message=message)
         with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True):
-            _run(reports_callback_handler(update, _context(store, admin_ids={1})))
+            _run(reports_callback_handler(update, context))
 
         self.assertTrue(any("Сформировать DNA-паспорт" in label for label in _labels(message.calls[-1][2])))
 
@@ -211,25 +220,116 @@ class DNAPassportUiTests(unittest.TestCase):
             "app.features.reports.dna_passport.menu._passport_service",
             return_value=service,
         ):
-            _run(reports_callback_handler(update, _context(store, admin_ids={1})))
+            _run(reports_callback_handler(update, context))
 
         self.assertEqual(service.calls[0]["sample_id"], "sample-1")
-        self.assertIn("reply_photo", [call[0] for call in message.calls])
-        self.assertEqual(message.calls[-1][3], "HTML")
+        call_names = [call[0] for call in message.calls]
+        self.assertIn("reply_media_group", call_names)
+        self.assertIn("reply_text", call_names)
+        followup = _last_call(message, "reply_text")
+        self.assertIn("DNA-паспорт готов", followup[1])
+        labels = _labels(followup[2])
+        callbacks = [button.callback_data for row in followup[2].inline_keyboard for button in row]
+        self.assertIn("📄 Подробный отчёт", labels)
+        self.assertIn("🔁 Другой образец", labels)
+        self.assertTrue(any(callback.startswith("reports:passport:detail:") for callback in callbacks))
+        self.assertIn("dna_passport_detail_cache", context.user_data)
 
-    def test_passport_visual_png_renders_preview(self) -> None:
+    def test_passport_visual_pages_render_five_page_album(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pages = render_dna_passport_pages(_passport_data(), Path(tmp))
+
+            self.assertEqual([page.slug for page in pages], ["overview", "ancestry", "traits", "snps", "lines"])
+            self.assertEqual(visual_page_order(), ("overview", "ancestry", "traits", "snps", "lines"))
+            self.assertEqual([page.title for page in pages], ["Обложка", "Краткое происхождение", "Базовые признаки", "Интересные SNP", "Прямые линии"])
+            for page in pages:
+                self.assertTrue(page.path.exists())
+                with Image.open(page.path) as image:
+                    self.assertEqual(image.format, "PNG")
+                    self.assertEqual(image.size, (1440, 1800))
+                    extrema = image.convert("L").getextrema()
+                self.assertGreater(extrema[1] - extrema[0], 20)
+
+    def test_passport_visual_legacy_preview_wrapper_renders_overview(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output_path = Path(tmp) / "passport.png"
 
             result_path = render_dna_passport_visual_png(_passport_data(), output_path)
 
             self.assertEqual(result_path, output_path)
-            self.assertTrue(output_path.exists())
             with Image.open(output_path) as image:
-                self.assertEqual(image.format, "PNG")
-                self.assertEqual(image.size, (1440, 1860))
-                extrema = image.convert("L").getextrema()
-            self.assertGreater(extrema[1] - extrema[0], 20)
+                self.assertEqual(image.size, (1440, 1800))
+
+    def test_passport_visual_renderer_uses_ready_passport_data_only(self) -> None:
+        root = Path("app/features/reports/dna_passport")
+        source = "\n".join(
+            [
+                (root / "render_visual.py").read_text(encoding="utf-8"),
+                (root / "visual_pages.py").read_text(encoding="utf-8"),
+                (root / "visual_style.py").read_text(encoding="utf-8"),
+            ]
+        )
+
+        for forbidden in (
+            "parse_raw_dna",
+            "DNAPassportService",
+            "TraitsRuntimeService",
+            "G25CommandService",
+            "analyze_interesting_snps",
+            "load_interesting_snps",
+            "dna_platform",
+        ):
+            self.assertNotIn(forbidden, source)
+        self.assertIn("main_summary_lines", source)
+        self.assertIn("8 базовых признаков", source)
+        self.assertIn("Что исследовать дальше", source)
+        self.assertNotIn("Найдено с трактовкой", source)
+        self.assertNotIn("SNP Lab", source)
+
+    def test_passport_detail_button_opens_existing_text_report(self) -> None:
+        sample = _sample("sample-1", "Zaur")
+        store = _FakeStore(samples=[sample])
+        service = _FakePassportService()
+        message = _FakeMessage()
+        context = _context(store, admin_ids={1})
+
+        update = _callback_update("reports:passport:sample:sample-1", user_id=1, message=message)
+        with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True), patch(
+            "app.features.reports.dna_passport.menu._passport_service",
+            return_value=service,
+        ):
+            _run(reports_callback_handler(update, context))
+
+        followup = _last_call(message, "reply_text")
+        callbacks = [button.callback_data for row in followup[2].inline_keyboard for button in row]
+        detail_callback = next(callback for callback in callbacks if callback.startswith("reports:passport:detail:"))
+
+        update = _callback_update(detail_callback, user_id=1, message=message)
+        with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True):
+            _run(reports_callback_handler(update, context))
+
+        self.assertEqual(message.calls[-1][3], "HTML")
+        self.assertIn("<b>🧬 DNA-паспорт</b>", message.calls[-1][1])
+        self.assertIn("📁 Исходные данные", message.calls[-1][1])
+
+    def test_passport_visual_failure_falls_back_to_text_report(self) -> None:
+        sample = _sample("sample-1", "Zaur")
+        store = _FakeStore(samples=[sample])
+        service = _FakePassportService()
+        message = _FakeMessage()
+
+        update = _callback_update("reports:passport:sample:sample-1", user_id=1, message=message)
+        with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True), patch(
+            "app.features.reports.dna_passport.menu._passport_service",
+            return_value=service,
+        ), patch("app.features.reports.dna_passport.menu.render_dna_passport_pages", side_effect=RuntimeError("visual failed")), patch(
+            "app.features.reports.dna_passport.menu.logger.exception"
+        ):
+            _run(reports_callback_handler(update, _context(store, admin_ids={1})))
+
+        self.assertEqual(message.calls[-1][3], "HTML")
+        self.assertIn("<b>🧬 DNA-паспорт</b>", message.calls[-1][1])
+        self.assertNotIn("reply_media_group", [call[0] for call in message.calls])
 
     def test_regular_user_direct_passport_callback_is_closed_before_service(self) -> None:
         store = _FakeStore(samples=[_sample("sample-1", "Zaur", raw_file_id="raw-1")])
@@ -316,7 +416,8 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertEqual(service.calls[0]["sample_id"], "sample-1")
         self.assertIsNone(service.calls[0]["g25_coordinate_id"])
         self.assertEqual(message.calls[0][1], "🧬 Формируем DNA-паспорт…")
-        self.assertEqual(message.calls[-1][3], "HTML")
+        self.assertIn("reply_media_group", [call[0] for call in message.calls])
+        self.assertIn("reply_text", [call[0] for call in message.calls])
 
     def test_sample_with_attached_g25_does_not_show_picker(self) -> None:
         sample = _sample("sample-1", "Zaur")
@@ -625,6 +726,13 @@ def _callback_update(data: str, *, user_id: int, message: _FakeMessage, username
 
 def _labels(keyboard) -> list[str]:
     return [button.text for row in keyboard.inline_keyboard for button in row]
+
+
+def _last_call(message: _FakeMessage, name: str):
+    for call in reversed(message.calls):
+        if call[0] == name:
+            return call
+    raise AssertionError(name)
 
 
 def _sample(sample_id: str, name: str, *, raw_file_id: str = "") -> SampleAsset:

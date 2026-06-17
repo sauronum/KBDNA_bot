@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
+import shutil
 import tempfile
 from math import ceil
 from pathlib import Path
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 from telegram.ext import ContextTypes
 
 from app.features.my_data.storage import CoordinateAsset, MyDataStore, SampleAsset
@@ -14,15 +16,18 @@ from app.features.traits.domain.runtime import TraitsRuntimeService
 from app.i18n import t
 from g25_core.command_service import G25CommandService
 
+from .domain import DNAPassportData
 from .render import render_dna_passport_html
+from .render_visual import DNAPassportVisualPage, render_dna_passport_pages
 from .service import DNAPassportService
-from .visual import render_dna_passport_visual_png
 
 
 logger = logging.getLogger(__name__)
 
 PASSPORT_CALLBACK_PREFIX = "reports:passport"
 _PAGE_SIZE = 8
+_DETAIL_CACHE_KEY = "dna_passport_detail_cache"
+_DETAIL_CACHE_LIMIT = 8
 
 
 def passport_intro_text(*, lang: str = "ru") -> str:
@@ -80,6 +85,22 @@ def build_passport_result_keyboard(*, back_callback: str, lang: str = "ru") -> I
     return InlineKeyboardMarkup([_back_cancel_row(back_callback, lang=lang)])
 
 
+def build_passport_visual_keyboard(*, detail_callback: str, back_callback: str, lang: str = "ru") -> InlineKeyboardMarkup:
+    if lang == "en":
+        detail_label = "📄 Detailed report"
+        sample_label = "🔁 Another sample"
+    else:
+        detail_label = "📄 Подробный отчёт"
+        sample_label = "🔁 Другой образец"
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(detail_label, callback_data=detail_callback)],
+            [InlineKeyboardButton(sample_label, callback_data=f"{PASSPORT_CALLBACK_PREFIX}:samples:0")],
+            [InlineKeyboardButton(t("nav.back", lang), callback_data=back_callback)],
+        ]
+    )
+
+
 async def show_passport_intro_menu(
     message,
     *,
@@ -116,6 +137,10 @@ async def dna_passport_callback_handler(
         sample_id = parts[3] if len(parts) > 3 else ""
         await handle_sample_selected(query.message, context, user_id, sample_id=sample_id, lang=lang)
         return
+    if action == "detail":
+        token = parts[3] if len(parts) > 3 else ""
+        await show_passport_detail(query.message, context, token=token, lang=lang)
+        return
     if action == "g25":
         sample_id = parts[3] if len(parts) > 3 else ""
         await run_passport(query.message, context, user_id, sample_id=sample_id, coordinate_id=None, origin="samples", lang=lang)
@@ -146,6 +171,31 @@ async def handle_sample_selected(message, context: ContextTypes.DEFAULT_TYPE, us
     await run_passport(message, context, user_id, sample_id=sample.asset_id, coordinate_id=None, origin="samples", lang=lang)
 
 
+async def show_passport_detail(message, context: ContextTypes.DEFAULT_TYPE, *, token: str, lang: str = "ru") -> None:
+    payload = _get_passport_detail(context, token)
+    if payload is None:
+        text = (
+            "Detailed report is no longer available. Please build the DNA passport again."
+            if lang == "en"
+            else "Подробная версия больше недоступна. Сформируйте DNA-паспорт ещё раз."
+        )
+        await message.edit_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("🔁 Another sample" if lang == "en" else "🔁 Другой образец", callback_data=f"{PASSPORT_CALLBACK_PREFIX}:samples:0")],
+                    _back_cancel_row("reports:root", lang=lang),
+                ]
+            ),
+        )
+        return
+    await message.edit_text(
+        payload["text"],
+        reply_markup=build_passport_result_keyboard(back_callback=payload["back_callback"], lang=lang),
+        parse_mode="HTML",
+    )
+
+
 async def run_passport(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -157,6 +207,7 @@ async def run_passport(
     lang: str = "ru",
 ) -> None:
     await message.edit_text(_passport_status_text(context, user_id, sample_id, lang=lang))
+    back_callback = f"{PASSPORT_CALLBACK_PREFIX}:samples:0"
     try:
         service = _passport_service(context)
         data = await asyncio.to_thread(
@@ -166,47 +217,146 @@ async def run_passport(
             g25_coordinate_id=coordinate_id,
         )
         text = render_dna_passport_html(data, lang=lang)
-        await _send_passport_visual(message, data, lang=lang)
     except Exception:
         logger.exception("Could not build DNA passport")
         text = (
             "Не удалось сформировать DNA-паспорт.\n\n"
             "Попробуйте ещё раз или проверьте данные образца."
         )
-    back_callback = f"{PASSPORT_CALLBACK_PREFIX}:samples:0"
+        await message.edit_text(text, reply_markup=build_passport_result_keyboard(back_callback=back_callback, lang=lang), parse_mode="HTML")
+        return
+
+    visual_sent = await _send_passport_visual_album(
+        message,
+        context,
+        data,
+        text,
+        back_callback=back_callback,
+        lang=lang,
+    )
+    if visual_sent:
+        return
     await message.edit_text(text, reply_markup=build_passport_result_keyboard(back_callback=back_callback, lang=lang), parse_mode="HTML")
 
 
-async def _send_passport_visual(message, data, *, lang: str = "ru") -> None:
-    if not hasattr(message, "reply_photo"):
-        return
-    path: Path | None = None
+async def _send_passport_visual_album(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    data: DNAPassportData,
+    detail_text: str,
+    *,
+    back_callback: str,
+    lang: str = "ru",
+) -> bool:
+    if not hasattr(message, "reply_media_group"):
+        return False
     try:
-        path = await asyncio.to_thread(_render_passport_visual_temp, data)
-        with path.open("rb") as handle:
-            await message.reply_photo(photo=handle, caption=_passport_visual_caption(data, lang=lang), do_quote=False)
+        pages = await asyncio.to_thread(_render_passport_visual_pages_temp, data)
+        await _reply_visual_pages(message, pages)
+        token = _store_passport_detail(context, text=detail_text, back_callback=back_callback)
+        detail_callback = f"{PASSPORT_CALLBACK_PREFIX}:detail:{token}"
+        await _send_passport_visual_followup(message, detail_callback=detail_callback, back_callback=back_callback, lang=lang)
+        return True
     except Exception:
-        logger.exception("Could not send DNA passport visual")
+        logger.exception("Could not send DNA passport visual album")
+        return False
     finally:
-        if path is not None:
+        pages = locals().get("pages", [])
+        for page in pages:
             try:
-                path.unlink(missing_ok=True)
+                page.path.unlink(missing_ok=True)
             except OSError:
                 logger.debug("Could not delete DNA passport visual temp file", exc_info=True)
+        parent = None
+        if pages:
+            parent = pages[0].path.parent
+        if parent is not None:
+            try:
+                parent.rmdir()
+            except OSError:
+                logger.debug("Could not delete DNA passport visual temp directory", exc_info=True)
 
 
-def _render_passport_visual_temp(data) -> Path:
-    handle = tempfile.NamedTemporaryFile(prefix="kbdna_passport_", suffix=".png", delete=False)
-    path = Path(handle.name)
-    handle.close()
-    return render_dna_passport_visual_png(data, path)
+def _render_passport_visual_pages_temp(data: DNAPassportData) -> list[DNAPassportVisualPage]:
+    path = Path(tempfile.mkdtemp(prefix="kbdna_passport_pages_"))
+    try:
+        return render_dna_passport_pages(data, path)
+    except Exception:
+        shutil.rmtree(path, ignore_errors=True)
+        raise
 
 
-def _passport_visual_caption(data, *, lang: str = "ru") -> str:
-    sample = getattr(getattr(data, "sample", None), "display_name", "") or "sample"
+async def _reply_visual_pages(message, pages: list[DNAPassportVisualPage]) -> None:
+    handles = [page.path.open("rb") for page in pages]
+    try:
+        media = [InputMediaPhoto(media=handle) for handle in handles]
+        await message.reply_media_group(media=media, do_quote=False)
+    finally:
+        for handle in handles:
+            handle.close()
+
+
+async def _send_passport_visual_followup(message, *, detail_callback: str, back_callback: str, lang: str = "ru") -> None:
+    text = _passport_visual_followup_text(lang=lang)
+    markup = build_passport_visual_keyboard(detail_callback=detail_callback, back_callback=back_callback, lang=lang)
+    if hasattr(message, "reply_text"):
+        await message.reply_text(text, reply_markup=markup, do_quote=False)
+        await _delete_message_if_possible(message)
+        return
+    await message.edit_text(text, reply_markup=markup)
+
+
+async def _delete_message_if_possible(message) -> None:
+    if hasattr(message, "delete"):
+        try:
+            await message.delete()
+        except Exception:
+            logger.debug("Could not delete DNA passport status message", exc_info=True)
+
+
+def _passport_visual_followup_text(*, lang: str = "ru") -> str:
     if lang == "en":
-        return f"DNA passport · {sample}"
-    return f"DNA-паспорт · {sample}"
+        return (
+            "🧬 DNA passport is ready.\n\n"
+            "This is the short visual version. Details and limitations are available in the text report."
+        )
+    return (
+        "🧬 DNA-паспорт готов.\n\n"
+        "Это краткая визуальная версия отчёта. Подробности и ограничения доступны в текстовой версии."
+    )
+
+
+def _store_passport_detail(context: ContextTypes.DEFAULT_TYPE, *, text: str, back_callback: str) -> str:
+    token = secrets.token_urlsafe(8)
+    user_data = getattr(context, "user_data", None)
+    if not isinstance(user_data, dict):
+        return token
+    cache = user_data.setdefault(_DETAIL_CACHE_KEY, {})
+    if not isinstance(cache, dict):
+        cache = {}
+        user_data[_DETAIL_CACHE_KEY] = cache
+    while len(cache) >= _DETAIL_CACHE_LIMIT:
+        oldest = next(iter(cache))
+        cache.pop(oldest, None)
+    cache[token] = {"text": text, "back_callback": back_callback}
+    return token
+
+
+def _get_passport_detail(context: ContextTypes.DEFAULT_TYPE, token: str) -> dict[str, str] | None:
+    user_data = getattr(context, "user_data", None)
+    if not isinstance(user_data, dict):
+        return None
+    cache = user_data.get(_DETAIL_CACHE_KEY)
+    if not isinstance(cache, dict):
+        return None
+    payload = cache.get(token)
+    if not isinstance(payload, dict):
+        return None
+    text = payload.get("text")
+    back_callback = payload.get("back_callback")
+    if not isinstance(text, str) or not isinstance(back_callback, str):
+        return None
+    return {"text": text, "back_callback": back_callback}
 
 
 def _passport_service(context: ContextTypes.DEFAULT_TYPE) -> DNAPassportService:
