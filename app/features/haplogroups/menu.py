@@ -35,7 +35,6 @@ from .ui import (
     records_list_text,
     raw_detect_type_text,
     raw_scan_result_text,
-    saved_samples_text,
     sample_picker_text,
     str_compare_picker_text,
     str_distance_text,
@@ -166,7 +165,6 @@ async def show_haplogroups_menu(
         [InlineKeyboardButton("🧬 Y-DNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:y")],
         [InlineKeyboardButton("🧬 mtDNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt")],
         [InlineKeyboardButton("🧮 Y-STR", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:str")],
-        [InlineKeyboardButton(_copy(lang, "📚 Записи по sample", "📚 Saved by sample"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved")],
     ]
     await _show_or_edit(message, haplogroups_root_text(lang), build_markup(rows, "main:root", lang=lang), edit_existing=edit_existing)
 
@@ -472,46 +470,6 @@ async def show_records_menu(
         message,
         records_list_text(records, sample=sample, haplogroup_type=haplogroup_type, lang=lang),
         build_markup(rows, back_callback, lang=lang),
-        edit_existing=edit_existing,
-    )
-
-
-async def show_saved_sample_picker(
-    message,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    *,
-    page: int = 0,
-    lang: str = "ru",
-    edit_existing: bool = False,
-) -> None:
-    samples = _my_data_store(context).list_samples(user_id)
-    records = _store(context).list_records(user_id)
-    counts: dict[str, int] = {}
-    for record in records:
-        counts[record.sample_id] = counts.get(record.sample_id, 0) + 1
-
-    page_samples, current_page, total_pages = _paginate(samples, page)
-    rows = [
-        [
-            InlineKeyboardButton(
-                f"📚 {sample.display_name} ({counts.get(sample.asset_id, 0)})",
-                callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{sample.asset_id}",
-            )
-        ]
-        for sample in page_samples
-    ]
-    pager = []
-    if current_page > 0:
-        pager.append(InlineKeyboardButton(t("nav.back", lang), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved:{current_page - 1}"))
-    if current_page + 1 < total_pages:
-        pager.append(InlineKeyboardButton(_next_label(lang), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved:{current_page + 1}"))
-    if pager:
-        rows.append(pager)
-    await _show_or_edit(
-        message,
-        saved_samples_text(samples, lang),
-        build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
         edit_existing=edit_existing,
     )
 
@@ -935,14 +893,7 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
         )
         return
     if action == "saved":
-        await show_saved_sample_picker(
-            query.message,
-            context,
-            user_id,
-            page=_parse_page(parts[2] if len(parts) > 2 else None),
-            lang=lang,
-            edit_existing=True,
-        )
+        await show_haplogroups_menu(query.message, context, user_id, lang=lang, edit_existing=True)
         return
     if action == "str":
         await show_str_profiles_menu(query.message, context, user_id, lang=lang, edit_existing=True)
@@ -1085,7 +1036,7 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             sample_id=parts[2] if len(parts) > 2 else "",
             page=_parse_page(parts[3] if len(parts) > 3 else None),
             page_callback_base=f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{parts[2]}" if len(parts) > 2 else None,
-            back_callback=f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved",
+            back_callback=f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
             record_action="ho",
             lang=lang,
             edit_existing=True,
@@ -1115,7 +1066,7 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             context,
             user_id,
             record_id,
-            back_callback=f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{record.sample_id}" if record is not None else f"{HAPLOGROUPS_CALLBACK_PREFIX}:saved",
+            back_callback=f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{record.sample_id}" if record is not None else f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
             lang=lang,
             edit_existing=True,
         )

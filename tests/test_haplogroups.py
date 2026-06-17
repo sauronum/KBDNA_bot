@@ -24,6 +24,7 @@ from app.features.haplogroups.menu import (
     _paginate_records,
     haplogroups_document_input_handler,
     parse_haplogroup_input,
+    show_haplogroups_menu,
 )
 from app.features.haplogroups.storage import HaplogroupRecord, HaplogroupStore
 from app.features.haplogroups.ui import raw_scan_result_text
@@ -473,6 +474,15 @@ class _DocumentMessage:
         return SimpleNamespace(message_id=10)
 
 
+class _MenuMessage:
+    def __init__(self) -> None:
+        self.reply_markup = None
+
+    async def reply_text(self, text: str, **kwargs):
+        self.reply_markup = kwargs.get("reply_markup")
+        return SimpleNamespace(message_id=10)
+
+
 class _MyDataStub:
     def __init__(self) -> None:
         self.build_temp_path_called = False
@@ -486,6 +496,27 @@ class _MyDataStub:
 
 
 class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_root_menu_does_not_show_saved_by_sample_section(self) -> None:
+        message = _MenuMessage()
+
+        await show_haplogroups_menu(message, SimpleNamespace(), 123, lang="ru")
+
+        callbacks = [
+            button.callback_data
+            for row in message.reply_markup.inline_keyboard
+            for button in row
+        ]
+        self.assertEqual(
+            callbacks,
+            [
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:str",
+                "main:root",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:cancel",
+            ],
+        )
+
     async def test_document_upload_rejects_oversized_file_before_download(self) -> None:
         flow = HaplogroupFlowStore()
         flow.expect(10, 123, {"sample_id": "sample-1"}, action=_FILE_UPLOAD_ACTION)
