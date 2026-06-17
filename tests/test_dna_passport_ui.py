@@ -34,7 +34,7 @@ from app.features.reports.dna_passport.render import render_dna_passport_html
 from app.features.reports.dna_passport.render_visual import render_dna_passport_pages, visual_page_order
 from app.features.reports.dna_passport.visual import render_dna_passport_visual_png
 from app.features.reports.dna_passport.visual_pages import _radial_reference_layout
-from app.features.reports.dna_passport.visual_style import draw_footer, draw_header, snp_metric, visual_snp_items
+from app.features.reports.dna_passport.visual_style import draw_footer, draw_header, snp_display_result, snp_metric, visual_snp_items
 from app.features.reports.menu import (
     REPORT_PRODUCTS,
     build_report_detail_keyboard,
@@ -100,6 +100,7 @@ def _fake_fonts() -> dict[str, object]:
     return {
         "eyebrow": object(),
         "hero": object(),
+        "sample_title": object(),
         "subtitle": object(),
         "small_bold": object(),
         "section_title": object(),
@@ -272,7 +273,7 @@ class DNAPassportUiTests(unittest.TestCase):
 
             self.assertEqual([page.slug for page in pages], ["overview", "ancestry", "traits", "snps", "lines"])
             self.assertEqual(visual_page_order(), ("overview", "ancestry", "traits", "snps", "lines"))
-            self.assertEqual([page.title for page in pages], ["Обложка", "Краткое происхождение", "Базовые признаки", "Интересные SNP", "Прямые линии"])
+            self.assertEqual([page.title for page in pages], ["Обложка", "Краткое происхождение", "Базовые признаки", "Интересные SNP", "Следующие шаги"])
             for page in pages:
                 self.assertTrue(page.path.exists())
                 with Image.open(page.path) as image:
@@ -329,6 +330,16 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertEqual(snp_metric(data), "7 из 10")
         visual_items = visual_snp_items(items)
         self.assertEqual([item.gene for item in visual_items], ["ACTN3"])
+
+        mixed_actn3 = DNAPassportInterestingSnpItem(
+            "rs1815739",
+            "ACTN3: мышечные волокна",
+            "Физическая активность",
+            "ACTN3",
+            "CT",
+            "Промежуточный вариант ACTN3",
+        )
+        self.assertEqual(snp_display_result(mixed_actn3), "Смешанный вариант по ACTN3")
 
     def test_passport_visual_g25_radial_labels_do_not_overlap_fixture(self) -> None:
         refs = _passport_data().g25.top_modern
@@ -392,8 +403,10 @@ class DNAPassportUiTests(unittest.TestCase):
             self.assertNotIn(forbidden, source)
         self.assertIn("main_summary_lines", source)
         self.assertIn("8 базовых признаков", source)
-        self.assertIn("Что исследовать дальше", source)
-        self.assertIn("Ключевые результаты", source)
+        self.assertIn("Что можно изучить дальше", source)
+        self.assertIn("Исходные данные", source)
+        self.assertIn("Качество чтения", source)
+        self.assertIn("autosomal raw", source)
         self.assertIn("Выбранные маркеры", source)
         self.assertIn("Схема генетической близости", source)
         self.assertIn("расчёт по полному G25-вектору", source)
@@ -401,10 +414,15 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("Региональное исследование Кавказа", source)
         self.assertIn("Портрет происхождения", source)
         self.assertIn("Портрет признаков", source)
+        self.assertIn("Древние корни", source)
+        self.assertIn("Семейное сравнение", source)
+        self.assertIn("Отцовская и материнская линии", source)
         self.assertNotIn("Найдено с трактовкой", source)
         self.assertNotIn("SNP Lab", source)
         for removed in (
             "Слои паспорта",
+            "Ключевые результаты",
+            "Самый выраженный Trait",
             "Coordinate Space",
             "LOCAL G25 VIEW",
             "полная 25D-логика",

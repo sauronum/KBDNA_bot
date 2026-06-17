@@ -30,7 +30,7 @@ _PAGE_RENDERERS: tuple[tuple[str, str, Callable[..., Path]], ...] = (
     ("ancestry", "Краткое происхождение", render_ancestry_page),
     ("traits", "Базовые признаки", render_traits_page),
     ("snps", "Интересные SNP", render_snps_page),
-    ("lines", "Прямые линии", render_lines_page),
+    ("lines", "Следующие шаги", render_lines_page),
 )
 
 

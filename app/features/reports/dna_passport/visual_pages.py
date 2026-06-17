@@ -37,26 +37,22 @@ from .visual_style import (
     ellipsize,
     format_distance,
     format_int,
-    g25_metric,
     lineage_status,
     main_summary_lines,
-    raw_metric,
     save_page,
-    snp_metric,
+    snp_display_result,
     snp_title,
-    strongest_trait,
     trait_label,
     trait_percent,
-    traits_metric,
     visual_snp_items,
 )
 
 
 def render_overview_page(data: DNAPassportData, output_path: Path, *, page_number: int, total_pages: int) -> Path:
     image, draw, fonts = create_page(data, page_title="Обложка", page_number=page_number, total_pages=total_pages)
-    _draw_overview_summary_cards(draw, fonts, data)
+    _draw_overview_source_data(draw, fonts, data)
     _draw_overview_conclusion(draw, fonts, data)
-    _draw_overview_key_results(draw, fonts, data)
+    _draw_overview_lineage(draw, fonts, data)
     return save_page(image, output_path)
 
 
@@ -87,91 +83,100 @@ def render_snps_page(data: DNAPassportData, output_path: Path, *, page_number: i
 
 
 def render_lines_page(data: DNAPassportData, output_path: Path, *, page_number: int, total_pages: int) -> Path:
-    image, draw, fonts = create_page(data, page_title="Прямые линии", page_number=page_number, total_pages=total_pages)
+    image, draw, fonts = create_page(data, page_title="Следующие шаги", page_number=page_number, total_pages=total_pages)
     _draw_lineage_cards(draw, fonts, data)
     _draw_next_steps(draw, fonts, data)
     _draw_bottom_note(draw, fonts, "Для точного определения прямых линий нужны специализированные Y-DNA и mtDNA-тесты.")
     return save_page(image, output_path)
 
 
-def _draw_overview_summary_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    y = 286
-    gap = 26
-    card_w = (CONTENT_WIDTH - gap) // 2
-    card_h = 178
-    cards = [
-        ("RAW", raw_metric(data), "исходные данные", MINT),
-        ("G25", g25_metric(data), "генетическое пространство", BLUE),
-        ("TRAITS", traits_metric(data), "базовая панель", GOLD),
-        ("SNP", snp_metric(data), "доступно в raw", ROSE),
-    ]
-    for index, (label, value, sub, accent) in enumerate(cards):
-        col = index % 2
-        row = index // 2
-        left = MARGIN + col * (card_w + gap)
-        top = y + row * (card_h + gap)
-        draw_card(draw, (left, top, left + card_w, top + card_h), radius=30, fill=PANEL_SOFT, outline=BORDER_SOFT)
-        draw.rounded_rectangle((left + 28, top + 32, left + 50, top + 54), radius=7, fill=(*accent, 255))
-        draw.text((left + 68, top + 25), label, font=fonts["card_label"], fill=(*MUTED, 255))
-        draw.text((left + 28, top + 72), ellipsize(draw, value, fonts["metric"], card_w - 56), font=fonts["metric"], fill=(*TEXT, 255))
-        draw.text((left + 30, top + 132), sub, font=fonts["small"], fill=(*MUTED, 255))
+def _draw_overview_source_data(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
+    top = 286
+    draw_section_label(draw, fonts, MARGIN, top, "Исходные данные", accent=MINT)
+    box = (MARGIN, top + 74, WIDTH - MARGIN, top + 540)
+    draw_card(draw, box, radius=34, fill=PANEL, outline=BORDER)
+    x1, y1, x2, y2 = box
+    raw = data.raw
+    if raw is None or raw.status != "ok":
+        draw.text((x1 + 44, y1 + 50), "autosomal raw", font=fonts["title"], fill=(*TEXT, 255))
+        draw.text((x1 + 44, y1 + 130), "Исходный файл не прикреплён", font=fonts["body_bold"], fill=(*MUTED, 255))
+        draw_wrapped(draw, "Добавьте raw-файл, чтобы заполнить сведения об образце.", fonts["body"], x1 + 44, y1 + 190, x2 - x1 - 88, max_lines=2, fill=MUTED)
+        return
+
+    draw.text((x1 + 44, y1 + 38), "ТИП ДАННЫХ", font=fonts["small_bold"], fill=(*MUTED, 255))
+    draw.text((x1 + 44, y1 + 78), "autosomal raw", font=fonts["title"], fill=(*TEXT, 255))
+    provider = clean(raw.provider_hint)
+    if provider:
+        draw_pill(draw, fonts, x1 + 44, y1 + 144, provider, accent=MINT)
+
+    draw.text((x2 - 44, y1 + 38), "ПРОЧИТАНО", font=fonts["small_bold"], fill=(*MUTED, 255), anchor="ra")
+    draw.text((x2 - 44, y1 + 82), f"{format_int(raw.called_snps)} SNP", font=fonts["metric_big"], fill=(*TEXT, 255), anchor="ra")
+    draw.line((x1 + 44, y1 + 208, x2 - 44, y1 + 208), fill=(*BORDER, 180), width=2)
+
+    quality = _raw_quality_label(raw.call_rate)
+    draw.text((x1 + 44, y1 + 238), "Качество чтения", font=fonts["card_label"], fill=(*MUTED, 255))
+    draw.text((x1 + 360, y1 + 228), quality, font=fonts["metric"], fill=(*TEXT, 255))
+    quality_value = float(raw.call_rate or 0)
+    if quality_value > 1:
+        quality_value /= 100
+    draw_progress(draw, (x1 + 540, y1 + 253, x2 - 44, y1 + 275), quality_value, color=MINT, background=(37, 55, 78))
+
+    metrics = (
+        ("Аутосомы", raw.autosomal_count, CYAN),
+        ("X", raw.x_count, BLUE),
+        ("Y", raw.y_count, VIOLET),
+        ("mtDNA", raw.mtdna_count, ROSE),
+    )
+    gap = 16
+    metric_w = (x2 - x1 - 88 - gap * 3) // 4
+    metric_top = y1 + 316
+    for index, (label, value, accent) in enumerate(metrics):
+        left = x1 + 44 + index * (metric_w + gap)
+        draw_card(draw, (left, metric_top, left + metric_w, y2 - 34), radius=22, fill=PANEL_SOFT, outline=BORDER_SOFT)
+        draw.rounded_rectangle((left + 22, metric_top + 24, left + 38, metric_top + 40), radius=5, fill=(*accent, 255))
+        draw.text((left + 52, metric_top + 17), label, font=fonts["small_bold"], fill=(*MUTED, 255))
+        draw.text((left + 22, metric_top + 56), format_int(value), font=fonts["metric"], fill=(*TEXT, 255))
+
+
+def _raw_quality_label(call_rate: float | None) -> str:
+    if call_rate is None:
+        return "н/д"
+    value = float(call_rate)
+    if value <= 1:
+        value *= 100
+    return f"{max(0.0, min(100.0, value)):.1f}%".replace(".", ",")
 
 
 def _draw_overview_conclusion(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 710
+    top = 892
     draw_section_label(draw, fonts, MARGIN, top, "Краткий итог", accent=CYAN)
-    box = (MARGIN, top + 72, WIDTH - MARGIN, top + 360)
+    box = (MARGIN, top + 72, WIDTH - MARGIN, top + 300)
     draw_card(draw, box, radius=34, fill=PANEL_DEEP, outline=BORDER)
     y = top + 112
-    for line in main_summary_lines(data):
+    for line in main_summary_lines(data)[:2]:
         draw.rounded_rectangle((MARGIN + 38, y + 9, MARGIN + 54, y + 25), radius=5, fill=(*CYAN, 245))
         y = draw_wrapped(draw, line, fonts["body"], MARGIN + 78, y, CONTENT_WIDTH - 124, max_lines=2, fill=TEXT, line_gap=10) + 18
 
 
-def _draw_overview_key_results(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 1166
-    draw_section_label(draw, fonts, MARGIN, top, "Ключевые результаты", accent=GOLD)
-    box = (MARGIN, top + 74, WIDTH - MARGIN, top + 430)
-    draw_card(draw, box, radius=34, fill=PANEL, outline=BORDER)
-    x1, y1, x2, y2 = box
-    items = _overview_key_results(data)
-    gap = 22
-    card_w = (x2 - x1 - 92 - gap * 2) // 3
-    for index, (label, value, accent) in enumerate(items):
-        left = x1 + 46 + index * (card_w + gap)
-        top_y = y1 + 52
-        draw_card(draw, (left, top_y, left + card_w, y2 - 52), radius=28, fill=PANEL_SOFT, outline=BORDER_SOFT)
-        draw.rounded_rectangle((left + 28, top_y + 28, left + 48, top_y + 48), radius=7, fill=(*accent, 255))
-        draw_wrapped(draw, label, fonts["small_bold"], left + 66, top_y + 22, card_w - 94, max_lines=2, fill=MUTED)
-        draw_wrapped(draw, value, fonts["title"], left + 28, top_y + 112, card_w - 56, max_lines=3, fill=TEXT, line_gap=8)
-
-
-def _overview_key_results(data: DNAPassportData) -> list[tuple[str, str, tuple[int, int, int]]]:
-    refs = list(getattr(getattr(data, "g25", None), "top_modern", ()) or ())
-    if data.g25 and data.g25.status == "ok" and refs:
-        closest = f"{display_population(refs[0].name)} · {format_distance(refs[0].distance)}"
-    else:
-        closest = "G25 не найден"
-
-    strongest = strongest_trait(data)
-    if strongest is not None and trait_percent(strongest) is not None:
-        trait_value = f"{trait_label(strongest)} · {trait_percent(strongest)}%"
-    else:
-        trait_value = "недостаточно данных"
-
+def _draw_overview_lineage(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
+    top = 1260
+    draw_section_label(draw, fonts, MARGIN, top, "Прямые линии", accent=VIOLET)
     lineage = data.lineage
-    if lineage is not None and lineage.status == "ok":
-        y_count = int(getattr(lineage, "y_count", 0) or 0)
-        mt_count = int(getattr(lineage, "mtdna_count", 0) or 0)
-        lines_value = "Данные ограничены" if y_count <= 0 or mt_count < 200 else "Маркеры обнаружены"
-    else:
-        lines_value = "нет raw"
-
-    return [
-        ("Ближайший референс", closest, BLUE),
-        ("Самый выраженный Trait", trait_value, GOLD),
-        ("Прямые линии", lines_value, MINT),
-    ]
+    y_count = int(getattr(lineage, "y_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
+    mt_count = int(getattr(lineage, "mtdna_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
+    gap = 24
+    card_w = (CONTENT_WIDTH - gap) // 2
+    items = (
+        ("Отцовская линия", lineage_status(y_count, kind="y"), CYAN),
+        ("Материнская линия", lineage_status(mt_count, kind="mtdna"), MINT),
+    )
+    for index, (title, status, accent) in enumerate(items):
+        left = MARGIN + index * (card_w + gap)
+        y1 = top + 76
+        draw_card(draw, (left, y1, left + card_w, y1 + 190), radius=28, fill=PANEL_SOFT, outline=BORDER)
+        draw.rounded_rectangle((left + 30, y1 + 30, left + 50, y1 + 50), radius=6, fill=(*accent, 255))
+        draw.text((left + 68, y1 + 22), title, font=fonts["card_label"], fill=(*MUTED, 255))
+        draw_wrapped(draw, status, fonts["list_title"], left + 30, y1 + 90, card_w - 60, max_lines=2, fill=TEXT)
 
 
 def _draw_ancestry_topline(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
@@ -363,24 +368,45 @@ def _draw_traits_grid(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.Imag
 
 def _draw_trait_card(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], item: DNAPassportTraitItem | None, box: tuple[int, int, int, int]) -> None:
     x1, y1, x2, y2 = box
-    draw_card(draw, box, radius=24, fill=PANEL_SOFT, outline=BORDER_SOFT)
-    draw.rounded_rectangle((x1, y1, x1 + 10, y2), radius=8, fill=(*GOLD, 210))
+    accent = _trait_accent(item)
+    draw_card(draw, box, radius=24, fill=PANEL_SOFT, outline=BORDER)
+    draw.rounded_rectangle((x1, y1, x1 + 11, y2), radius=8, fill=(*accent, 235))
     if item is None:
-        draw.text((x1 + 34, y1 + 28), "Признак", font=fonts["card_label"], fill=(*MUTED, 255))
+        draw.text((x1 + 34, y1 + 22), "Признак", font=fonts["list_title"], fill=(*MUTED, 255))
         draw.text((x2 - 44, y1 + 36), "н/д", font=fonts["metric"], fill=(*FAINT, 255), anchor="ra")
-        draw_progress(draw, (x1 + 356, y1 + 76, x2 - 210, y1 + 96), 0, color=FAINT)
+        draw_progress(draw, (x1 + 34, y1 + 84, x2 - 270, y1 + 104), 0, color=FAINT)
         return
     label = trait_label(item)
     value = trait_percent(item)
-    draw.text((x1 + 34, y1 + 28), ellipsize(draw, label, fonts["card_label"], 340), font=fonts["card_label"], fill=(*TEXT, 255))
+    draw.text((x1 + 34, y1 + 20), ellipsize(draw, label, fonts["list_title"], 720), font=fonts["list_title"], fill=(*TEXT, 255))
     if value is None:
-        draw.text((x1 + 34, y1 + 72), "недостаточно данных", font=fonts["small"], fill=(*MUTED, 255))
+        draw.text((x1 + 34, y1 + 76), "недостаточно данных", font=fonts["small"], fill=(*MUTED, 255))
         draw.text((x2 - 44, y1 + 36), "н/д", font=fonts["metric"], fill=(*FAINT, 255), anchor="ra")
-        draw_progress(draw, (x1 + 356, y1 + 76, x2 - 210, y1 + 96), 0, color=FAINT)
+        draw_progress(draw, (x1 + 360, y1 + 84, x2 - 270, y1 + 104), 0, color=FAINT)
         return
-    draw_progress(draw, (x1 + 356, y1 + 76, x2 - 250, y1 + 96), value / 100, color=CYAN, background=(38, 54, 78))
-    draw.text((x2 - 44, y1 + 30), f"{value}%", font=fonts["metric"], fill=(*TEXT, 255), anchor="ra")
-    _draw_confidence_stars(draw, x2 - 176, y1 + 106, item.confidence)
+    draw_progress(draw, (x1 + 34, y1 + 84, x2 - 270, y1 + 104), value / 100, color=accent, background=(42, 61, 86))
+    draw.text((x2 - 42, y1 + 25), f"{value}%", font=fonts["metric"], fill=(*TEXT, 255), anchor="ra")
+    _draw_confidence_stars(draw, x2 - 166, y1 + 96, item.confidence)
+
+
+def _trait_accent(item: DNAPassportTraitItem | None) -> tuple[int, int, int]:
+    palette = (CYAN, VIOLET, GOLD, BLUE, MINT, ROSE, (126, 202, 148), (239, 159, 105))
+    if item is None:
+        return FAINT
+    ordered_ids = (
+        "pgs003835_height",
+        "pgs000336_chronotype",
+        "pgs001123_coffee",
+        "pgs001150_sleep_duration",
+        "pgs001927_mean_hand_grip_strength",
+        "pgs001075_walking_pace",
+        "pgs001897_skin_pigmentation",
+        "pgs002011_water_intake",
+    )
+    try:
+        return palette[ordered_ids.index(item.trait_id)]
+    except ValueError:
+        return CYAN
 
 
 def _draw_snp_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
@@ -404,21 +430,22 @@ def _draw_snp_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageF
 
 def _draw_snp_card(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], item: DNAPassportInterestingSnpItem, box: tuple[int, int, int, int]) -> None:
     x1, y1, x2, y2 = box
-    draw_card(draw, box, radius=26, fill=PANEL_SOFT, outline=BORDER_SOFT)
-    draw.rounded_rectangle((x1, y1, x1 + 10, y2), radius=8, fill=(*ROSE, 210))
-    draw.text((x1 + 34, y1 + 28), ellipsize(draw, snp_title(item), fonts["card_label"], 420), font=fonts["card_label"], fill=(*MUTED, 255))
-    draw_wrapped(draw, clean(item.interpretation or "результат найден"), fonts["title"], x1 + 34, y1 + 76, x2 - x1 - 360, max_lines=2, fill=TEXT, line_gap=7)
+    draw_card(draw, box, radius=26, fill=PANEL_SOFT, outline=BORDER)
+    draw.rounded_rectangle((x1, y1, x1 + 11, y2), radius=8, fill=(*ROSE, 235))
+    draw.text((x1 + 34, y1 + 22), ellipsize(draw, snp_title(item), fonts["list_title"], 760), font=fonts["list_title"], fill=(*TEXT, 255))
+    draw.text((x2 - 34, y1 + 30), clean(item.category or "маркер"), font=fonts["small"], fill=(*MUTED, 255), anchor="ra")
+    draw.line((x1 + 34, y1 + 70, x2 - 34, y1 + 70), fill=(*BORDER_SOFT, 190), width=1)
+    draw_wrapped(draw, snp_display_result(item), fonts["result"], x1 + 34, y1 + 92, x2 - x1 - 390, max_lines=2, fill=TEXT, line_gap=7)
     marker = " · ".join(part for part in (clean(item.genotype), clean(item.gene)) if part)
     if marker:
         marker = ellipsize(draw, marker, fonts["small_bold"], 250)
         pill_w = int(draw.textlength(marker, font=fonts["small_bold"])) + 48
-        draw_pill(draw, fonts, x2 - pill_w - 34, y1 + 80, marker, accent=ROSE)
-    draw.text((x2 - 34, y2 - 50), clean(item.category or "маркер"), font=fonts["small"], fill=(*MUTED, 255), anchor="ra")
+        draw_pill(draw, fonts, x2 - pill_w - 34, y1 + 96, marker, accent=ROSE)
 
 
 def _draw_lineage_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
     top = 286
-    draw_section_label(draw, fonts, MARGIN, top, "Доступность данных", accent=MINT)
+    draw_section_label(draw, fonts, MARGIN, top, "Прямые линии", accent=MINT)
     lineage = data.lineage
     y_count = int(getattr(lineage, "y_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
     mt_count = int(getattr(lineage, "mtdna_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
@@ -427,7 +454,7 @@ def _draw_lineage_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.Im
     _draw_lineage_card(
         draw,
         fonts,
-        (MARGIN, top + 82, MARGIN + card_w, top + 372),
+        (MARGIN, top + 82, MARGIN + card_w, top + 282),
         "Отцовская линия",
         lineage_status(y_count, kind="y"),
         f"Y-маркеры в raw: {format_int(y_count)}",
@@ -436,7 +463,7 @@ def _draw_lineage_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.Im
     _draw_lineage_card(
         draw,
         fonts,
-        (MARGIN + card_w + gap, top + 82, WIDTH - MARGIN, top + 372),
+        (MARGIN + card_w + gap, top + 82, WIDTH - MARGIN, top + 282),
         "Материнская линия",
         lineage_status(mt_count, kind="mtdna"),
         f"mtDNA-маркеры в raw: {format_int(mt_count)}",
@@ -457,27 +484,37 @@ def _draw_lineage_card(
     draw_card(draw, box, radius=32, fill=PANEL_DEEP, outline=BORDER)
     draw.rounded_rectangle((x1 + 36, y1 + 40, x1 + 62, y1 + 66), radius=8, fill=(*accent, 255))
     draw.text((x1 + 82, y1 + 34), title, font=fonts["card_label"], fill=(*TEXT, 255))
-    draw_wrapped(draw, status, fonts["title"], x1 + 36, y1 + 104, x2 - x1 - 72, max_lines=2, fill=TEXT)
-    draw.text((x1 + 36, y2 - 62), detail, font=fonts["small"], fill=(*MUTED, 255))
+    draw_wrapped(draw, status, fonts["list_title"], x1 + 36, y1 + 92, x2 - x1 - 72, max_lines=2, fill=TEXT)
+    draw.text((x1 + 36, y2 - 44), detail, font=fonts["small"], fill=(*MUTED, 255))
 
 
 def _draw_next_steps(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 780
-    draw_section_label(draw, fonts, MARGIN, top, "Что исследовать дальше", accent=GOLD)
+    top = 650
+    draw_section_label(draw, fonts, MARGIN, top, "Что можно изучить дальше", accent=GOLD)
     region = display_region(data.g25.region) if data.g25 and data.g25.status == "ok" else ""
     first = "Региональное исследование Кавказа" if region in {"Кавказ", "Северный Кавказ"} else "Региональное исследование происхождения"
     steps = [
-        (first, "Подробное положение среди региональных референсов"),
-        ("Портрет происхождения", "Комплексный анализ современных и древних связей"),
-        ("Портрет признаков", "Расширенный отчёт по генетическим особенностям"),
+        (first, "Локальные современные и древние референсы"),
+        ("Портрет происхождения", "Современные связи и модели происхождения"),
+        ("Древние корни", "Ближайшие древние образцы и эпохи"),
+        ("Портрет признаков", "Расширенный набор генетических особенностей"),
+        ("Семейное сравнение", "Родство и общие сегменты между образцами"),
+        ("Отцовская и материнская линии", "Отдельное исследование Y-DNA и mtDNA"),
     ]
+    gap_x = 22
+    gap_y = 20
+    card_w = (CONTENT_WIDTH - gap_x) // 2
+    card_h = 220
     for index, (title, subtitle) in enumerate(steps, start=1):
-        y = top + 82 + (index - 1) * 202
-        draw_card(draw, (MARGIN, y, WIDTH - MARGIN, y + 166), radius=28, fill=PANEL_SOFT, outline=BORDER_SOFT)
-        draw.ellipse((MARGIN + 42, y + 45, MARGIN + 100, y + 103), fill=(*GOLD, 255))
-        draw.text((MARGIN + 71, y + 57), str(index), font=fonts["body_bold"], fill=(*PANEL_DEEP, 255), anchor="ma")
-        draw.text((MARGIN + 132, y + 38), title, font=fonts["body_bold"], fill=(*TEXT, 255))
-        draw.text((MARGIN + 132, y + 88), subtitle, font=fonts["body"], fill=(*MUTED, 255))
+        col = (index - 1) % 2
+        row = (index - 1) // 2
+        left = MARGIN + col * (card_w + gap_x)
+        y = top + 82 + row * (card_h + gap_y)
+        draw_card(draw, (left, y, left + card_w, y + card_h), radius=28, fill=PANEL_SOFT, outline=BORDER)
+        draw.ellipse((left + 30, y + 30, left + 80, y + 80), fill=(*GOLD, 255))
+        draw.text((left + 55, y + 40), str(index), font=fonts["small_bold"], fill=(*PANEL_DEEP, 255), anchor="ma")
+        draw_wrapped(draw, title, fonts["list_title"], left + 98, y + 24, card_w - 126, max_lines=2, fill=TEXT, line_gap=6)
+        draw_wrapped(draw, subtitle, fonts["small"], left + 30, y + 132, card_w - 60, max_lines=2, fill=MUTED, line_gap=6)
 
 
 def _draw_bottom_note(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], text: str) -> None:

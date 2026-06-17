@@ -16,15 +16,15 @@ MARGIN = 72
 CONTENT_WIDTH = WIDTH - MARGIN * 2
 
 BG_TOP = (6, 10, 24)
-BG_BOTTOM = (9, 42, 54)
-PANEL = (18, 29, 47)
-PANEL_SOFT = (24, 39, 62)
-PANEL_DEEP = (10, 21, 38)
-BORDER = (58, 82, 112)
-BORDER_SOFT = (39, 58, 83)
+BG_BOTTOM = (8, 34, 47)
+PANEL = (21, 36, 58)
+PANEL_SOFT = (29, 49, 76)
+PANEL_DEEP = (14, 28, 48)
+BORDER = (78, 107, 143)
+BORDER_SOFT = (50, 74, 104)
 TEXT = (242, 247, 252)
-MUTED = (162, 178, 201)
-FAINT = (94, 114, 139)
+MUTED = (180, 194, 214)
+FAINT = (112, 132, 158)
 CYAN = (94, 211, 221)
 BLUE = (124, 168, 255)
 VIOLET = (160, 132, 255)
@@ -129,7 +129,7 @@ def draw_background(draw: ImageDraw.ImageDraw) -> None:
     for x in range(MARGIN, WIDTH - MARGIN + 1, 96):
         draw.line((x, 236, x, HEIGHT - 146), fill=(61, 94, 125, 8), width=1)
 
-    draw.line((MARGIN, 214, WIDTH - MARGIN, 214), fill=(*BORDER, 90), width=1)
+    draw.line((MARGIN, 248, WIDTH - MARGIN, 248), fill=(*BORDER, 105), width=1)
     draw.line((MARGIN, HEIGHT - 126, WIDTH - MARGIN, HEIGHT - 126), fill=(*BORDER, 80), width=1)
 
     _draw_helix_trace(draw)
@@ -177,7 +177,8 @@ def draw_header(
     if page_number == 1:
         draw.text((MARGIN, 54), "KBDNA / MY DNA", font=fonts["eyebrow"], fill=(*CYAN, 255))
         draw.text((MARGIN, 93), "DNA-паспорт", font=fonts["hero"], fill=(*TEXT, 255))
-        draw.text((MARGIN, 166), f"{ellipsize(draw, sample, fonts['subtitle'], 640)} · {date}", font=fonts["subtitle"], fill=(*MUTED, 255))
+        draw.text((MARGIN, 174), ellipsize(draw, sample, fonts["sample_title"], 820), font=fonts["sample_title"], fill=(*TEXT, 255))
+        draw.text((right, 190), date, font=fonts["subtitle"], fill=(*MUTED, 255), anchor="ra")
         return
 
     draw.text((MARGIN, 54), "KBDNA / DNA-ПАСПОРТ", font=fonts["eyebrow"], fill=(*CYAN, 255))
@@ -200,7 +201,7 @@ def draw_card(
     outline: tuple[int, int, int] = BORDER_SOFT,
     width: int = 1,
 ) -> None:
-    draw.rounded_rectangle(box, radius=radius, fill=(*fill, 238), outline=(*outline, 205), width=width)
+    draw.rounded_rectangle(box, radius=radius, fill=(*fill, 248), outline=(*outline, 225), width=max(2, width))
 
 
 def draw_section_label(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], x: int, y: int, title: str, accent: tuple[int, int, int] = CYAN) -> None:
@@ -374,9 +375,7 @@ def lineage_status(count: int, *, kind: str) -> str:
     value = max(0, int(count or 0))
     if value <= 0:
         return "Данных недостаточно"
-    if kind == "mtdna":
-        return "Ограниченное покрытие"
-    return "Y-маркеры обнаружены"
+    return "Ограниченное покрытие"
 
 
 def dedupe_snp_items(items: tuple[DNAPassportInterestingSnpItem, ...]) -> tuple[DNAPassportInterestingSnpItem, ...]:
@@ -418,8 +417,19 @@ def snp_topic_key(item: DNAPassportInterestingSnpItem) -> str:
 def snp_title(item: DNAPassportInterestingSnpItem) -> str:
     title = clean(item.title or item.rsid or "SNP")
     if ":" in title:
-        return title.split(":", 1)[0].strip()
+        prefix, suffix = (part.strip() for part in title.split(":", 1))
+        if prefix.lower() == clean(item.gene).lower() and suffix:
+            return f"{prefix} · {suffix}"
+        return prefix
     return title
+
+
+def snp_display_result(item: DNAPassportInterestingSnpItem) -> str:
+    result = clean(item.interpretation or "Результат найден")
+    gene = clean(item.gene).upper()
+    if gene == "ACTN3" and result.lower() == "промежуточный вариант actn3":
+        return "Смешанный вариант по ACTN3"
+    return result
 
 
 def display_region(value: str) -> str:
@@ -462,6 +472,7 @@ def load_fonts() -> dict[str, ImageFont.ImageFont]:
     return {
         "eyebrow": font(25, bold=True),
         "hero": font(70, bold=True),
+        "sample_title": font(43, bold=True),
         "section_title": font(62, bold=True),
         "subtitle": font(30),
         "page_title": font(34, bold=True),
@@ -470,6 +481,8 @@ def load_fonts() -> dict[str, ImageFont.ImageFont]:
         "metric": font(48, bold=True),
         "metric_big": font(68, bold=True),
         "title": font(46, bold=True),
+        "list_title": font(32, bold=True),
+        "result": font(36, bold=True),
         "body": font(29),
         "body_bold": font(29, bold=True),
         "small": font(23),
