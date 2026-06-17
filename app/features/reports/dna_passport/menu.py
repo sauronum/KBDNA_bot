@@ -14,6 +14,7 @@ from telegram.ext import ContextTypes
 from app.features.my_data.storage import CoordinateAsset, MyDataStore, SampleAsset
 from app.features.traits.domain.runtime import TraitsRuntimeService
 from app.i18n import t
+from app.main_menu import set_active_main_menu_message
 from g25_core.command_service import G25CommandService
 
 from .domain import DNAPassportData
@@ -229,6 +230,7 @@ async def run_passport(
     visual_sent = await _send_passport_visual_album(
         message,
         context,
+        user_id,
         data,
         text,
         back_callback=back_callback,
@@ -242,6 +244,7 @@ async def run_passport(
 async def _send_passport_visual_album(
     message,
     context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
     data: DNAPassportData,
     detail_text: str,
     *,
@@ -255,7 +258,14 @@ async def _send_passport_visual_album(
         await _reply_visual_pages(message, pages)
         token = _store_passport_detail(context, text=detail_text, back_callback=back_callback)
         detail_callback = f"{PASSPORT_CALLBACK_PREFIX}:detail:{token}"
-        await _send_passport_visual_followup(message, detail_callback=detail_callback, back_callback=back_callback, lang=lang)
+        await _send_passport_visual_followup(
+            message,
+            context,
+            user_id=user_id,
+            detail_callback=detail_callback,
+            back_callback=back_callback,
+            lang=lang,
+        )
         return True
     except Exception:
         logger.exception("Could not send DNA passport visual album")
@@ -296,14 +306,32 @@ async def _reply_visual_pages(message, pages: list[DNAPassportVisualPage]) -> No
             handle.close()
 
 
-async def _send_passport_visual_followup(message, *, detail_callback: str, back_callback: str, lang: str = "ru") -> None:
+async def _send_passport_visual_followup(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    user_id: int,
+    detail_callback: str,
+    back_callback: str,
+    lang: str = "ru",
+) -> None:
     text = _passport_visual_followup_text(lang=lang)
     markup = build_passport_visual_keyboard(detail_callback=detail_callback, back_callback=back_callback, lang=lang)
     if hasattr(message, "reply_text"):
-        await message.reply_text(text, reply_markup=markup, do_quote=False)
+        sent = await message.reply_text(text, reply_markup=markup, do_quote=False)
+        _remember_active_message(context, sent, user_id)
         await _delete_message_if_possible(message)
         return
     await message.edit_text(text, reply_markup=markup)
+    _remember_active_message(context, message, user_id)
+
+
+def _remember_active_message(context: ContextTypes.DEFAULT_TYPE, message, user_id: int) -> None:
+    chat_id = getattr(message, "chat_id", None)
+    message_id = getattr(message, "message_id", None)
+    if chat_id is None or message_id is None:
+        return
+    set_active_main_menu_message(context, int(chat_id), int(user_id), int(message_id))
 
 
 async def _delete_message_if_possible(message) -> None:

@@ -42,10 +42,13 @@ from app.features.reports.menu import (
     report_detail_text,
     show_reports_menu,
 )
+from app.main_menu import set_active_main_menu_message
 
 
 class _FakeMessage:
-    def __init__(self) -> None:
+    def __init__(self, *, chat_id: int = 10, message_id: int = 100) -> None:
+        self.chat_id = chat_id
+        self.message_id = message_id
         self.calls: list[tuple[str, object, object, str | None]] = []
 
     async def edit_text(self, text, reply_markup=None, parse_mode=None):
@@ -53,7 +56,7 @@ class _FakeMessage:
 
     async def reply_text(self, text, reply_markup=None, parse_mode=None, do_quote=False):
         self.calls.append(("reply_text", text, reply_markup, parse_mode))
-        return self
+        return _FakeMessage(chat_id=self.chat_id, message_id=self.message_id + 1)
 
     async def reply_photo(self, photo, caption=None, reply_markup=None, do_quote=False):
         self.calls.append(("reply_photo", caption, reply_markup, None))
@@ -311,6 +314,36 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertEqual(message.calls[-1][3], "HTML")
         self.assertIn("<b>🧬 DNA-паспорт</b>", message.calls[-1][1])
         self.assertIn("📁 Исходные данные", message.calls[-1][1])
+
+    def test_passport_detail_followup_is_registered_as_active_menu(self) -> None:
+        sample = _sample("sample-1", "Zaur")
+        store = _FakeStore(samples=[sample])
+        service = _FakePassportService()
+        message = _FakeMessage(chat_id=10, message_id=100)
+        context = _context(store, admin_ids={1})
+        set_active_main_menu_message(context, 10, 1, 100)
+
+        update = _callback_update("reports:passport:sample:sample-1", user_id=1, message=message)
+        with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True), patch(
+            "app.features.reports.dna_passport.menu._passport_service",
+            return_value=service,
+        ):
+            _run(reports_callback_handler(update, context))
+
+        active_id = context.application.bot_data["main_menu_store"].get(10, 1)
+        self.assertEqual(active_id, 101)
+
+        followup = _last_call(message, "reply_text")
+        callbacks = [button.callback_data for row in followup[2].inline_keyboard for button in row]
+        detail_callback = next(callback for callback in callbacks if callback.startswith("reports:passport:detail:"))
+        detail_message = _FakeMessage(chat_id=10, message_id=101)
+        update = _callback_update(detail_callback, user_id=1, message=detail_message)
+
+        _run(reports_callback_handler(update, context))
+
+        self.assertEqual(update.callback_query.answers, [(None, False)])
+        self.assertEqual(detail_message.calls[-1][3], "HTML")
+        self.assertIn("DNA-", detail_message.calls[-1][1])
 
     def test_passport_visual_failure_falls_back_to_text_report(self) -> None:
         sample = _sample("sample-1", "Zaur")
@@ -721,7 +754,8 @@ def _context(store: _FakeStore, *, admin_ids=None, admin_usernames=None):
 def _callback_update(data: str, *, user_id: int, message: _FakeMessage, username: str | None = None):
     query = _FakeQuery(data, message)
     user = SimpleNamespace(id=user_id, username=username)
-    return SimpleNamespace(callback_query=query, effective_user=user)
+    chat = SimpleNamespace(id=message.chat_id)
+    return SimpleNamespace(callback_query=query, effective_user=user, effective_chat=chat)
 
 
 def _labels(keyboard) -> list[str]:
