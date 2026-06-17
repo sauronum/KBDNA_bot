@@ -1,0 +1,392 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import socket
+import time
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from html import unescape
+from html.parser import HTMLParser
+from pathlib import Path
+from typing import Callable
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, unquote, urlparse
+from urllib.request import Request, urlopen
+
+from app.storage_io import write_json_atomic
+
+
+YFULL_BASE_URL = "https://www.yfull.com"
+_CACHE_SCHEMA_VERSION = 1
+_DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
+_MAX_HTML_BYTES = 3 * 1024 * 1024
+_BRANCH_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9*._-]{0,79}")
+_TREE_PATH_RE = re.compile(r"/(?:live/|sc/|chart/)?tree/([^/?#]+)/?", re.IGNORECASE)
+
+
+class YFullLookupError(RuntimeError):
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
+@dataclass(frozen=True)
+class YFullChildBranch:
+    name: str
+    snps: tuple[str, ...]
+    formed_ybp: int | None
+    tmrca_ybp: int | None
+
+
+@dataclass(frozen=True)
+class YFullBranch:
+    name: str
+    parent: str
+    path: tuple[str, ...]
+    snps: tuple[str, ...]
+    formed_ybp: int | None
+    tmrca_ybp: int | None
+    children: tuple[YFullChildBranch, ...]
+    public_sample_count: int
+    geographies: tuple[str, ...]
+    tree_version: str
+    release_date: str
+    source_url: str
+    fetched_at: str
+
+
+@dataclass(frozen=True)
+class YFullLookupResult:
+    branch: YFullBranch
+    cache_status: str
+
+
+@dataclass
+class _ParsedNode:
+    branch_id: str
+    parent_id: str
+    name: str = ""
+    snp_text: str = ""
+    extra_snp_text: str = ""
+    age_text: str = ""
+
+
+@dataclass
+class _LiContext:
+    branch_id: str = ""
+
+
+class _YFullTreeParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.breadcrumbs: list[str] = []
+        self.nodes: list[_ParsedNode] = []
+        self.public_sample_count = 0
+        self.geographies: list[str] = []
+        self.all_text: list[str] = []
+        self._node_by_id: dict[str, _ParsedNode] = {}
+        self._li_stack: list[_LiContext] = []
+        self._tree_ul_depth = 0
+        self._breadcrumb_div_depth = 0
+        self._capture_tag = ""
+        self._capture_kind = ""
+        self._capture_node: _ParsedNode | None = None
+        self._capture_text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        attributes = dict(attrs)
+        classes = set(str(attributes.get("class") or "").split())
+
+        if tag == "div":
+            if attributes.get("id") == "bc":
+                self._breadcrumb_div_depth = 1
+            elif self._breadcrumb_div_depth:
+                self._breadcrumb_div_depth += 1
+
+        if tag == "ul":
+            if attributes.get("id") == "tree":
+                self._tree_ul_depth = 1
+            elif self._tree_ul_depth:
+                self._tree_ul_depth += 1
+
+        if self._breadcrumb_div_depth and tag == "a":
+            self._start_capture(tag, "breadcrumb")
+
+        if not self._tree_ul_depth:
+            return
+
+        if tag == "li":
+            raw_id = str(attributes.get("id") or "")
+            branch_id = raw_id[1:] if raw_id.startswith("l") else ""
+            parent_id = next((item.branch_id for item in reversed(self._li_stack) if item.branch_id), "")
+            self._li_stack.append(_LiContext(branch_id=branch_id))
+            if branch_id:
+                node = _ParsedNode(branch_id=branch_id, parent_id=parent_id)
+                self.nodes.append(node)
+                self._node_by_id[branch_id] = node
+            if attributes.get("valsampleid") or attributes.get("valSampleID"):
+                self.public_sample_count += 1
+            return
+
+        node = self._current_node()
+        if node is None:
+            return
+        if tag == "a" and ("yf-root" in classes or "/tree/" in str(attributes.get("href") or "")):
+            self._start_capture(tag, "name", node)
+        elif tag == "span" and "yf-snpforhg" in classes:
+            self._start_capture(tag, "snps", node)
+        elif tag == "span" and "yf-plus-snps" in classes:
+            node.extra_snp_text = str(attributes.get("title") or "").strip()
+        elif tag == "span" and "yf-age" in classes:
+            self._start_capture(tag, "age", node)
+        elif tag == "b" and "yf-geo" in classes:
+            geography = str(attributes.get("title") or "").strip()
+            if geography and geography not in self.geographies:
+                self.geographies.append(geography)
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._capture_tag == tag:
+            self._finish_capture()
+
+        if tag == "li" and self._tree_ul_depth and self._li_stack:
+            self._li_stack.pop()
+        if tag == "ul" and self._tree_ul_depth:
+            self._tree_ul_depth -= 1
+        if tag == "div" and self._breadcrumb_div_depth:
+            self._breadcrumb_div_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        clean = data.strip()
+        if clean:
+            self.all_text.append(clean)
+        if self._capture_tag:
+            self._capture_text.append(data)
+
+    def _current_node(self) -> _ParsedNode | None:
+        branch_id = next((item.branch_id for item in reversed(self._li_stack) if item.branch_id), "")
+        return self._node_by_id.get(branch_id)
+
+    def _start_capture(self, tag: str, kind: str, node: _ParsedNode | None = None) -> None:
+        self._capture_tag = tag
+        self._capture_kind = kind
+        self._capture_node = node
+        self._capture_text = []
+
+    def _finish_capture(self) -> None:
+        value = " ".join("".join(self._capture_text).split())
+        if self._capture_kind == "breadcrumb" and value and value.lower() != "home":
+            self.breadcrumbs.append(value)
+        elif self._capture_node is not None:
+            if self._capture_kind == "name" and not self._capture_node.name:
+                self._capture_node.name = value
+            elif self._capture_kind == "snps":
+                self._capture_node.snp_text = value
+            elif self._capture_kind == "age":
+                self._capture_node.age_text = value
+        self._capture_tag = ""
+        self._capture_kind = ""
+        self._capture_node = None
+        self._capture_text = []
+
+
+def normalize_yfull_branch_query(value: str) -> str:
+    clean = value.strip().strip("<>")
+    if not clean:
+        raise YFullLookupError("invalid_query")
+
+    if "://" in clean:
+        parsed = urlparse(clean)
+        host = (parsed.hostname or "").lower()
+        if host not in {"yfull.com", "www.yfull.com"}:
+            raise YFullLookupError("invalid_query")
+        match = _TREE_PATH_RE.search(parsed.path)
+        if match is None:
+            raise YFullLookupError("invalid_query")
+        clean = unquote(match.group(1))
+
+    clean = clean.strip().strip("/")
+    if _BRANCH_RE.fullmatch(clean) is None or ".." in clean:
+        raise YFullLookupError("invalid_query")
+    if "-" in clean:
+        prefix, suffix = clean.split("-", 1)
+        return f"{prefix.upper()}-{suffix.upper()}"
+    return clean[:1].upper() + clean[1:]
+
+
+def parse_yfull_branch_html(html_text: str, *, source_url: str) -> YFullBranch:
+    parser = _YFullTreeParser()
+    try:
+        parser.feed(html_text)
+        parser.close()
+    except Exception as exc:
+        raise YFullLookupError("parse_error") from exc
+
+    root = next((node for node in parser.nodes if not node.parent_id and node.name), None)
+    if root is None:
+        raise YFullLookupError("not_found" if "YTree" in html_text else "parse_error")
+
+    text = " ".join(parser.all_text)
+    version_match = re.search(r"YTree\s+v([0-9.]+)", text, flags=re.IGNORECASE)
+    release_match = re.search(r"Haplogroup\s+YTree\s+v?([0-9.]+)\s*\(([^)]+)\)", text, flags=re.IGNORECASE)
+    children = tuple(
+        YFullChildBranch(
+            name=node.name or node.branch_id,
+            snps=_split_snps(node.snp_text, node.extra_snp_text),
+            formed_ybp=_age_value(node.age_text, "formed"),
+            tmrca_ybp=_age_value(node.age_text, "TMRCA"),
+        )
+        for node in parser.nodes
+        if node.parent_id == root.branch_id and (node.name or node.branch_id)
+    )
+    path = tuple(parser.breadcrumbs) + (root.name,)
+    canonical_url = f"{YFULL_BASE_URL}/tree/{quote(root.name, safe='-*._')}/"
+    return YFullBranch(
+        name=root.name,
+        parent=parser.breadcrumbs[-1] if parser.breadcrumbs else "",
+        path=path,
+        snps=_split_snps(root.snp_text, root.extra_snp_text),
+        formed_ybp=_age_value(root.age_text, "formed"),
+        tmrca_ybp=_age_value(root.age_text, "TMRCA"),
+        children=children,
+        public_sample_count=parser.public_sample_count,
+        geographies=tuple(parser.geographies),
+        tree_version=version_match.group(1) if version_match else "",
+        release_date=release_match.group(2).strip() if release_match else "",
+        source_url=canonical_url or source_url,
+        fetched_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    )
+
+
+def fetch_yfull_html(url: str, *, timeout_seconds: float = 20.0) -> str:
+    request = Request(
+        url,
+        headers={
+            "Accept": "text/html,application/xhtml+xml",
+            "User-Agent": "KBDNAbot/1.0 (public YFull branch lookup)",
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            data = response.read(_MAX_HTML_BYTES + 1)
+    except HTTPError as exc:
+        if exc.code == 404:
+            raise YFullLookupError("not_found") from exc
+        raise YFullLookupError("unavailable") from exc
+    except (URLError, TimeoutError, socket.timeout, OSError) as exc:
+        raise YFullLookupError("unavailable") from exc
+    if len(data) > _MAX_HTML_BYTES:
+        raise YFullLookupError("response_too_large")
+    return data.decode("utf-8", errors="replace")
+
+
+class YFullBranchService:
+    def __init__(
+        self,
+        cache_dir: Path,
+        *,
+        cache_ttl_seconds: int = _DEFAULT_CACHE_TTL_SECONDS,
+        fetch_html: Callable[[str], str] = fetch_yfull_html,
+    ) -> None:
+        self.cache_dir = cache_dir
+        self.cache_ttl_seconds = max(0, int(cache_ttl_seconds))
+        self.fetch_html = fetch_html
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def lookup(self, query: str, *, force_refresh: bool = False) -> YFullLookupResult:
+        branch_name = normalize_yfull_branch_query(query)
+        cache_path = self._cache_path(branch_name)
+        cached = self._read_cache(cache_path)
+        if cached is not None and not force_refresh and self._is_fresh(cache_path):
+            return YFullLookupResult(branch=cached, cache_status="cache")
+
+        source_url = f"{YFULL_BASE_URL}/tree/{quote(branch_name, safe='-*._')}/"
+        try:
+            html_text = self.fetch_html(source_url)
+            branch = parse_yfull_branch_html(html_text, source_url=source_url)
+        except YFullLookupError as exc:
+            if cached is not None and exc.reason in {"unavailable", "parse_error", "response_too_large"}:
+                return YFullLookupResult(branch=cached, cache_status="stale")
+            raise
+        self._write_cache(cache_path, branch)
+        return YFullLookupResult(branch=branch, cache_status="live")
+
+    def _cache_path(self, branch_name: str) -> Path:
+        digest = hashlib.sha256(branch_name.encode("utf-8")).hexdigest()[:24]
+        return self.cache_dir / f"{digest}.json"
+
+    def _is_fresh(self, path: Path) -> bool:
+        try:
+            return time.time() - path.stat().st_mtime <= self.cache_ttl_seconds
+        except OSError:
+            return False
+
+    @staticmethod
+    def _read_cache(path: Path) -> YFullBranch | None:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict) or payload.get("schema_version") != _CACHE_SCHEMA_VERSION:
+            return None
+        branch = payload.get("branch")
+        if not isinstance(branch, dict):
+            return None
+        try:
+            children = tuple(
+                YFullChildBranch(
+                    name=str(item.get("name") or ""),
+                    snps=tuple(str(snp) for snp in item.get("snps", [])),
+                    formed_ybp=_optional_int(item.get("formed_ybp")),
+                    tmrca_ybp=_optional_int(item.get("tmrca_ybp")),
+                )
+                for item in branch.get("children", [])
+                if isinstance(item, dict)
+            )
+            return YFullBranch(
+                name=str(branch.get("name") or ""),
+                parent=str(branch.get("parent") or ""),
+                path=tuple(str(item) for item in branch.get("path", [])),
+                snps=tuple(str(item) for item in branch.get("snps", [])),
+                formed_ybp=_optional_int(branch.get("formed_ybp")),
+                tmrca_ybp=_optional_int(branch.get("tmrca_ybp")),
+                children=children,
+                public_sample_count=int(branch.get("public_sample_count") or 0),
+                geographies=tuple(str(item) for item in branch.get("geographies", [])),
+                tree_version=str(branch.get("tree_version") or ""),
+                release_date=str(branch.get("release_date") or ""),
+                source_url=str(branch.get("source_url") or ""),
+                fetched_at=str(branch.get("fetched_at") or ""),
+            )
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _write_cache(path: Path, branch: YFullBranch) -> None:
+        write_json_atomic(path, {"schema_version": _CACHE_SCHEMA_VERSION, "branch": asdict(branch)})
+
+
+def _split_snps(primary: str, extra: str = "") -> tuple[str, ...]:
+    values = []
+    for item in re.split(r"\s*\*\s*", " * ".join(value for value in (primary, extra) if value)):
+        clean = unescape(item).strip()
+        if clean and clean not in values:
+            values.append(clean)
+    return tuple(values)
+
+
+def _age_value(value: str, label: str) -> int | None:
+    match = re.search(rf"\b{re.escape(label)}\s+([0-9][0-9,]*)\s+ybp\b", value, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    try:
+        return int(match.group(1).replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _optional_int(value) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)

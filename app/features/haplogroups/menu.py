@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from math import ceil
 from pathlib import Path
@@ -11,6 +12,12 @@ from app.features.my_data.storage import MyDataStore, SampleAsset
 from app.i18n import get_user_language, t
 from app.main_menu import ensure_active_main_menu, set_active_main_menu_message
 
+from .branch_ui import (
+    branch_lookup_error_text,
+    branch_lookup_loading_text,
+    branch_lookup_prompt_text,
+    branch_lookup_result_text,
+)
 from .domain import (
     ImportedHaplogroup,
     compare_y_str_profiles,
@@ -44,6 +51,7 @@ from .ui import (
     upload_result_text,
     y_prediction_text,
 )
+from .yfull import YFullBranchService, YFullLookupError
 
 
 HAPLOGROUPS_CALLBACK_PREFIX = "haplogroups"
@@ -53,6 +61,7 @@ HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES = 20 * 1024 * 1024
 _TEXT_ADD_ACTION = "haplogroup_add"
 _FILE_UPLOAD_ACTION = "haplogroup_file_upload"
 _STR_COMPARE_ACTION = "haplogroup_str_compare"
+_BRANCH_LOOKUP_ACTION = "haplogroup_branch_lookup"
 _TYPE_CODES = {"y": "Y-DNA", "mt": "mtDNA"}
 logger = logging.getLogger(__name__)
 
@@ -97,8 +106,10 @@ class HaplogroupFlowStore:
 
 
 def register_haplogroup_services(application: Application, settings) -> None:
-    application.bot_data["haplogroup_store"] = HaplogroupStore(settings.root_dir / "storage" / "haplogroups")
+    haplogroup_root = settings.root_dir / "storage" / "haplogroups"
+    application.bot_data["haplogroup_store"] = HaplogroupStore(haplogroup_root)
     application.bot_data["haplogroup_flow_store"] = HaplogroupFlowStore()
+    application.bot_data["yfull_branch_service"] = YFullBranchService(haplogroup_root / "yfull_cache")
 
 
 def _store(context: ContextTypes.DEFAULT_TYPE) -> HaplogroupStore:
@@ -121,6 +132,16 @@ def _flow_store(context: ContextTypes.DEFAULT_TYPE) -> HaplogroupFlowStore:
 
 def _my_data_store(context: ContextTypes.DEFAULT_TYPE) -> MyDataStore:
     return context.application.bot_data["my_data_store"]
+
+
+def _yfull_branch_service(context: ContextTypes.DEFAULT_TYPE) -> YFullBranchService:
+    service = context.application.bot_data.get("yfull_branch_service")
+    if isinstance(service, YFullBranchService):
+        return service
+    cache_dir = _store(context).root_dir / "yfull_cache"
+    service = YFullBranchService(cache_dir)
+    context.application.bot_data["yfull_branch_service"] = service
+    return service
 
 
 def _other_input_flow_active(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> bool:
@@ -162,11 +183,30 @@ async def show_haplogroups_menu(
 ) -> None:
     lang = lang or get_user_language(context, user_id)
     rows = [
+        [InlineKeyboardButton(_copy(lang, "Найти ветку", "Find a branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")],
         [InlineKeyboardButton("🧬 Y-DNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:y")],
         [InlineKeyboardButton("🧬 mtDNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt")],
         [InlineKeyboardButton("🧮 Y-STR", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:str")],
     ]
     await _show_or_edit(message, haplogroups_root_text(lang), build_markup(rows, "main:root", lang=lang), edit_existing=edit_existing)
+
+
+async def show_branch_lookup_prompt(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    chat_id: int,
+    *,
+    lang: str = "ru",
+    edit_existing: bool = False,
+) -> None:
+    _flow_store(context).expect(chat_id, user_id, {}, action=_BRANCH_LOOKUP_ACTION)
+    await _show_or_edit(
+        message,
+        branch_lookup_prompt_text(lang),
+        build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+        edit_existing=edit_existing,
+    )
 
 
 async def show_lineage_menu(message, type_code: str, *, lang: str = "ru", edit_existing: bool = False) -> None:
@@ -659,6 +699,57 @@ def _imported_haplogroup_note(file_name: str, result: ImportedHaplogroup) -> str
     return "\n".join(lines)
 
 
+async def _handle_branch_lookup_input(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    body: str,
+    chat_id: int,
+    user_id: int,
+    lang: str,
+    flow: HaplogroupFlowStore,
+) -> None:
+    assert update.message is not None
+    status_message = await update.message.reply_text(
+        branch_lookup_loading_text(body, lang),
+        parse_mode="HTML",
+        do_quote=False,
+    )
+    try:
+        result = await asyncio.to_thread(_yfull_branch_service(context).lookup, body)
+    except YFullLookupError as exc:
+        rows = [[InlineKeyboardButton(_copy(lang, "Попробовать снова", "Try again"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")]]
+        await status_message.edit_text(
+            branch_lookup_error_text(exc.reason, lang),
+            reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            parse_mode="HTML",
+        )
+        set_active_main_menu_message(context, chat_id, user_id, status_message.message_id)
+        raise ApplicationHandlerStop
+    except Exception:
+        logger.exception("YFull branch lookup failed")
+        await status_message.edit_text(
+            branch_lookup_error_text("unavailable", lang),
+            reply_markup=build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            parse_mode="HTML",
+        )
+        set_active_main_menu_message(context, chat_id, user_id, status_message.message_id)
+        raise ApplicationHandlerStop
+
+    flow.clear(chat_id, user_id)
+    rows = [
+        [InlineKeyboardButton(_copy(lang, "Открыть в YFull", "Open in YFull"), url=result.branch.source_url)],
+        [InlineKeyboardButton(_copy(lang, "Найти другую ветку", "Find another branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")],
+    ]
+    await status_message.edit_text(
+        branch_lookup_result_text(result, lang),
+        reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+        parse_mode="HTML",
+    )
+    set_active_main_menu_message(context, chat_id, user_id, status_message.message_id)
+    raise ApplicationHandlerStop
+
+
 async def haplogroups_text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None or update.message.text is None or update.effective_chat is None or update.effective_user is None:
         return
@@ -673,7 +764,20 @@ async def haplogroups_text_input_handler(update: Update, context: ContextTypes.D
         return
     flow = _flow_store(context)
     pending = flow.get(chat_id, user_id)
-    if pending is None or pending.get("action") != _TEXT_ADD_ACTION:
+    if pending is None:
+        return
+    if pending.get("action") == _BRANCH_LOOKUP_ACTION:
+        await _handle_branch_lookup_input(
+            update,
+            context,
+            body=body,
+            chat_id=chat_id,
+            user_id=user_id,
+            lang=lang,
+            flow=flow,
+        )
+        return
+    if pending.get("action") != _TEXT_ADD_ACTION:
         return
 
     fields = parse_haplogroup_input(body)
@@ -859,6 +963,16 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
     if action == "root":
         context.user_data.pop("haplogroups_add_data_origin", None)
         await show_haplogroups_menu(query.message, context, user_id, lang=lang, edit_existing=True)
+        return
+    if action == "branch":
+        await show_branch_lookup_prompt(
+            query.message,
+            context,
+            user_id,
+            chat_id,
+            lang=lang,
+            edit_existing=True,
+        )
         return
     if action == "y":
         await show_lineage_menu(query.message, "y", lang=lang, edit_existing=True)

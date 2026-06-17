@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import unittest
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from unittest.mock import patch
 
 from telegram.ext import ApplicationHandlerStop
 
@@ -20,14 +21,18 @@ from app.features.haplogroups.menu import (
     HAPLOGROUPS_CALLBACK_PREFIX,
     HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES,
     HaplogroupFlowStore,
+    _BRANCH_LOOKUP_ACTION,
     _FILE_UPLOAD_ACTION,
     _paginate_records,
     haplogroups_document_input_handler,
+    haplogroups_text_input_handler,
     parse_haplogroup_input,
+    show_branch_lookup_prompt,
     show_haplogroups_menu,
 )
 from app.features.haplogroups.storage import HaplogroupRecord, HaplogroupStore
 from app.features.haplogroups.ui import raw_scan_result_text
+from app.features.haplogroups.yfull import YFullBranch, YFullLookupResult
 from app.features.my_data.storage import SampleAsset
 
 
@@ -397,6 +402,7 @@ class HaplogroupTests(unittest.TestCase):
         record_id = "20260501090012345678-12345678"
         callbacks = [
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:detect",
@@ -483,6 +489,47 @@ class _MenuMessage:
         return SimpleNamespace(message_id=10)
 
 
+class _StatusMessage:
+    message_id = 11
+
+    def __init__(self) -> None:
+        self.text = ""
+        self.reply_markup = None
+
+    async def edit_text(self, text: str, **kwargs) -> None:
+        self.text = text
+        self.reply_markup = kwargs.get("reply_markup")
+
+
+class _TextMessage:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.status = _StatusMessage()
+
+    async def reply_text(self, text: str, **kwargs):
+        return self.status
+
+
+class _YFullServiceStub:
+    def lookup(self, query: str) -> YFullLookupResult:
+        branch = YFullBranch(
+            name="R-Y100",
+            parent="R1b",
+            path=("R", "R1b", "R-Y100"),
+            snps=("Y100",),
+            formed_ybp=4500,
+            tmrca_ybp=3700,
+            children=(),
+            public_sample_count=2,
+            geographies=("Spain",),
+            tree_version="14.03.00",
+            release_date="16 May 2026",
+            source_url="https://www.yfull.com/tree/R-Y100/",
+            fetched_at="2026-06-18T00:00:00+00:00",
+        )
+        return YFullLookupResult(branch=branch, cache_status="live")
+
+
 class _MyDataStub:
     def __init__(self) -> None:
         self.build_temp_path_called = False
@@ -496,6 +543,45 @@ class _MyDataStub:
 
 
 class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_branch_lookup_text_flow_renders_result_and_clears_pending(self) -> None:
+        flow = HaplogroupFlowStore()
+        flow.expect(10, 123, {}, action=_BRANCH_LOOKUP_ACTION)
+        context = SimpleNamespace(
+            application=SimpleNamespace(bot_data={"haplogroup_flow_store": flow})
+        )
+        message = _TextMessage("R-Y100")
+        update = SimpleNamespace(
+            message=message,
+            effective_chat=SimpleNamespace(id=10),
+            effective_user=SimpleNamespace(id=123),
+        )
+
+        with patch("app.features.haplogroups.menu._yfull_branch_service", return_value=_YFullServiceStub()):
+            with self.assertRaises(ApplicationHandlerStop):
+                await haplogroups_text_input_handler(update, context)
+
+        self.assertIsNone(flow.get(10, 123))
+        self.assertIn("R-Y100", message.status.text)
+        self.assertIn("TMRCA: 3 700 лет назад", message.status.text)
+        url_buttons = [
+            button
+            for row in message.status.reply_markup.inline_keyboard
+            for button in row
+            if button.url
+        ]
+        self.assertEqual(url_buttons[0].url, "https://www.yfull.com/tree/R-Y100/")
+
+    async def test_branch_lookup_prompt_sets_expected_text_flow(self) -> None:
+        flow = HaplogroupFlowStore()
+        context = SimpleNamespace(
+            application=SimpleNamespace(bot_data={"haplogroup_flow_store": flow})
+        )
+        message = _MenuMessage()
+
+        await show_branch_lookup_prompt(message, context, 123, 10, lang="ru")
+
+        self.assertEqual(flow.get(10, 123)["action"], _BRANCH_LOOKUP_ACTION)
+
     async def test_root_menu_does_not_show_saved_by_sample_section(self) -> None:
         message = _MenuMessage()
 
@@ -509,6 +595,7 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             callbacks,
             [
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:str",
