@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import math
 from datetime import datetime
 from pathlib import Path
 
@@ -14,11 +15,11 @@ HEIGHT = 1800
 MARGIN = 72
 CONTENT_WIDTH = WIDTH - MARGIN * 2
 
-BG_TOP = (7, 13, 25)
-BG_BOTTOM = (12, 33, 46)
-PANEL = (17, 28, 43)
-PANEL_SOFT = (22, 37, 56)
-PANEL_DEEP = (11, 22, 36)
+BG_TOP = (6, 10, 24)
+BG_BOTTOM = (9, 42, 54)
+PANEL = (18, 29, 47)
+PANEL_SOFT = (24, 39, 62)
+PANEL_DEEP = (10, 21, 38)
 BORDER = (58, 82, 112)
 BORDER_SOFT = (39, 58, 83)
 TEXT = (242, 247, 252)
@@ -117,13 +118,43 @@ def draw_background(draw: ImageDraw.ImageDraw) -> None:
         color = tuple(int(BG_TOP[i] * (1 - t) + BG_BOTTOM[i] * t) for i in range(3))
         draw.line((0, y, WIDTH, y), fill=color)
 
-    for x in range(-220, WIDTH + 220, 130):
-        draw.line((x, 0, x + 520, HEIGHT), fill=(80, 126, 159, 13), width=1)
-    for y in range(120, HEIGHT, 150):
-        draw.line((0, y, WIDTH, y + 18), fill=(68, 101, 132, 10), width=1)
+    draw.polygon(((-180, 0), (268, 0), (92, HEIGHT), (-260, HEIGHT)), fill=(*CYAN, 14))
+    draw.polygon(((1030, 0), (WIDTH, 0), (WIDTH + 110, HEIGHT), (1220, HEIGHT)), fill=(*VIOLET, 16))
+    draw.polygon(((0, 1140), (WIDTH, 760), (WIDTH, 1068), (0, 1468)), fill=(*BLUE, 9))
+
+    for x in range(-260, WIDTH + 260, 118):
+        draw.line((x, 0, x + 520, HEIGHT), fill=(82, 137, 171, 16), width=1)
+    for y in range(120, HEIGHT, 135):
+        draw.line((0, y, WIDTH, y + 22), fill=(71, 113, 145, 12), width=1)
+    for x in range(MARGIN, WIDTH - MARGIN + 1, 96):
+        draw.line((x, 236, x, HEIGHT - 146), fill=(61, 94, 125, 8), width=1)
 
     draw.line((MARGIN, 214, WIDTH - MARGIN, 214), fill=(*BORDER, 90), width=1)
     draw.line((MARGIN, HEIGHT - 126, WIDTH - MARGIN, HEIGHT - 126), fill=(*BORDER, 80), width=1)
+
+    _draw_helix_trace(draw)
+
+
+def _draw_helix_trace(draw: ImageDraw.ImageDraw) -> None:
+    left = WIDTH - 238
+    top = 296
+    height = 900
+    prev_a: tuple[int, int] | None = None
+    prev_b: tuple[int, int] | None = None
+    for step in range(30):
+        y = top + int(height * step / 29)
+        phase = step / 29 * 6.3
+        x_a = left + int(math.sin(phase) * 42)
+        x_b = left + int(math.sin(phase + math.pi) * 42)
+        alpha = 32 if step % 2 else 46
+        draw.line((x_a, y, x_b, y), fill=(*CYAN, alpha), width=2)
+        draw.ellipse((x_a - 4, y - 4, x_a + 4, y + 4), fill=(*MINT, alpha + 30))
+        draw.ellipse((x_b - 4, y - 4, x_b + 4, y + 4), fill=(*ROSE, alpha + 20))
+        if prev_a is not None and prev_b is not None:
+            draw.line((prev_a[0], prev_a[1], x_a, y), fill=(*BLUE, 38), width=2)
+            draw.line((prev_b[0], prev_b[1], x_b, y), fill=(*VIOLET, 35), width=2)
+        prev_a = (x_a, y)
+        prev_b = (x_b, y)
 
 
 def draw_header(
