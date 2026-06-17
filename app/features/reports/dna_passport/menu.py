@@ -418,11 +418,13 @@ def _sample_g25_coordinates(store: MyDataStore, user_id: int, sample_id: str) ->
 
 
 def _passport_status_text(context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str, *, lang: str = "ru") -> str:
+    intro = passport_intro_text(lang=lang)
     if _needs_raw_g25_calculation(context, user_id, sample_id):
         if lang == "en":
-            return "🧬 Building DNA passport...\n\nCalculating G25 coordinates from the DNA file."
-        return "🧬 Формируем DNA-паспорт…\n\nПолучаем координаты G25 из DNA-файла."
-    return "🧬 Building DNA passport..." if lang == "en" else "🧬 Формируем DNA-паспорт…"
+            return f"{intro}\n\n⏳ Building the report...\nCalculating G25 coordinates from the DNA file."
+        return f"{intro}\n\n⏳ Формируем отчёт…\nПолучаем координаты G25 из DNA-файла."
+    status = "⏳ Building the report..." if lang == "en" else "⏳ Формируем отчёт…"
+    return f"{intro}\n\n{status}"
 
 
 def _needs_raw_g25_calculation(context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str) -> bool:

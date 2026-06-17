@@ -588,7 +588,7 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("Выберите образец", message.calls[-1][1])
 
     def test_sample_without_g25_runs_passport_immediately(self) -> None:
-        store = _FakeStore(samples=[_sample("sample-1", "Zaur")], coordinates={"sample-1": []})
+        store = _FakeStore(samples=[_sample("sample-1", "Zaur", raw_file_id="raw-1")], coordinates={"sample-1": []})
         service = _FakePassportService()
         message = _FakeMessage()
 
@@ -597,7 +597,9 @@ class DNAPassportUiTests(unittest.TestCase):
 
         self.assertEqual(service.calls[0]["sample_id"], "sample-1")
         self.assertIsNone(service.calls[0]["g25_coordinate_id"])
-        self.assertEqual(message.calls[0][1], "🧬 Формируем DNA-паспорт…")
+        self.assertIn("Краткий персональный отчёт", message.calls[0][1])
+        self.assertIn("⏳ Формируем отчёт…", message.calls[0][1])
+        self.assertIn("Получаем координаты G25", message.calls[0][1])
         self.assertIn("reply_media_group", [call[0] for call in message.calls])
         self.assertIn("reply_text", [call[0] for call in message.calls])
 
@@ -614,6 +616,7 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertEqual(service.calls[0]["sample_id"], "sample-1")
         self.assertIsNone(service.calls[0]["g25_coordinate_id"])
         self.assertNotIn("Выберите профиль", message.calls[0][1])
+        self.assertNotIn("Получаем координаты G25", message.calls[0][1])
 
     def test_multiple_g25_does_not_show_picker(self) -> None:
         sample = _sample("sample-1", "Zaur")
