@@ -81,7 +81,7 @@ class VahaduoUiTests(unittest.TestCase):
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
         self.assertEqual(text, "<b>📐 Vahaduo Lab</b>\n\nG25-инструменты")
-        self.assertEqual(labels[:5], ["📚 Мои источники", "📏 Дистанции", "🧬 Один профиль", "🧩 Несколько профилей", "📚 Готовые модели"])
+        self.assertEqual(labels[:5], ["📚 Мои источники", "📏 Distance", "🧬 Single", "🧩 Multi", "📚 Готовые модели"])
         self.assertEqual(labels[-2:], ["⬅️ Назад", "Отмена"])
 
     def test_ready_models_flow_uses_vahaduo_copy(self) -> None:
@@ -135,8 +135,8 @@ class VahaduoUiTests(unittest.TestCase):
         rows = keyboard.inline_keyboard
         labels = [row[0].text for row in rows[:-1]]
 
-        self.assertEqual(text, "📏 Дистанции\n\nВыберите источники")
-        self.assertEqual(labels, ["🌍 Современные", "🏺 Древние", "📚 Мои источники"])
+        self.assertEqual(text, "📏 Distance\n\nВыберите источники")
+        self.assertEqual(labels, ["🌍 Modern", "🏺 Ancient", "📚 Мои источники"])
         self.assertEqual(rows[0][0].callback_data, "vahaduo:vahaduo_preset:modern")
         self.assertEqual(rows[1][0].callback_data, "vahaduo:vahaduo_preset:origin")
         self.assertEqual([button.text for button in rows[-1]], ["⬅️ Назад", "Отмена"])
@@ -145,8 +145,8 @@ class VahaduoUiTests(unittest.TestCase):
         service = SimpleNamespace(list_vahaduo_preset_sources=lambda mode: [{"key": "panel1", "label": "Steppe_Russia"}])
         single_keyboard = _build_g25vahaduo_source_menu_keyboard(service, {"mode": "single"})
 
-        self.assertEqual(_g25vahaduo_source_menu_text({"mode": "single"}), "🧬 Один профиль\n\nВыберите источники")
-        self.assertEqual(_g25vahaduo_source_menu_text({"mode": "multi"}), "🧩 Несколько профилей\n\nВыберите источники")
+        self.assertEqual(_g25vahaduo_source_menu_text({"mode": "single"}), "🧬 Single\n\nВыберите источники")
+        self.assertEqual(_g25vahaduo_source_menu_text({"mode": "multi"}), "🧩 Multi\n\nВыберите источники")
         self.assertEqual(single_keyboard.inline_keyboard[0][0].text, "🐎 Steppe / Russia")
         self.assertEqual(single_keyboard.inline_keyboard[0][0].callback_data, "vahaduo:vahaduo_preset:panel1")
 
@@ -202,8 +202,8 @@ class VahaduoUiTests(unittest.TestCase):
 
         self.assertEqual(
             text,
-            "📏 Дистанции\n\n"
-            "Источник: 🌍 Современные\n"
+            "📏 Distance\n\n"
+            "Источник: 🌍 Modern\n"
             "Популяций: 1013\n\n"
             "Отправьте G25 текстом или файлом.\n"
             "Или выберите сохранённый профиль.",
@@ -240,9 +240,9 @@ class VahaduoUiTests(unittest.TestCase):
         samples_labels = [button.text for row in samples_keyboard.inline_keyboard for button in row]
         other_labels = [button.text for row in other_keyboard.inline_keyboard for button in row]
 
-        self.assertIn("📏 Дистанции", samples_text)
-        self.assertIn("Источник: 🌍 Современные", samples_text)
-        self.assertIn("🧬 Примеры", samples_text)
+        self.assertIn("📏 Distance", samples_text)
+        self.assertIn("Источник: 🌍 Modern", samples_text)
+        self.assertIn("🧬 Samples", samples_text)
         self.assertIn("Выберите G25-профиль.", samples_text)
         self.assertNotIn("target", samples_text)
         self.assertIn("📍 G25-профили", other_text)
@@ -271,12 +271,12 @@ class VahaduoUiTests(unittest.TestCase):
             state=state,
         )
 
-        self.assertIn("🧬 Один профиль", target_text)
+        self.assertIn("🧬 Single", target_text)
         self.assertIn("Набор: 🐎 Steppe / Russia", target_text)
         self.assertIn("Источники: Maikop · Steppe Sintashta · Yellow River", target_text)
         self.assertIn("Популяций: 75", target_text)
         self.assertIn("Выберите G25-профиль.", picker_text)
-        self.assertIn("🧬 Примеры", samples_text)
+        self.assertIn("🧬 Samples", samples_text)
         self.assertIn("📍 G25-профили", other_text)
         for text in (target_text, picker_text, samples_text, other_text):
             self.assertNotIn("Источник: Steppe_Russia", text)
@@ -318,12 +318,12 @@ class VahaduoUiTests(unittest.TestCase):
             source="other",
         )
 
-        self.assertIn("🧩 Несколько профилей", target_text)
+        self.assertIn("🧩 Multi", target_text)
         self.assertIn("Набор: 🐎 Steppe / Russia", target_text)
         self.assertIn("Источники: Maikop · Steppe Sintashta · Yellow River · + ещё 3", target_text)
         self.assertIn("Популяций: 173", target_text)
         self.assertIn("Выберите G25-профили.", picker_text)
-        self.assertIn("🧬 Примеры", samples_text)
+        self.assertIn("🧬 Samples", samples_text)
         self.assertIn("📍 G25-профили", other_text)
         self.assertIn("Выберите G25-профили.", samples_text)
         self.assertIn("Выбрано: 0 профилей", samples_text)
@@ -412,9 +412,9 @@ class VahaduoUiTests(unittest.TestCase):
         keyboard = _build_g25vahaduo_distance_result_keyboard()
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-        self.assertIn("📏 Дистанции", caption)
+        self.assertIn("📏 Distance", caption)
         self.assertIn("G25-профиль: Заур", caption)
-        self.assertIn("Источник: 🌍 Современные", caption)
+        self.assertIn("Источник: 🌍 Modern", caption)
         self.assertNotIn("target", caption)
         self.assertNotIn("source", caption)
         self.assertNotIn("SOURCE", caption)
@@ -447,12 +447,12 @@ class VahaduoUiTests(unittest.TestCase):
         keyboard = _build_g25vahaduo_single_result_keyboard()
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-        self.assertNotIn("🧬 Один профиль", caption)
-        self.assertTrue(caption.startswith("Источник: 🐎 Steppe / Russia"))
-        self.assertIn("Источник: 🐎 Steppe / Russia", caption)
-        self.assertIn("G25-профиль: Заур", caption)
-        self.assertIn("Дистанция: 1.8917% / 0.018917", caption)
-        self.assertIn("Источников: 73 | Циклов: 250 | Время: 0.044 s", caption)
+        self.assertNotIn("🧬 Single", caption)
+        self.assertTrue(caption.startswith("Source: 🐎 Steppe / Russia"))
+        self.assertIn("Source: 🐎 Steppe / Russia", caption)
+        self.assertIn("Target: Заур", caption)
+        self.assertIn("Distance: 1.8917% / 0.018917", caption)
+        self.assertIn("Sources: 73 | Cycles: 250 | Time: 0.044 s", caption)
         self.assertIn("🏔️ 59.9%  Maikop", caption)
         self.assertIn("🐎 33.5%  Yamnaya", caption)
         self.assertIn("🦌 1.6%  Ulaanzhukh", caption)
@@ -484,13 +484,13 @@ class VahaduoUiTests(unittest.TestCase):
         keyboard = _build_g25vahaduo_multi_result_keyboard()
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-        self.assertIn("Источник: 🐎 Steppe / Russia", caption)
-        self.assertIn("Профилей: 18", caption)
-        self.assertIn("Средняя дистанция: 1.5562% / 0.0155620", caption)
-        self.assertIn("Источников: 173 | Циклов: 250 | Время: 2.069 s", caption)
+        self.assertIn("Source: 🐎 Steppe / Russia", caption)
+        self.assertIn("Targets: 18", caption)
+        self.assertIn("Average distance: 1.5562% / 0.0155620", caption)
+        self.assertIn("Sources: 173 | Cycles: 250 | Time: 2.069 s", caption)
         self.assertNotIn("Vahaduo Multi:", caption)
         self.assertNotIn("Steppe_Russia", caption)
-        self.assertNotIn("🧩 Несколько профилей", caption)
+        self.assertNotIn("🧩 Multi", caption)
         self.assertEqual(labels, ["⬅️ Назад", "Отмена"])
         self.assertNotIn("К источникам", labels)
         self.assertNotIn("Расчет готов", caption)
@@ -695,7 +695,7 @@ class VahaduoCallbackTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsNotNone(sent)
             self.assertEqual([call[0] for call in query.message.calls], ["reply_photo", "delete"])
-            self.assertIn("📏 Дистанции", query.message.calls[0][1])
+            self.assertIn("📏 Distance", query.message.calls[0][1])
 
     async def test_distance_result_photo_failure_keeps_picker_and_shows_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -737,7 +737,7 @@ class VahaduoCallbackTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsNotNone(sent)
             self.assertEqual([call[0] for call in query.message.calls], ["reply_photo", "delete"])
-            self.assertTrue(str(query.message.calls[0][1]).startswith("Источник: 🐎 Steppe / Russia"))
+            self.assertTrue(str(query.message.calls[0][1]).startswith("Source: 🐎 Steppe / Russia"))
 
     async def test_single_result_photo_failure_keeps_picker_and_shows_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -787,7 +787,7 @@ class VahaduoCallbackTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsNotNone(sent)
             self.assertEqual([call[0] for call in query.message.calls], ["reply_photo", "delete"])
-            self.assertTrue(str(query.message.calls[0][1]).startswith("Источник: 🐎 Steppe / Russia"))
+            self.assertTrue(str(query.message.calls[0][1]).startswith("Source: 🐎 Steppe / Russia"))
 
     async def test_multi_result_photo_failure_keeps_picker_and_shows_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -868,7 +868,7 @@ class VahaduoCallbackTests(unittest.IsolatedAsyncioTestCase):
 
             reply_calls = [call for call in query.message.calls if call[0] == "reply_text"]
             self.assertTrue(reply_calls)
-            self.assertIn("🧩 Несколько профилей", reply_calls[-1][1])
+            self.assertIn("🧩 Multi", reply_calls[-1][1])
             self.assertIn("Выберите G25-профили.", reply_calls[-1][1])
             self.assertIn("Выбрано: 1 профилей", reply_calls[-1][1])
             self.assertNotIn("Выберите G25-профиль.", reply_calls[-1][1])

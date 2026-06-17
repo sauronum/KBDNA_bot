@@ -103,18 +103,18 @@ def _g25vahaduo_full_text(*, lang: str = "ru") -> str:
 
 def _vahaduo_mode_label(mode: str, *, lang: str = "ru") -> str:
     if mode == "single":
-        return _copy(lang, "один профиль", "Single")
+        return "Single"
     if mode == "multi":
-        return _copy(lang, "несколько профилей", "Multi")
-    return _copy(lang, "дистанции", "Distance")
+        return "Multi"
+    return "Distance"
 
 
 def _vahaduo_mode_title(mode: str, *, lang: str = "ru") -> str:
     if mode == "single":
-        return _copy(lang, "🧬 Один профиль", "🧬 Single")
+        return "🧬 Single"
     if mode == "multi":
-        return _copy(lang, "🧩 Несколько профилей", "🧩 Multi")
-    return _copy(lang, "📏 Дистанции", "📏 Distance")
+        return "🧩 Multi"
+    return "📏 Distance"
 
 
 def _vahaduo_source_set_label(raw_label: str, *, lang: str = "ru") -> str:
@@ -194,9 +194,9 @@ def _vahaduo_source_button_label(item: dict[str, object], *, lang: str = "ru") -
     key = str(item.get("key") or "").strip().lower()
     label = str(item.get("label") or "").strip()
     if key == "modern" or label.lower() == "modern":
-        return _copy(lang, "🌍 Современные", "🌍 Modern")
+        return "🌍 Modern"
     if key in {"origin", "ancestry", "ancient"} or label.lower() in {"ancestry", "ancient"}:
-        return _copy(lang, "🏺 Древние", "🏺 Ancient")
+        return "🏺 Ancient"
     if key in {"panel1", "panel2"} or label.lower() in {"steppe_russia", "eba"}:
         return _vahaduo_source_set_label(label or key, lang=lang)
     return label
@@ -208,9 +208,9 @@ def _vahaduo_source_display_label(state: dict[str, object], *, lang: str = "ru")
     input_mode = str(state.get("source_input_mode") or "").strip().lower()
     label_lower = label.lower()
     if key == "modern" or label_lower == "modern":
-        return _copy(lang, "🌍 Современные", "🌍 Modern")
+        return "🌍 Modern"
     if key in {"origin", "ancestry", "ancient"} or label_lower in {"origin", "ancestry", "ancient"}:
-        return _copy(lang, "🏺 Древние", "🏺 Ancient")
+        return "🏺 Ancient"
     if key.startswith("saved_") or input_mode in {"saved", "source-text", "source-file"}:
         return _copy(lang, "📚 Мои источники", "📚 My sources")
     return label or _copy(lang, "📚 Мои источники", "📚 My sources")
@@ -218,7 +218,7 @@ def _vahaduo_source_display_label(state: dict[str, object], *, lang: str = "ru")
 
 def _vahaduo_target_section_label(source: str, *, lang: str = "ru") -> str:
     if source == "samples":
-        return _copy(lang, "🧬 Примеры", "🧬 Samples")
+        return "🧬 Samples"
     return _copy(lang, "📍 G25-профили", "📍 G25 profiles")
 
 
@@ -259,10 +259,10 @@ def _build_g25vahaduo_data_mode_keyboard(*, lang: str = "ru") -> InlineKeyboardM
             InlineKeyboardButton(_my_g25_label(lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_targets"),
         ],
         [
-            InlineKeyboardButton(_copy(lang, "Мои источники для дистанций", "My sources for Distance"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_distance"),
+            InlineKeyboardButton(_copy(lang, "Мои источники для Distance", "My sources for Distance"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_distance"),
         ],
         [
-            InlineKeyboardButton(_copy(lang, "Мои источники для моделей", "My sources for Single / Multi"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_single"),
+            InlineKeyboardButton(_copy(lang, "Мои источники для Single / Multi", "My sources for Single / Multi"), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_data_mode_single"),
         ],
         [
             InlineKeyboardButton(_back_label(lang), callback_data=f"{G25MENU_CALLBACK_PREFIX}:vahaduo_full"),
@@ -981,13 +981,13 @@ def _g25vahaduo_single_result_caption(state: dict[str, object], result, *, lang:
     target_name = str(getattr(result, "target_name", "") or "").strip() or _copy(lang, "введён вручную", "entered manually")
     panel_label = str(getattr(result, "panel_name", "") or str(state.get("source_label") or "").split(":", 1)[0]).strip()
     lines = [
-        f"{_copy(lang, 'Источник', 'Source')}: {_vahaduo_source_set_label(panel_label, lang=lang)}",
-        f"{_copy(lang, 'G25-профиль', 'Target')}: {target_name}",
-        f"{_copy(lang, 'Дистанция', 'Distance')}: {float(getattr(result, 'distance', 0.0) or 0.0) * 100:.4f}% / {float(getattr(result, 'distance', 0.0) or 0.0):.6f}",
+        f"Source: {_vahaduo_source_set_label(panel_label, lang=lang)}",
+        f"Target: {target_name}",
+        f"Distance: {float(getattr(result, 'distance', 0.0) or 0.0) * 100:.4f}% / {float(getattr(result, 'distance', 0.0) or 0.0):.6f}",
         (
-            f"{_copy(lang, 'Источников', 'Sources')}: {int(getattr(result, 'sources', 0) or 0)} | "
-            f"{_copy(lang, 'Циклов', 'Cycles')}: {int(getattr(result, 'iterations', 0) or 0)} | "
-            f"{_copy(lang, 'Время', 'Time')}: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
+            f"Sources: {int(getattr(result, 'sources', 0) or 0)} | "
+            f"Cycles: {int(getattr(result, 'iterations', 0) or 0)} | "
+            f"Time: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
         ),
         "",
     ]
@@ -1002,17 +1002,17 @@ def _g25vahaduo_single_result_caption(state: dict[str, object], result, *, lang:
 def _g25vahaduo_multi_result_caption(state: dict[str, object], result, *, lang: str = "ru") -> str:
     panel_label = str(getattr(result, "panel_name", "") or str(state.get("source_label") or "").split(":", 1)[0]).strip()
     return "\n".join([
-        f"{_copy(lang, 'Источник', 'Source')}: {_vahaduo_source_set_label(panel_label, lang=lang)}",
-        f"{_copy(lang, 'Профилей', 'Targets')}: {int(getattr(result, 'target_count', 0) or 0)}",
+        f"Source: {_vahaduo_source_set_label(panel_label, lang=lang)}",
+        f"Targets: {int(getattr(result, 'target_count', 0) or 0)}",
         (
-            f"{_copy(lang, 'Средняя дистанция', 'Average distance')}: "
+            "Average distance: "
             f"{float(getattr(result, 'average_distance', 0.0) or 0.0) * 100:.4f}% / "
             f"{float(getattr(result, 'average_distance', 0.0) or 0.0):.7f}"
         ),
         (
-            f"{_copy(lang, 'Источников', 'Sources')}: {int(getattr(result, 'sources', 0) or 0)} | "
-            f"{_copy(lang, 'Циклов', 'Cycles')}: {int(getattr(result, 'iterations', 0) or 0)} | "
-            f"{_copy(lang, 'Время', 'Time')}: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
+            f"Sources: {int(getattr(result, 'sources', 0) or 0)} | "
+            f"Cycles: {int(getattr(result, 'iterations', 0) or 0)} | "
+            f"Time: {float(getattr(result, 'elapsed_seconds', 0.0) or 0.0):.3f} s"
         ),
     ])
 
