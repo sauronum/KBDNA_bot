@@ -23,10 +23,8 @@ from app.features.reports.dna_passport.domain import (
 )
 from app.features.snp_report.domain import load_snp_rules
 from app.features.reports.dna_passport.menu import (
-    build_passport_intro_keyboard,
     build_sample_picker_keyboard,
     handle_sample_selected,
-    passport_intro_text,
     sample_picker_text,
     show_sample_picker_menu,
 )
@@ -157,11 +155,14 @@ class _FakeAccessStore:
 
 class DNAPassportUiTests(unittest.TestCase):
     def test_catalog_button_has_no_free_label(self) -> None:
-        labels_ru = [button.text for row in build_reports_keyboard().inline_keyboard for button in row]
+        keyboard_ru = build_reports_keyboard()
+        labels_ru = [button.text for row in keyboard_ru.inline_keyboard for button in row]
         labels_en = [button.text for row in build_reports_keyboard(lang="en").inline_keyboard for button in row]
+        passport_button = next(button for row in keyboard_ru.inline_keyboard for button in row if button.text == "🧬 DNA-паспорт")
 
         self.assertIn("🧬 DNA-паспорт", labels_ru)
         self.assertIn("🧬 DNA passport", labels_en)
+        self.assertEqual(passport_button.callback_data, "reports:passport:samples:0")
         self.assertNotIn("Бесплатно", " ".join(labels_ru))
         self.assertNotIn("Free", " ".join(labels_en[:1]))
 
@@ -222,18 +223,6 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertNotIn("beta", text.lower())
         self.assertNotIn("dna_platform", text)
 
-    def test_passport_card_has_generate_button_and_no_free_or_development_status(self) -> None:
-        passport = _product("passport")
-        text = report_detail_text(passport)
-        labels = [button.text for row in build_report_detail_keyboard(passport).inline_keyboard for button in row]
-        callbacks = [button.callback_data for row in build_report_detail_keyboard(passport).inline_keyboard for button in row]
-
-        self.assertEqual(text, passport_intro_text())
-        self.assertIn("🧬 Сформировать DNA-паспорт", labels)
-        self.assertIn("reports:passport:samples:0", callbacks)
-        self.assertNotIn("Бесплатно", text)
-        self.assertNotIn("В разработке", text)
-
     def test_admin_opens_passport_card_and_starts_generation(self) -> None:
         sample = _sample("sample-1", "Zaur")
         store = _FakeStore(samples=[sample])
@@ -245,7 +234,8 @@ class DNAPassportUiTests(unittest.TestCase):
         with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True):
             _run(reports_callback_handler(update, context))
 
-        self.assertTrue(any("Сформировать DNA-паспорт" in label for label in _labels(message.calls[-1][2])))
+        self.assertIn("Выберите образец", message.calls[-1][1])
+        self.assertNotIn("Сформировать DNA-паспорт", _labels(message.calls[-1][2]))
 
         update = _callback_update("reports:passport:sample:sample-1", user_id=1, message=message)
         with patch("app.features.reports.menu.ensure_active_main_menu", return_value=True), patch(
@@ -568,7 +558,7 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("Zaur", labels)
         self.assertIn("Test", labels)
         self.assertIn("reports:passport:sample:sample-1", callbacks)
-        self.assertIn("reports:passport:intro", callbacks)
+        self.assertIn("reports:root", callbacks)
 
     def test_no_samples_screen_is_handled(self) -> None:
         text = sample_picker_text([])
@@ -576,7 +566,7 @@ class DNAPassportUiTests(unittest.TestCase):
         callbacks = [button.callback_data for row in keyboard.inline_keyboard for button in row]
 
         self.assertIn("У вас пока нет образцов", text)
-        self.assertEqual(callbacks, ["reports:passport:intro", "main:cancel"])
+        self.assertEqual(callbacks, ["reports:root", "main:cancel"])
 
     def test_show_sample_picker_uses_existing_sample_store(self) -> None:
         store = _FakeStore(samples=[_sample("sample-1", "Zaur")])
@@ -597,8 +587,8 @@ class DNAPassportUiTests(unittest.TestCase):
 
         self.assertEqual(service.calls[0]["sample_id"], "sample-1")
         self.assertIsNone(service.calls[0]["g25_coordinate_id"])
-        self.assertIn("Краткий персональный отчёт", message.calls[0][1])
-        self.assertIn("⏳ Формируем отчёт…", message.calls[0][1])
+        self.assertIn("🧬 Формируем DNA-паспорт…", message.calls[0][1])
+        self.assertNotIn("Краткий персональный отчёт", message.calls[0][1])
         self.assertIn("Получаем координаты G25", message.calls[0][1])
         self.assertIn("reply_media_group", [call[0] for call in message.calls])
         self.assertIn("reply_text", [call[0] for call in message.calls])

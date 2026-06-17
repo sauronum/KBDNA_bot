@@ -159,7 +159,7 @@ class SectionTranslationUiTests(unittest.TestCase):
         self.assertEqual(
             callbacks,
             [
-                "reports:info:passport",
+                "reports:passport:samples:0",
                 "reports:info:origin_portrait",
                 "reports:info:ancient_roots",
                 "reports:info:regional_study",
@@ -183,17 +183,13 @@ class SectionTranslationUiTests(unittest.TestCase):
     def test_report_cards_are_informational_only(self) -> None:
         for product in REPORT_PRODUCTS:
             with self.subTest(product=product.product_id):
+                if product.product_id == "passport":
+                    continue
                 text = report_detail_text(product)
                 keyboard = build_report_detail_keyboard(product)
                 rows = [[button.callback_data for button in row] for row in keyboard.inline_keyboard]
 
                 self.assertIn(product.title("ru"), text)
-                if product.product_id == "passport":
-                    self.assertIn("Краткий персональный отчёт", text)
-                    self.assertIn(["reports:passport:samples:0"], rows)
-                    self.assertNotIn("Бесплатно", text)
-                    self.assertNotIn("В разработке", text)
-                    continue
                 self.assertIn("Что вы получите:", text)
                 self.assertIn("В разработке", text)
                 self.assertNotIn("Выберите образец", text)

@@ -7,9 +7,8 @@ from telegram.ext import ContextTypes
 
 from app.i18n import get_user_language, t
 from app.features.reports.dna_passport.menu import (
-    build_passport_intro_keyboard,
     dna_passport_callback_handler,
-    passport_intro_text,
+    show_sample_picker_menu,
 )
 from app.main_menu import ensure_active_main_menu
 
@@ -323,7 +322,11 @@ def build_reports_keyboard(
             [
                 InlineKeyboardButton(
                     product.button_label(lang),
-                    callback_data=f"{REPORTS_CALLBACK_PREFIX}:info:{product.product_id}",
+                    callback_data=(
+                        f"{REPORTS_CALLBACK_PREFIX}:passport:samples:0"
+                        if product.product_id == "passport"
+                        else f"{REPORTS_CALLBACK_PREFIX}:info:{product.product_id}"
+                    ),
                 )
             ]
             for product in REPORT_PRODUCTS
@@ -338,8 +341,6 @@ def build_reports_keyboard(
 
 
 def report_detail_text(product: ReportProduct, samples_count: int = 0, *, lang: str = "ru") -> str:
-    if product.product_id == "passport":
-        return passport_intro_text(lang=lang)
     lines = [
         f"{product.emoji} {product.title(lang)}",
         "",
@@ -368,8 +369,6 @@ def build_report_detail_keyboard(
     page: int = 0,
     lang: str = "ru",
 ) -> InlineKeyboardMarkup:
-    if product.product_id == "passport":
-        return build_passport_intro_keyboard(lang=lang)
     return InlineKeyboardMarkup(
         [
             [
@@ -474,6 +473,9 @@ async def reports_callback_handler(update: Update, context: ContextTypes.DEFAULT
         product = _product(product_id)
         if product is None:
             await show_reports_menu(query.message, context, user_id, edit_existing=True, lang=lang, admin_allowed=allowed)
+            return
+        if product.product_id == "passport":
+            await show_sample_picker_menu(query.message, context, user_id, page=0, lang=lang)
             return
         await _show_report_detail(query.message, product, lang=lang)
         return

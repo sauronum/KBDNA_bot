@@ -31,30 +31,6 @@ _DETAIL_CACHE_KEY = "dna_passport_detail_cache"
 _DETAIL_CACHE_LIMIT = 8
 
 
-def passport_intro_text(*, lang: str = "ru") -> str:
-    if lang == "en":
-        return (
-            "🧬 DNA passport\n\n"
-            "A short personal report for an uploaded DNA sample.\n\n"
-            "The passport checks the source file, shows a short G25 position, calculates basic genetic traits, and estimates direct-line data availability."
-        )
-    return (
-        "🧬 DNA-паспорт\n\n"
-        "Краткий персональный отчёт по загруженному DNA-образцу.\n\n"
-        "Паспорт проверит исходный файл, покажет краткое положение по G25, рассчитает базовые генетические признаки и оценит доступность данных прямых линий."
-    )
-
-
-def build_passport_intro_keyboard(*, lang: str = "ru") -> InlineKeyboardMarkup:
-    label = "🧬 Generate DNA passport" if lang == "en" else "🧬 Сформировать DNA-паспорт"
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(label, callback_data=f"{PASSPORT_CALLBACK_PREFIX}:samples:0")],
-            _back_cancel_row("reports:root", lang=lang),
-        ]
-    )
-
-
 def sample_picker_text(samples: list[SampleAsset], *, lang: str = "ru") -> str:
     if not samples:
         if lang == "en":
@@ -78,7 +54,7 @@ def build_sample_picker_keyboard(samples: list[SampleAsset], *, page: int = 0, l
         for sample in page_items
     ]
     rows.extend(_pager_rows(current_page, total_pages, f"{PASSPORT_CALLBACK_PREFIX}:samples", lang=lang))
-    rows.append(_back_cancel_row(f"{PASSPORT_CALLBACK_PREFIX}:intro", lang=lang))
+    rows.append(_back_cancel_row("reports:root", lang=lang))
     return InlineKeyboardMarkup(rows)
 
 
@@ -102,19 +78,6 @@ def build_passport_visual_keyboard(*, detail_callback: str, back_callback: str, 
     )
 
 
-async def show_passport_intro_menu(
-    message,
-    *,
-    edit_existing: bool = True,
-    lang: str = "ru",
-) -> None:
-    markup = build_passport_intro_keyboard(lang=lang)
-    if edit_existing:
-        await message.edit_text(passport_intro_text(lang=lang), reply_markup=markup)
-    else:
-        await message.reply_text(passport_intro_text(lang=lang), reply_markup=markup, do_quote=False)
-
-
 async def dna_passport_callback_handler(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -128,7 +91,7 @@ async def dna_passport_callback_handler(
     parts = query.data.split(":")
     action = parts[2] if len(parts) > 2 else "intro"
     if action == "intro":
-        await show_passport_intro_menu(query.message, edit_existing=True, lang=lang)
+        await show_sample_picker_menu(query.message, context, user_id, page=0, lang=lang)
         return
     if action == "samples":
         page = _int_part(parts, 3)
@@ -152,7 +115,7 @@ async def dna_passport_callback_handler(
         origin = parts[5] if len(parts) > 5 else "samples"
         await run_passport(query.message, context, user_id, sample_id=sample_id, coordinate_id=coordinate_id, origin=origin, lang=lang)
         return
-    await show_passport_intro_menu(query.message, edit_existing=True, lang=lang)
+    await show_sample_picker_menu(query.message, context, user_id, page=0, lang=lang)
 
 
 async def show_sample_picker_menu(message, context: ContextTypes.DEFAULT_TYPE, user_id: int, *, page: int = 0, lang: str = "ru") -> None:
@@ -418,13 +381,11 @@ def _sample_g25_coordinates(store: MyDataStore, user_id: int, sample_id: str) ->
 
 
 def _passport_status_text(context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str, *, lang: str = "ru") -> str:
-    intro = passport_intro_text(lang=lang)
     if _needs_raw_g25_calculation(context, user_id, sample_id):
         if lang == "en":
-            return f"{intro}\n\n⏳ Building the report...\nCalculating G25 coordinates from the DNA file."
-        return f"{intro}\n\n⏳ Формируем отчёт…\nПолучаем координаты G25 из DNA-файла."
-    status = "⏳ Building the report..." if lang == "en" else "⏳ Формируем отчёт…"
-    return f"{intro}\n\n{status}"
+            return "🧬 Building DNA passport...\n\nCalculating G25 coordinates from the DNA file."
+        return "🧬 Формируем DNA-паспорт…\n\nПолучаем координаты G25 из DNA-файла."
+    return "🧬 Building DNA passport..." if lang == "en" else "🧬 Формируем DNA-паспорт…"
 
 
 def _needs_raw_g25_calculation(context: ContextTypes.DEFAULT_TYPE, user_id: int, sample_id: str) -> bool:
