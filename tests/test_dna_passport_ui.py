@@ -33,6 +33,8 @@ from app.features.reports.dna_passport.menu import (
 from app.features.reports.dna_passport.render import render_dna_passport_html
 from app.features.reports.dna_passport.render_visual import render_dna_passport_pages, visual_page_order
 from app.features.reports.dna_passport.visual import render_dna_passport_visual_png
+from app.features.reports.dna_passport.visual_pages import _radial_reference_layout
+from app.features.reports.dna_passport.visual_style import draw_footer, draw_header, snp_metric, visual_snp_items
 from app.features.reports.menu import (
     REPORT_PRODUCTS,
     build_report_detail_keyboard,
@@ -78,6 +80,32 @@ class _FakeQuery:
 
     async def answer(self, text=None, show_alert=False):
         self.answers.append((text, show_alert))
+
+
+class _CaptureDraw:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    def text(self, xy, text, font=None, fill=None, anchor=None):
+        self.texts.append(str(text))
+
+    def textlength(self, text, font=None):
+        return len(str(text)) * 12
+
+    def rounded_rectangle(self, *args, **kwargs):
+        return None
+
+
+def _fake_fonts() -> dict[str, object]:
+    return {
+        "eyebrow": object(),
+        "hero": object(),
+        "subtitle": object(),
+        "small_bold": object(),
+        "section_title": object(),
+        "badge": object(),
+        "small": object(),
+    }
 
 
 class _FakeStore:
@@ -253,6 +281,85 @@ class DNAPassportUiTests(unittest.TestCase):
                     extrema = image.convert("L").getextrema()
                 self.assertGreater(extrema[1] - extrema[0], 20)
 
+    def test_passport_visual_header_footer_rules(self) -> None:
+        data = _passport_data()
+        fonts = _fake_fonts()
+
+        cover_draw = _CaptureDraw()
+        draw_header(cover_draw, fonts, data, page_title="Обложка", page_number=1, total_pages=5)
+        self.assertIn("DNA-паспорт", cover_draw.texts)
+        self.assertNotIn("Обложка", cover_draw.texts)
+
+        section_draw = _CaptureDraw()
+        draw_header(section_draw, fonts, data, page_title="Краткое происхождение", page_number=2, total_pages=5)
+        self.assertIn("KBDNA / DNA-ПАСПОРТ", section_draw.texts)
+        self.assertIn("Краткое происхождение", section_draw.texts)
+
+        middle_footer = _CaptureDraw()
+        draw_footer(middle_footer, fonts, page_number=2, total_pages=5)
+        self.assertEqual(middle_footer.texts, [])
+
+        first_footer = _CaptureDraw()
+        draw_footer(first_footer, fonts, page_number=1, total_pages=5)
+        self.assertIn("Визуальная версия. Подробности и ограничения доступны в текстовом отчёте.", first_footer.texts)
+        self.assertFalse(any("стр." in item for item in first_footer.texts))
+
+    def test_passport_visual_metrics_and_snp_filtering_use_ready_data(self) -> None:
+        items = (
+            DNAPassportInterestingSnpItem(
+                "rs1805007",
+                "MC1R",
+                "Внешность",
+                "MC1R",
+                "CC",
+                "Обычный вариант MC1R по этому SNP",
+            ),
+            DNAPassportInterestingSnpItem(
+                "rs1815739",
+                "ACTN3",
+                "Физическая активность",
+                "ACTN3",
+                "TT",
+                "Вариант, чаще связываемый с выносливостью",
+            ),
+        )
+        summary = DNAPassportInterestingSnpsSummary(status="ok", total=10, found=7, missing=3, items=items)
+        data = _passport_data(interesting_snps=summary)
+
+        self.assertEqual(snp_metric(data), "7 из 10")
+        visual_items = visual_snp_items(items)
+        self.assertEqual([item.gene for item in visual_items], ["ACTN3"])
+
+    def test_passport_visual_g25_radial_labels_do_not_overlap_fixture(self) -> None:
+        refs = _passport_data().g25.top_modern
+        layout = _radial_reference_layout((150, 750, 1290, 1320), refs)
+        boxes = []
+        for _item, _sx, _sy, lx, ly, anchor in layout:
+            box = (lx - 360, ly, lx, ly + 44) if anchor == "ra" else (lx, ly, lx + 360, ly + 44)
+            boxes.append(box)
+
+        for index, first in enumerate(boxes):
+            for second in boxes[index + 1 :]:
+                self.assertFalse(_boxes_overlap(first, second), (first, second))
+
+    def test_passport_visual_renderer_handles_partial_data(self) -> None:
+        data = DNAPassportData(
+            sample=DNAPassportSampleSummary(status="ok", sample_id="sample-1", display_name="Very Long Sample Name For Visual Passport Layout Check"),
+            raw=DNAPassportRawSummary(status="unavailable"),
+            g25=DNAPassportG25Summary(status="unavailable"),
+            traits=DNAPassportTraitsSummary(status="unavailable"),
+            interesting_snps=DNAPassportInterestingSnpsSummary(status="ok", total=10, found=0, missing=10, items=()),
+            lineage=DNAPassportLineageReadiness(status="ok", y_count=0, mtdna_count=0),
+            generated_at="2026-06-17T00:00:00Z",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pages = render_dna_passport_pages(data, Path(tmp))
+
+            self.assertEqual(len(pages), 5)
+            for page in pages:
+                self.assertTrue(page.path.exists())
+
     def test_passport_visual_legacy_preview_wrapper_renders_overview(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output_path = Path(tmp) / "passport.png"
@@ -286,8 +393,32 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("main_summary_lines", source)
         self.assertIn("8 базовых признаков", source)
         self.assertIn("Что исследовать дальше", source)
+        self.assertIn("Ключевые результаты", source)
+        self.assertIn("Выбранные маркеры", source)
+        self.assertIn("Схема генетической близости", source)
+        self.assertIn("расчёт по полному G25-вектору", source)
+        self.assertIn("Звёзды отражают качество расчёта", source)
+        self.assertIn("Региональное исследование Кавказа", source)
+        self.assertIn("Портрет происхождения", source)
+        self.assertIn("Портрет признаков", source)
         self.assertNotIn("Найдено с трактовкой", source)
         self.assertNotIn("SNP Lab", source)
+        for removed in (
+            "Слои паспорта",
+            "Coordinate Space",
+            "LOCAL G25 VIEW",
+            "полная 25D-логика",
+            "низко",
+            "высоко",
+            "Содержательные маркеры",
+            "Техническая готовность",
+            "Недоступна по autosomal raw",
+            "Обычный вариант MC1R",
+            "собрать более глубокую карту совпадений",
+            "развернуть базовую панель",
+            "стр.",
+        ):
+            self.assertNotIn(removed, source)
 
     def test_passport_detail_button_opens_existing_text_report(self) -> None:
         sample = _sample("sample-1", "Zaur")
@@ -767,6 +898,10 @@ def _last_call(message: _FakeMessage, name: str):
         if call[0] == name:
             return call
     raise AssertionError(name)
+
+
+def _boxes_overlap(first: tuple[int, int, int, int], second: tuple[int, int, int, int]) -> bool:
+    return first[0] < second[2] and first[2] > second[0] and first[1] < second[3] and first[3] > second[1]
 
 
 def _sample(sample_id: str, name: str, *, raw_file_id: str = "") -> SampleAsset:

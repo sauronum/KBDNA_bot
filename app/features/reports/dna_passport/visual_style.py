@@ -168,21 +168,27 @@ def draw_header(
 ) -> None:
     sample = clean(getattr(getattr(data, "sample", None), "display_name", "") or "Образец")
     date = format_date(getattr(data, "generated_at", ""))
-    draw.text((MARGIN, 54), "KBDNA / MY DNA", font=fonts["eyebrow"], fill=(*CYAN, 255))
-    draw.text((MARGIN, 93), "DNA-паспорт", font=fonts["hero"], fill=(*TEXT, 255))
-    draw.text((MARGIN, 166), f"{ellipsize(draw, sample, fonts['subtitle'], 640)} · {date}", font=fonts["subtitle"], fill=(*MUTED, 255))
-
     badge_text = f"{page_number:02d}/{total_pages:02d}"
     badge_w = int(draw.textlength(badge_text, font=fonts["badge"])) + 64
     right = WIDTH - MARGIN
     draw.rounded_rectangle((right - badge_w, 62, right, 122), radius=20, fill=(*PANEL_SOFT, 235), outline=(*BORDER, 190), width=1)
     draw.text((right - badge_w + 32, 78), badge_text, font=fonts["badge"], fill=(*TEXT, 255))
-    draw.text((right, 154), ellipsize(draw, page_title, fonts["page_title"], 520), font=fonts["page_title"], fill=(*TEXT, 255), anchor="ra")
+
+    if page_number == 1:
+        draw.text((MARGIN, 54), "KBDNA / MY DNA", font=fonts["eyebrow"], fill=(*CYAN, 255))
+        draw.text((MARGIN, 93), "DNA-паспорт", font=fonts["hero"], fill=(*TEXT, 255))
+        draw.text((MARGIN, 166), f"{ellipsize(draw, sample, fonts['subtitle'], 640)} · {date}", font=fonts["subtitle"], fill=(*MUTED, 255))
+        return
+
+    draw.text((MARGIN, 54), "KBDNA / DNA-ПАСПОРТ", font=fonts["eyebrow"], fill=(*CYAN, 255))
+    draw.text((MARGIN, 94), f"{ellipsize(draw, sample, fonts['small_bold'], 620)} · {date}", font=fonts["small_bold"], fill=(*MUTED, 255))
+    draw.text((MARGIN, 136), ellipsize(draw, page_title, fonts["section_title"], 980), font=fonts["section_title"], fill=(*TEXT, 255))
 
 
 def draw_footer(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], *, page_number: int, total_pages: int) -> None:
+    if page_number not in {1, total_pages}:
+        return
     draw.text((MARGIN, HEIGHT - 94), "Визуальная версия. Подробности и ограничения доступны в текстовом отчёте.", font=fonts["small"], fill=(*MUTED, 255))
-    draw.text((WIDTH - MARGIN, HEIGHT - 94), f"стр. {page_number}/{total_pages}", font=fonts["small_bold"], fill=(*MUTED, 255), anchor="ra")
 
 
 def draw_card(
@@ -304,8 +310,15 @@ def traits_metric(data: DNAPassportData) -> str:
 
 
 def snp_metric(data: DNAPassportData) -> str:
-    items = dedupe_snp_items(tuple(getattr(getattr(data, "interesting_snps", None), "items", ()) or ()))
-    return f"{len(items)} SNP" if items else "н/д"
+    summary = getattr(data, "interesting_snps", None)
+    if summary is None or summary.status in {"unavailable", "error"}:
+        return "н/д"
+    found = int(getattr(summary, "found", 0) or 0)
+    total = int(getattr(summary, "total", 0) or 0)
+    if total > 0:
+        return f"{found} из {total}"
+    items = visual_snp_items(tuple(getattr(summary, "items", ()) or ()))
+    return f"{len(items)} маркеров" if items else "н/д"
 
 
 def main_summary_lines(data: DNAPassportData) -> list[str]:
@@ -327,7 +340,7 @@ def main_summary_lines(data: DNAPassportData) -> list[str]:
         if "огранич" in paternal.lower() or "недоступ" in paternal.lower() or "огранич" in maternal.lower() or "недоступ" in maternal.lower():
             lines.append("Прямые линии ограничены данными autosomal raw.")
         else:
-            lines.append("Для прямых линий показана техническая готовность маркеров.")
+            lines.append("Для прямых линий показана доступность маркеров raw.")
     return lines[:3]
 
 
@@ -360,11 +373,10 @@ def confidence_stars(value: str) -> str:
 def lineage_status(count: int, *, kind: str) -> str:
     value = max(0, int(count or 0))
     if value <= 0:
-        return "Недоступна по autosomal raw"
-    threshold = 50 if kind == "y" else 200
-    if value < threshold:
-        return "Ограниченные данные"
-    return "Маркеры обнаружены"
+        return "Данных недостаточно"
+    if kind == "mtdna":
+        return "Ограниченное покрытие"
+    return "Y-маркеры обнаружены"
 
 
 def dedupe_snp_items(items: tuple[DNAPassportInterestingSnpItem, ...]) -> tuple[DNAPassportInterestingSnpItem, ...]:
@@ -377,6 +389,22 @@ def dedupe_snp_items(items: tuple[DNAPassportInterestingSnpItem, ...]) -> tuple[
         seen.add(key)
         result.append(item)
     return tuple(result)
+
+
+def visual_snp_items(items: tuple[DNAPassportInterestingSnpItem, ...]) -> tuple[DNAPassportInterestingSnpItem, ...]:
+    return tuple(item for item in dedupe_snp_items(items) if _is_visual_snp_item(item))
+
+
+def _is_visual_snp_item(item: DNAPassportInterestingSnpItem) -> bool:
+    gene = clean(item.gene).lower()
+    title = clean(item.title).lower()
+    interpretation = clean(item.interpretation).lower()
+    if not interpretation:
+        return False
+    if "mc1r" in {gene, title} or "mc1r" in gene or "mc1r" in title:
+        if "обычный вариант" in interpretation:
+            return False
+    return True
 
 
 def snp_topic_key(item: DNAPassportInterestingSnpItem) -> str:
@@ -434,6 +462,7 @@ def load_fonts() -> dict[str, ImageFont.ImageFont]:
     return {
         "eyebrow": font(25, bold=True),
         "hero": font(70, bold=True),
+        "section_title": font(62, bold=True),
         "subtitle": font(30),
         "page_title": font(34, bold=True),
         "section": font(38, bold=True),

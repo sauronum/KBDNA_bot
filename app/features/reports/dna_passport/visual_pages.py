@@ -27,7 +27,6 @@ from .visual_style import (
     WIDTH,
     clean,
     create_page,
-    dedupe_snp_items,
     display_population,
     display_region,
     draw_card,
@@ -45,9 +44,11 @@ from .visual_style import (
     save_page,
     snp_metric,
     snp_title,
+    strongest_trait,
     trait_label,
     trait_percent,
     traits_metric,
+    visual_snp_items,
 )
 
 
@@ -55,7 +56,7 @@ def render_overview_page(data: DNAPassportData, output_path: Path, *, page_numbe
     image, draw, fonts = create_page(data, page_title="Обложка", page_number=page_number, total_pages=total_pages)
     _draw_overview_summary_cards(draw, fonts, data)
     _draw_overview_conclusion(draw, fonts, data)
-    _draw_overview_analysis_stack(draw, fonts, data)
+    _draw_overview_key_results(draw, fonts, data)
     return save_page(image, output_path)
 
 
@@ -74,7 +75,7 @@ def render_ancestry_page(data: DNAPassportData, output_path: Path, *, page_numbe
 def render_traits_page(data: DNAPassportData, output_path: Path, *, page_number: int, total_pages: int) -> Path:
     image, draw, fonts = create_page(data, page_title="Базовые признаки", page_number=page_number, total_pages=total_pages)
     _draw_traits_grid(draw, fonts, data)
-    _draw_bottom_note(draw, fonts, "Проценты показывают положение результата относительно референсной панели.")
+    _draw_bottom_note(draw, fonts, "Проценты показывают положение относительно референсной панели. Звёзды отражают качество расчёта по доступным данным.")
     return save_page(image, output_path)
 
 
@@ -99,10 +100,10 @@ def _draw_overview_summary_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, Ima
     card_w = (CONTENT_WIDTH - gap) // 2
     card_h = 178
     cards = [
-        ("RAW", raw_metric(data), "исходный файл", MINT),
-        ("G25", g25_metric(data), "краткое происхождение", BLUE),
+        ("RAW", raw_metric(data), "исходные данные", MINT),
+        ("G25", g25_metric(data), "генетическое пространство", BLUE),
         ("TRAITS", traits_metric(data), "базовая панель", GOLD),
-        ("SNP", snp_metric(data), "интересные маркеры", ROSE),
+        ("SNP", snp_metric(data), "доступно в raw", ROSE),
     ]
     for index, (label, value, sub, accent) in enumerate(cards):
         col = index % 2
@@ -127,36 +128,50 @@ def _draw_overview_conclusion(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageF
         y = draw_wrapped(draw, line, fonts["body"], MARGIN + 78, y, CONTENT_WIDTH - 124, max_lines=2, fill=TEXT, line_gap=10) + 18
 
 
-def _draw_overview_analysis_stack(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
+def _draw_overview_key_results(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
     top = 1166
-    draw_section_label(draw, fonts, MARGIN, top, "Слои паспорта", accent=GOLD)
+    draw_section_label(draw, fonts, MARGIN, top, "Ключевые результаты", accent=GOLD)
     box = (MARGIN, top + 74, WIDTH - MARGIN, top + 430)
     draw_card(draw, box, radius=34, fill=PANEL, outline=BORDER)
     x1, y1, x2, y2 = box
-    tracks = [
-        ("RAW", raw_metric(data), MINT, 0.92 if data.raw and data.raw.status == "ok" else 0.18),
-        ("G25", g25_metric(data), BLUE, 0.78 if data.g25 and data.g25.status == "ok" else 0.18),
-        ("TRAITS", traits_metric(data), GOLD, 0.72 if data.traits and data.traits.traits else 0.18),
-        ("SNP", snp_metric(data), ROSE, 0.64 if data.interesting_snps and data.interesting_snps.items else 0.18),
+    items = _overview_key_results(data)
+    gap = 22
+    card_w = (x2 - x1 - 92 - gap * 2) // 3
+    for index, (label, value, accent) in enumerate(items):
+        left = x1 + 46 + index * (card_w + gap)
+        top_y = y1 + 52
+        draw_card(draw, (left, top_y, left + card_w, y2 - 52), radius=28, fill=PANEL_SOFT, outline=BORDER_SOFT)
+        draw.rounded_rectangle((left + 28, top_y + 28, left + 48, top_y + 48), radius=7, fill=(*accent, 255))
+        draw_wrapped(draw, label, fonts["small_bold"], left + 66, top_y + 22, card_w - 94, max_lines=2, fill=MUTED)
+        draw_wrapped(draw, value, fonts["title"], left + 28, top_y + 112, card_w - 56, max_lines=3, fill=TEXT, line_gap=8)
+
+
+def _overview_key_results(data: DNAPassportData) -> list[tuple[str, str, tuple[int, int, int]]]:
+    refs = list(getattr(getattr(data, "g25", None), "top_modern", ()) or ())
+    if data.g25 and data.g25.status == "ok" and refs:
+        closest = f"{display_population(refs[0].name)} · {format_distance(refs[0].distance)}"
+    else:
+        closest = "G25 не найден"
+
+    strongest = strongest_trait(data)
+    if strongest is not None and trait_percent(strongest) is not None:
+        trait_value = f"{trait_label(strongest)} · {trait_percent(strongest)}%"
+    else:
+        trait_value = "недостаточно данных"
+
+    lineage = data.lineage
+    if lineage is not None and lineage.status == "ok":
+        y_count = int(getattr(lineage, "y_count", 0) or 0)
+        mt_count = int(getattr(lineage, "mtdna_count", 0) or 0)
+        lines_value = "Данные ограничены" if y_count <= 0 or mt_count < 200 else "Маркеры обнаружены"
+    else:
+        lines_value = "нет raw"
+
+    return [
+        ("Ближайший референс", closest, BLUE),
+        ("Самый выраженный Trait", trait_value, GOLD),
+        ("Прямые линии", lines_value, MINT),
     ]
-    left = x1 + 46
-    right = x2 - 46
-    for index, (label, value, accent, fill_value) in enumerate(tracks):
-        y = y1 + 48 + index * 58
-        draw.text((left, y), label, font=fonts["small_bold"], fill=(*accent, 255))
-        draw_progress(draw, (left + 152, y + 10, right - 260, y + 30), fill_value, color=accent, background=(35, 51, 73))
-        draw.text((right, y - 2), ellipsize(draw, value, fonts["small_bold"], 238), font=fonts["small_bold"], fill=(*TEXT, 255), anchor="ra")
-    draw.line((x1 + 46, y2 - 96, x2 - 46, y2 - 96), fill=(*BORDER, 100), width=1)
-    draw_wrapped(
-        draw,
-        "Это краткая визуальная выжимка: источник данных, положение G25, базовые признаки и выбранные SNP-маркеры собраны в один паспорт.",
-        fonts["small"],
-        x1 + 46,
-        y2 - 72,
-        x2 - x1 - 92,
-        max_lines=2,
-        fill=MUTED,
-    )
 
 
 def _draw_ancestry_topline(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
@@ -172,7 +187,7 @@ def _draw_ancestry_topline(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont
     draw_card(draw, (MARGIN, card_top, MARGIN + left_w, card_top + 242), radius=34, fill=PANEL_DEEP, outline=BORDER)
     draw.text((MARGIN + 42, card_top + 42), "итог по G25", font=fonts["card_label"], fill=(*MUTED, 255))
     draw.text((MARGIN + 42, card_top + 96), ellipsize(draw, region, fonts["metric_big"], left_w - 84), font=fonts["metric_big"], fill=(*TEXT, 255))
-    draw_pill(draw, fonts, MARGIN + 42, card_top + 174, "полная 25D-логика", accent=BLUE)
+    draw_pill(draw, fonts, MARGIN + 42, card_top + 174, "расчёт по полному G25-вектору", accent=BLUE)
 
     right_x = MARGIN + left_w + gap
     draw_card(draw, (right_x, card_top, WIDTH - MARGIN, card_top + 242), radius=34, fill=PANEL, outline=BORDER_SOFT)
@@ -190,47 +205,87 @@ def _draw_ancestry_topline(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont
 
 def _draw_ancestry_coordinate_space(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
     top = 666
-    draw_section_label(draw, fonts, MARGIN, top, "Coordinate Space", accent=VIOLET)
+    draw_section_label(draw, fonts, MARGIN, top, "Схема генетической близости", accent=VIOLET)
     box = (MARGIN, top + 78, WIDTH - MARGIN, top + 752)
     draw_card(draw, box, radius=36, fill=PANEL_DEEP, outline=BORDER)
     x1, y1, x2, y2 = box
-    plot = (x1 + 72, y1 + 70, x2 - 72, y2 - 94)
-    px1, py1, px2, py2 = plot
-    _draw_coordinate_grid(draw, plot)
-
     refs = list(getattr(data.g25, "top_modern", ())[:3]) if data.g25 and data.g25.status == "ok" else []
-    cloud = _reference_cloud_points(refs)
-    for index, (name, x, y, distance, accent) in enumerate(cloud):
-        sx, sy = _plot_point(plot, x, y)
-        radius = 8 if index >= len(refs) else 15
-        alpha = 120 if index >= len(refs) else 235
-        draw.ellipse((sx - radius, sy - radius, sx + radius, sy + radius), fill=(*accent, alpha), outline=(*TEXT, 75), width=1)
-
-    sample_x, sample_y = _plot_point(plot, 0.0, 0.0)
-    draw.ellipse((sample_x - 46, sample_y - 46, sample_x + 46, sample_y + 46), outline=(*GOLD, 62), width=7)
-    draw.ellipse((sample_x - 28, sample_y - 28, sample_x + 28, sample_y + 28), fill=(*GOLD, 255), outline=(*TEXT, 230), width=3)
-    draw.text((sample_x + 42, sample_y - 10), "образец", font=fonts["body_bold"], fill=(*TEXT, 255))
-
-    for index, item in enumerate(refs):
-        x, y = _reference_coordinate(index, float(item.distance or 0))
-        sx, sy = _plot_point(plot, x, y)
-        draw.line((sample_x, sample_y, sx, sy), fill=(*BLUE, 110), width=2)
-        label = display_population(item.name)
-        anchor = "ra" if sx > sample_x else "la"
-        label_x = sx - 24 if sx > sample_x else sx + 24
-        draw.text((label_x, sy - 14), ellipsize(draw, label, fonts["small_bold"], 250), font=fonts["small_bold"], fill=(*TEXT, 255), anchor=anchor)
-
-    draw.text((px1, py1 - 34), "LOCAL G25 VIEW", font=fonts["small_bold"], fill=(*MUTED, 255))
+    plot = (x1 + 78, y1 + 72, x2 - 78, y2 - 112)
+    _draw_distance_scheme(draw, fonts, plot, refs)
     draw_wrapped(
         draw,
-        "Локальная схема близости; ранжирование остаётся результатом полного G25-сравнения.",
+        "Схема отображает относительные G25-дистанции. Ранжирование рассчитано по полному G25-вектору.",
         fonts["small"],
         x1 + 42,
         y2 - 62,
         x2 - x1 - 84,
-        max_lines=1,
+        max_lines=2,
         fill=MUTED,
     )
+
+
+def _draw_distance_scheme(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], plot: tuple[int, int, int, int], refs) -> None:
+    x1, y1, x2, y2 = plot
+    draw.rounded_rectangle(plot, radius=26, fill=(8, 18, 34, 120), outline=(*BORDER_SOFT, 170), width=1)
+    cx = x1 + (x2 - x1) // 2
+    cy = y1 + (y2 - y1) // 2
+    for radius in (120, 220, 320):
+        draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=(*BLUE, 34), width=2)
+    draw.line((x1 + 42, cy, x2 - 42, cy), fill=(*CYAN, 52), width=1)
+    draw.line((cx, y1 + 42, cx, y2 - 42), fill=(*CYAN, 52), width=1)
+
+    draw.ellipse((cx - 50, cy - 50, cx + 50, cy + 50), outline=(*GOLD, 62), width=7)
+    draw.ellipse((cx - 30, cy - 30, cx + 30, cy + 30), fill=(*GOLD, 255), outline=(*TEXT, 230), width=3)
+    draw.text((cx, cy + 50), "образец", font=fonts["body_bold"], fill=(*TEXT, 255), anchor="ma")
+
+    if not refs:
+        draw.text((cx, cy - 118), "G25-профиль не найден", font=fonts["body_bold"], fill=(*MUTED, 255), anchor="ma")
+        return
+
+    layout = _radial_reference_layout(plot, refs)
+    for index, (item, sx, sy, lx, ly, anchor) in enumerate(layout):
+        accent = (BLUE, CYAN, VIOLET)[index % 3]
+        draw.line((cx, cy, sx, sy), fill=(*accent, 118), width=3)
+        draw.ellipse((sx - 18, sy - 18, sx + 18, sy + 18), fill=(*accent, 255), outline=(*TEXT, 120), width=2)
+        draw.line((sx, sy, lx, ly + 14), fill=(*accent, 95), width=2)
+        label = f"{display_population(item.name)} · {format_distance(float(item.distance or 0))}"
+        label_w = min(420, int(draw.textlength(label, font=fonts["small_bold"])) + 70)
+        label_h = 44
+        if anchor == "ra":
+            lx = max(x1 + 34 + label_w, min(x2 - 34, lx))
+            label_box = (lx - label_w, ly, lx, ly + label_h)
+            text_x = lx - 17
+        else:
+            lx = max(x1 + 34, min(x2 - 34 - label_w, lx))
+            label_box = (lx, ly, lx + label_w, ly + label_h)
+            text_x = lx + 17
+        draw.rounded_rectangle(label_box, radius=15, fill=(*PANEL_SOFT, 235), outline=(*accent, 110), width=1)
+        draw.text((text_x, ly + 11), ellipsize(draw, label, fonts["small_bold"], label_w - 34), font=fonts["small_bold"], fill=(*TEXT, 255), anchor=anchor)
+
+
+def _radial_reference_layout(plot: tuple[int, int, int, int], refs) -> list[tuple[object, int, int, int, int, str]]:
+    x1, y1, x2, y2 = plot
+    cx = x1 + (x2 - x1) // 2
+    cy = y1 + (y2 - y1) // 2
+    distances = [float(getattr(item, "distance", 0) or 0) for item in refs]
+    min_d = min(distances) if distances else 0.0
+    max_d = max(distances) if distances else min_d
+    span = max(0.0001, max_d - min_d)
+    angles = (-82, 34, 154)
+    label_offsets = ((-214, -92, "ra"), (56, 18, "la"), (-56, 20, "ra"))
+    layout: list[tuple[object, int, int, int, int, str]] = []
+    for index, item in enumerate(refs[:3]):
+        distance = float(getattr(item, "distance", 0) or 0)
+        normalized = (distance - min_d) / span if max_d > min_d else index / max(1, len(refs))
+        radius = 150 + int(normalized * 210)
+        angle = math.radians(angles[index % len(angles)])
+        sx = cx + int(math.cos(angle) * radius)
+        sy = cy + int(math.sin(angle) * radius)
+        dx, dy, anchor = label_offsets[index % len(label_offsets)]
+        lx = max(x1 + 34, min(x2 - 34, sx + dx))
+        ly = max(y1 + 34, min(y2 - 80, sy + dy))
+        layout.append((item, sx, sy, lx, ly, anchor))
+    return layout
 
 
 def _draw_coordinate_grid(draw: ImageDraw.ImageDraw, plot: tuple[int, int, int, int]) -> None:
@@ -324,24 +379,23 @@ def _draw_trait_card(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.Image
         draw_progress(draw, (x1 + 356, y1 + 76, x2 - 210, y1 + 96), 0, color=FAINT)
         return
     draw_progress(draw, (x1 + 356, y1 + 76, x2 - 250, y1 + 96), value / 100, color=CYAN, background=(38, 54, 78))
-    draw.text((x1 + 356, y1 + 36), "низко", font=fonts["small"], fill=(*FAINT, 255))
-    draw.text((x2 - 250, y1 + 36), "высоко", font=fonts["small"], fill=(*FAINT, 255), anchor="ra")
     draw.text((x2 - 44, y1 + 30), f"{value}%", font=fonts["metric"], fill=(*TEXT, 255), anchor="ra")
-    _draw_confidence_stars(draw, x2 - 176, y1 + 90, item.confidence)
+    _draw_confidence_stars(draw, x2 - 176, y1 + 106, item.confidence)
 
 
 def _draw_snp_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
     top = 286
-    draw_section_label(draw, fonts, MARGIN, top, "Содержательные маркеры", accent=ROSE)
-    items = list(dedupe_snp_items(tuple(getattr(getattr(data, "interesting_snps", None), "items", ()) or ()))[:5])
+    draw_section_label(draw, fonts, MARGIN, top, "Выбранные маркеры", accent=ROSE)
+    items = list(visual_snp_items(tuple(getattr(getattr(data, "interesting_snps", None), "items", ()) or ()))[:5])
     if not items:
         draw_card(draw, (MARGIN, top + 78, WIDTH - MARGIN, top + 368), radius=34, fill=PANEL, outline=BORDER_SOFT)
         draw.text((MARGIN + 48, top + 194), "Готовых пользовательских трактовок не найдено", font=fonts["body_bold"], fill=(*MUTED, 255))
         return
-    gap = 20
+    gap = 24
     card_w = CONTENT_WIDTH
-    card_h = 206
     y0 = top + 78
+    available = HEIGHT - 356 - y0
+    card_h = int(min(230, max(166, (available - gap * (len(items) - 1)) / len(items))))
     for index, item in enumerate(items):
         left = MARGIN
         y = y0 + index * (card_h + gap)
@@ -354,15 +408,17 @@ def _draw_snp_card(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFo
     draw.rounded_rectangle((x1, y1, x1 + 10, y2), radius=8, fill=(*ROSE, 210))
     draw.text((x1 + 34, y1 + 28), ellipsize(draw, snp_title(item), fonts["card_label"], 420), font=fonts["card_label"], fill=(*MUTED, 255))
     draw_wrapped(draw, clean(item.interpretation or "результат найден"), fonts["title"], x1 + 34, y1 + 76, x2 - x1 - 360, max_lines=2, fill=TEXT, line_gap=7)
-    marker = " · ".join(part for part in (clean(item.genotype), clean(item.gene or item.rsid)) if part)
-    pill_w = int(draw.textlength(marker or clean(item.rsid), font=fonts["small_bold"])) + 48
-    draw_pill(draw, fonts, x2 - pill_w - 34, y1 + 80, marker or clean(item.rsid), accent=ROSE)
-    draw.text((x2 - 34, y2 - 50), clean(item.category or item.rsid), font=fonts["small"], fill=(*MUTED, 255), anchor="ra")
+    marker = " · ".join(part for part in (clean(item.genotype), clean(item.gene)) if part)
+    if marker:
+        marker = ellipsize(draw, marker, fonts["small_bold"], 250)
+        pill_w = int(draw.textlength(marker, font=fonts["small_bold"])) + 48
+        draw_pill(draw, fonts, x2 - pill_w - 34, y1 + 80, marker, accent=ROSE)
+    draw.text((x2 - 34, y2 - 50), clean(item.category or "маркер"), font=fonts["small"], fill=(*MUTED, 255), anchor="ra")
 
 
 def _draw_lineage_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
     top = 286
-    draw_section_label(draw, fonts, MARGIN, top, "Техническая готовность", accent=MINT)
+    draw_section_label(draw, fonts, MARGIN, top, "Доступность данных", accent=MINT)
     lineage = data.lineage
     y_count = int(getattr(lineage, "y_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
     mt_count = int(getattr(lineage, "mtdna_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
@@ -374,7 +430,7 @@ def _draw_lineage_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.Im
         (MARGIN, top + 82, MARGIN + card_w, top + 372),
         "Отцовская линия",
         lineage_status(y_count, kind="y"),
-        f"Y-маркеры: {format_int(y_count)}",
+        f"Y-маркеры в raw: {format_int(y_count)}",
         CYAN,
     )
     _draw_lineage_card(
@@ -383,7 +439,7 @@ def _draw_lineage_cards(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.Im
         (MARGIN + card_w + gap, top + 82, WIDTH - MARGIN, top + 372),
         "Материнская линия",
         lineage_status(mt_count, kind="mtdna"),
-        f"mtDNA-маркеры: {format_int(mt_count)}",
+        f"mtDNA-маркеры в raw: {format_int(mt_count)}",
         MINT,
     )
 
@@ -411,9 +467,9 @@ def _draw_next_steps(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.Image
     region = display_region(data.g25.region) if data.g25 and data.g25.status == "ok" else ""
     first = "Региональное исследование Кавказа" if region in {"Кавказ", "Северный Кавказ"} else "Региональное исследование происхождения"
     steps = [
-        (first, "уточнить положение внутри ближайшего пространства"),
-        ("Расширенный портрет происхождения", "собрать более глубокую карту совпадений"),
-        ("Полный портрет признаков", "развернуть базовую панель в отдельный отчёт"),
+        (first, "Подробное положение среди региональных референсов"),
+        ("Портрет происхождения", "Комплексный анализ современных и древних связей"),
+        ("Портрет признаков", "Расширенный отчёт по генетическим особенностям"),
     ]
     for index, (title, subtitle) in enumerate(steps, start=1):
         y = top + 82 + (index - 1) * 202
