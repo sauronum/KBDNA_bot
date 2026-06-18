@@ -187,7 +187,7 @@ def _draw_person_field(
 def _draw_overview_source_data(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
     top = 590
     _draw_overview_section_label(draw, fonts, MARGIN, top, "Исходные данные", OVERVIEW_CYAN)
-    box = (MARGIN, top + 62, WIDTH - MARGIN, top + 650)
+    box = (MARGIN, top + 62, WIDTH - MARGIN, top + 520)
     _draw_overview_card(draw, box, radius=34, fill=OVERVIEW_CARD)
     x1, y1, x2, y2 = box
     raw = data.raw
@@ -200,32 +200,34 @@ def _draw_overview_source_data(draw: ImageDraw.ImageDraw, fonts: dict[str, Image
     draw.text((x1 + 44, y1 + 38), "ТИП ДАННЫХ", font=fonts["small_bold"], fill=(*OVERVIEW_MUTED, 255))
     draw.text((x1 + 44, y1 + 78), "autosomal raw", font=fonts["title"], fill=(*OVERVIEW_TEXT, 255))
     draw.text((x2 - 44, y1 + 38), "ПРОЧИТАНО", font=fonts["small_bold"], fill=(*OVERVIEW_MUTED, 255), anchor="ra")
-    draw.text((x2 - 44, y1 + 78), f"{format_int(raw.called_snps)} SNP", font=fonts["metric_big"], fill=(*OVERVIEW_TEXT, 255), anchor="ra")
-    draw.line((x1 + 44, y1 + 178, x2 - 44, y1 + 178), fill=(*OVERVIEW_BORDER, 220), width=2)
+    draw.text((x2 - 44, y1 + 84), f"{format_int(raw.called_snps)} SNP", font=fonts["title"], fill=(*OVERVIEW_TEXT, 255), anchor="ra")
+    draw.line((x1 + 44, y1 + 164, x2 - 44, y1 + 164), fill=(*OVERVIEW_BORDER, 205), width=2)
 
     quality = _raw_quality_label(raw.call_rate)
-    draw.text((x1 + 44, y1 + 218), "Качество чтения", font=fonts["card_label"], fill=(*OVERVIEW_MUTED, 255))
-    draw.text((x1 + 360, y1 + 208), quality, font=fonts["metric"], fill=(*OVERVIEW_TEXT, 255))
+    draw.text((x1 + 44, y1 + 198), "Качество чтения", font=fonts["card_label"], fill=(*OVERVIEW_MUTED, 255))
+    draw.text((x1 + 350, y1 + 188), quality, font=fonts["metric"], fill=(*OVERVIEW_TEXT, 255))
     quality_value = float(raw.call_rate or 0)
     if quality_value > 1:
         quality_value /= 100
-    draw_progress(draw, (x1 + 540, y1 + 237, x2 - 44, y1 + 255), quality_value, color=OVERVIEW_CYAN, background=PROGRESS_TRACK)
+    draw_progress(draw, (x1 + 520, y1 + 217, x2 - 44, y1 + 235), quality_value, color=OVERVIEW_CYAN, background=PROGRESS_TRACK)
+    draw.line((x1 + 44, y1 + 266, x2 - 44, y1 + 266), fill=(*OVERVIEW_BORDER, 175), width=1)
 
     metrics = (
-        ("Аутосомы", raw.autosomal_count),
-        ("X хромосома", raw.x_count),
-        ("Y хромосома", raw.y_count),
-        ("mtDNA", raw.mtdna_count),
+        ("Аутосомы", raw.autosomal_count, OVERVIEW_CYAN),
+        ("X хромосома", raw.x_count, OVERVIEW_BLUE),
+        ("Y хромосома", raw.y_count, OVERVIEW_VIOLET),
+        ("mtDNA", raw.mtdna_count, OVERVIEW_ROSE),
     )
-    gap = 16
-    metric_w = (x2 - x1 - 88 - gap * 3) // 4
-    metric_top = y1 + 306
-    for index, (label, value) in enumerate(metrics):
-        left = x1 + 44 + index * (metric_w + gap)
-        metric_box = (left, metric_top, left + metric_w, y2 - 34)
-        _draw_overview_card(draw, metric_box, radius=22, fill=OVERVIEW_PANEL, shadow=False)
-        draw.text((left + 24, metric_top + 22), label, font=fonts["small_bold"], fill=(*OVERVIEW_MUTED, 255))
-        draw.text((left + 24, metric_top + 82), format_int(value), font=fonts["metric"], fill=(*OVERVIEW_TEXT, 255))
+    metric_w = (x2 - x1 - 88) // 4
+    metric_top = y1 + 292
+    for index, (label, value, accent) in enumerate(metrics):
+        left = x1 + 44 + index * metric_w
+        if index:
+            draw.line((left, metric_top - 4, left, y2 - 34), fill=(*OVERVIEW_BORDER, 145), width=1)
+        content_left = left + 22
+        draw.ellipse((content_left, metric_top + 5, content_left + 16, metric_top + 21), fill=(*accent, 255))
+        draw.text((content_left + 30, metric_top), label, font=fonts["small_bold"], fill=(*OVERVIEW_MUTED, 255))
+        draw.text((content_left, metric_top + 58), format_int(value), font=fonts["metric"], fill=(*OVERVIEW_TEXT, 255))
 
 
 def _raw_quality_label(call_rate: float | None) -> str:
@@ -238,7 +240,7 @@ def _raw_quality_label(call_rate: float | None) -> str:
 
 
 def _draw_overview_lineage(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 1300
+    top = 1180
     _draw_overview_section_label(draw, fonts, MARGIN, top, "Прямые линии", OVERVIEW_VIOLET)
     lineage = data.lineage
     mt_count = int(getattr(lineage, "mtdna_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
