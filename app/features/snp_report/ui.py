@@ -23,7 +23,7 @@ def lab_root_text(samples: list[SampleAsset], rules: tuple[SnpRule, ...], *, lan
             [
                 "🧬 <b>SNP Lab</b>",
                 "",
-                "Choose what you want to do: search for a SNP, browse the SNP base, or build a category report.",
+                "Choose what you want to do: search for a SNP, browse the SNP base, or view category load.",
                 "",
                 f"Samples with raw files: <b>{len(samples)}</b>",
                 f"SNP in report panel: <b>{len(rules)}</b>",
@@ -34,7 +34,7 @@ def lab_root_text(samples: list[SampleAsset], rules: tuple[SnpRule, ...], *, lan
         [
             "🧬 <b>SNP Lab</b>",
             "",
-            "Выберите действие: быстро посмотреть интересные SNP, найти SNP, открыть базу или собрать отчёт по категориям.",
+            "Выберите действие: найти SNP, посмотреть интересные SNP, открыть базу или оценить нагрузку по категориям.",
             "",
             f"Sample с raw-файлом: <b>{len(samples)}</b>",
             f"SNP в панели отчёта: <b>{len(rules)}</b>",
@@ -46,18 +46,18 @@ def lab_root_text(samples: list[SampleAsset], rules: tuple[SnpRule, ...], *, lan
 def build_lab_root_keyboard(samples: list[SampleAsset], *, lang: str = "ru", page: int = 0) -> InlineKeyboardMarkup:
     if lang == "en":
         rows = [
-            [InlineKeyboardButton("🧪 Interesting SNP", callback_data="snp_report:interesting")],
             [InlineKeyboardButton("🔎 SNP search", callback_data="snp_report:search")],
+            [InlineKeyboardButton("🧪 Interesting SNP", callback_data="snp_report:interesting")],
             [InlineKeyboardButton("📚 SNP base", callback_data="snp_report:db")],
-            [InlineKeyboardButton("📊 Category report", callback_data="snp_report:report")],
+            [InlineKeyboardButton("📊 Category load", callback_data="snp_report:report")],
             _dna_lab_footer_row(),
         ]
     else:
         rows = [
-            [InlineKeyboardButton("🧪 Интересные SNP", callback_data="snp_report:interesting")],
             [InlineKeyboardButton("🔎 Поиск SNP", callback_data="snp_report:search")],
+            [InlineKeyboardButton("🧪 Интересные SNP", callback_data="snp_report:interesting")],
             [InlineKeyboardButton("📚 База SNP", callback_data="snp_report:db")],
-            [InlineKeyboardButton("📊 Отчёт по категориям", callback_data="snp_report:report")],
+            [InlineKeyboardButton("📊 Нагрузка по категориям", callback_data="snp_report:report")],
             _dna_lab_footer_row(),
         ]
     return InlineKeyboardMarkup(rows)
@@ -106,7 +106,7 @@ def sample_home_text(
 def build_sample_home_keyboard(sample_id: str, *, lang: str = "ru") -> InlineKeyboardMarkup:
     interesting_label = "🧪 Interesting SNP" if lang == "en" else "🧪 Интересные SNP"
     search_label = "🔎 Check rsID in sample" if lang == "en" else "🔎 Проверить rsID в sample"
-    report_label = "📊 Category report" if lang == "en" else "📊 Отчёт по категориям"
+    report_label = "📊 Category load" if lang == "en" else "📊 Нагрузка по категориям"
     db_label = "📚 Open SNP base" if lang == "en" else "📚 Открыть базу SNP"
     return InlineKeyboardMarkup(
         [
