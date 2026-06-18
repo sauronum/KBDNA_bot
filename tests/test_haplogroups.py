@@ -32,7 +32,7 @@ from app.features.haplogroups.menu import (
 )
 from app.features.haplogroups.storage import HaplogroupRecord, HaplogroupStore
 from app.features.haplogroups.ui import raw_scan_result_text
-from app.features.haplogroups.yfull import YFullBranch, YFullLookupResult
+from app.features.haplogroups.yfull import YFullBranch, YFullChildBranch, YFullGeography, YFullLookupResult
 from app.features.my_data.storage import SampleAsset
 
 
@@ -403,6 +403,7 @@ class HaplogroupTests(unittest.TestCase):
         callbacks = [
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:0123456789ab",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:detect",
@@ -519,9 +520,21 @@ class _YFullServiceStub:
             snps=("Y100",),
             formed_ybp=4500,
             tmrca_ybp=3700,
-            children=(),
+            formed_ci_ybp=(3100, 6000),
+            tmrca_ci_ybp=(2400, 5500),
+            children=(
+                YFullChildBranch(
+                    name="R-Z200",
+                    snps=("Z200",),
+                    formed_ybp=3700,
+                    tmrca_ybp=1600,
+                    formed_ci_ybp=(2400, 5500),
+                    tmrca_ci_ybp=(950, 2300),
+                    public_sample_count=2,
+                ),
+            ),
             public_sample_count=2,
-            geographies=("Spain",),
+            geographies=(YFullGeography(label="Spain", count=2),),
             tree_version="14.03.00",
             release_date="16 May 2026",
             source_url="https://www.yfull.com/tree/R-Y100/",
@@ -562,7 +575,15 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(flow.get(10, 123))
         self.assertIn("R-Y100", message.status.text)
-        self.assertIn("TMRCA: 3 700 лет назад", message.status.text)
+        self.assertIn("Общий предок: ≈ 3 700 лет назад", message.status.text)
+        nav_buttons = [
+            button
+            for row in message.status.reply_markup.inline_keyboard
+            for button in row
+            if button.callback_data and ":bn:" in button.callback_data
+        ]
+        self.assertEqual([button.text for button in nav_buttons], ["↑ R1b", "↓ R-Z200 · 2"])
+        self.assertTrue(all(len(button.callback_data.encode("utf-8")) <= 64 for button in nav_buttons))
         url_buttons = [
             button
             for row in message.status.reply_markup.inline_keyboard

@@ -19,7 +19,7 @@ from app.storage_io import write_json_atomic
 
 
 YFULL_BASE_URL = "https://www.yfull.com"
-_CACHE_SCHEMA_VERSION = 1
+_CACHE_SCHEMA_VERSION = 2
 _DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
 _MAX_HTML_BYTES = 3 * 1024 * 1024
 _BRANCH_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9*._-]{0,79}")
@@ -38,6 +38,15 @@ class YFullChildBranch:
     snps: tuple[str, ...]
     formed_ybp: int | None
     tmrca_ybp: int | None
+    formed_ci_ybp: tuple[int, int] | None
+    tmrca_ci_ybp: tuple[int, int] | None
+    public_sample_count: int
+
+
+@dataclass(frozen=True)
+class YFullGeography:
+    label: str
+    count: int
 
 
 @dataclass(frozen=True)
@@ -48,9 +57,11 @@ class YFullBranch:
     snps: tuple[str, ...]
     formed_ybp: int | None
     tmrca_ybp: int | None
+    formed_ci_ybp: tuple[int, int] | None
+    tmrca_ci_ybp: tuple[int, int] | None
     children: tuple[YFullChildBranch, ...]
     public_sample_count: int
-    geographies: tuple[str, ...]
+    geographies: tuple[YFullGeography, ...]
     tree_version: str
     release_date: str
     source_url: str
@@ -71,6 +82,8 @@ class _ParsedNode:
     snp_text: str = ""
     extra_snp_text: str = ""
     age_text: str = ""
+    age_title: str = ""
+    public_sample_count: int = 0
 
 
 @dataclass
@@ -84,7 +97,7 @@ class _YFullTreeParser(HTMLParser):
         self.breadcrumbs: list[str] = []
         self.nodes: list[_ParsedNode] = []
         self.public_sample_count = 0
-        self.geographies: list[str] = []
+        self.geography_counts: dict[str, int] = {}
         self.all_text: list[str] = []
         self._node_by_id: dict[str, _ParsedNode] = {}
         self._li_stack: list[_LiContext] = []
@@ -128,6 +141,10 @@ class _YFullTreeParser(HTMLParser):
                 self._node_by_id[branch_id] = node
             if attributes.get("valsampleid") or attributes.get("valSampleID"):
                 self.public_sample_count += 1
+                for context in self._li_stack:
+                    node = self._node_by_id.get(context.branch_id)
+                    if node is not None:
+                        node.public_sample_count += 1
             return
 
         node = self._current_node()
@@ -140,11 +157,12 @@ class _YFullTreeParser(HTMLParser):
         elif tag == "span" and "yf-plus-snps" in classes:
             node.extra_snp_text = str(attributes.get("title") or "").strip()
         elif tag == "span" and "yf-age" in classes:
+            node.age_title = str(attributes.get("title") or "").strip()
             self._start_capture(tag, "age", node)
         elif tag == "b" and "yf-geo" in classes:
-            geography = str(attributes.get("title") or "").strip()
-            if geography and geography not in self.geographies:
-                self.geographies.append(geography)
+            geography = _geography_group_label(str(attributes.get("title") or ""))
+            if geography:
+                self.geography_counts[geography] = self.geography_counts.get(geography, 0) + 1
 
     def handle_endtag(self, tag: str) -> None:
         if self._capture_tag == tag:
@@ -236,6 +254,9 @@ def parse_yfull_branch_html(html_text: str, *, source_url: str) -> YFullBranch:
             snps=_split_snps(node.snp_text, node.extra_snp_text),
             formed_ybp=_age_value(node.age_text, "formed"),
             tmrca_ybp=_age_value(node.age_text, "TMRCA"),
+            formed_ci_ybp=_age_interval(node.age_title, "formed"),
+            tmrca_ci_ybp=_age_interval(node.age_title, "TMRCA"),
+            public_sample_count=node.public_sample_count,
         )
         for node in parser.nodes
         if node.parent_id == root.branch_id and (node.name or node.branch_id)
@@ -249,9 +270,14 @@ def parse_yfull_branch_html(html_text: str, *, source_url: str) -> YFullBranch:
         snps=_split_snps(root.snp_text, root.extra_snp_text),
         formed_ybp=_age_value(root.age_text, "formed"),
         tmrca_ybp=_age_value(root.age_text, "TMRCA"),
+        formed_ci_ybp=_age_interval(root.age_title, "formed"),
+        tmrca_ci_ybp=_age_interval(root.age_title, "TMRCA"),
         children=children,
-        public_sample_count=parser.public_sample_count,
-        geographies=tuple(parser.geographies),
+        public_sample_count=root.public_sample_count or parser.public_sample_count,
+        geographies=tuple(
+            YFullGeography(label=label, count=count)
+            for label, count in sorted(parser.geography_counts.items(), key=lambda item: (-item[1], item[0]))
+        ),
         tree_version=version_match.group(1) if version_match else "",
         release_date=release_match.group(2).strip() if release_match else "",
         source_url=canonical_url or source_url,
@@ -340,6 +366,9 @@ class YFullBranchService:
                     snps=tuple(str(snp) for snp in item.get("snps", [])),
                     formed_ybp=_optional_int(item.get("formed_ybp")),
                     tmrca_ybp=_optional_int(item.get("tmrca_ybp")),
+                    formed_ci_ybp=_optional_interval(item.get("formed_ci_ybp")),
+                    tmrca_ci_ybp=_optional_interval(item.get("tmrca_ci_ybp")),
+                    public_sample_count=int(item.get("public_sample_count") or 0),
                 )
                 for item in branch.get("children", [])
                 if isinstance(item, dict)
@@ -351,9 +380,15 @@ class YFullBranchService:
                 snps=tuple(str(item) for item in branch.get("snps", [])),
                 formed_ybp=_optional_int(branch.get("formed_ybp")),
                 tmrca_ybp=_optional_int(branch.get("tmrca_ybp")),
+                formed_ci_ybp=_optional_interval(branch.get("formed_ci_ybp")),
+                tmrca_ci_ybp=_optional_interval(branch.get("tmrca_ci_ybp")),
                 children=children,
                 public_sample_count=int(branch.get("public_sample_count") or 0),
-                geographies=tuple(str(item) for item in branch.get("geographies", [])),
+                geographies=tuple(
+                    YFullGeography(label=str(item.get("label") or ""), count=int(item.get("count") or 0))
+                    for item in branch.get("geographies", [])
+                    if isinstance(item, dict)
+                ),
                 tree_version=str(branch.get("tree_version") or ""),
                 release_date=str(branch.get("release_date") or ""),
                 source_url=str(branch.get("source_url") or ""),
@@ -386,7 +421,34 @@ def _age_value(value: str, label: str) -> int | None:
         return None
 
 
+def _age_interval(value: str, label: str) -> tuple[int, int] | None:
+    match = re.search(
+        rf"\b{re.escape(label)}\s+CI\s+95%\s+([0-9][0-9,]*)\s*<->\s*([0-9][0-9,]*)\s+ybp\b",
+        value,
+        flags=re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    try:
+        values = (int(match.group(1).replace(",", "")), int(match.group(2).replace(",", "")))
+    except ValueError:
+        return None
+    return min(values), max(values)
+
+
+def _geography_group_label(value: str) -> str:
+    clean = unescape(value).strip()
+    return clean.split(" (", 1)[0].strip()
+
+
 def _optional_int(value) -> int | None:
     if value is None or value == "":
         return None
     return int(value)
+
+
+def _optional_interval(value) -> tuple[int, int] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    values = int(value[0]), int(value[1])
+    return min(values), max(values)

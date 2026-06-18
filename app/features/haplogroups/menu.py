@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from math import ceil
 from pathlib import Path
@@ -62,6 +63,8 @@ _TEXT_ADD_ACTION = "haplogroup_add"
 _FILE_UPLOAD_ACTION = "haplogroup_file_upload"
 _STR_COMPARE_ACTION = "haplogroup_str_compare"
 _BRANCH_LOOKUP_ACTION = "haplogroup_branch_lookup"
+_BRANCH_NAV_KEY = "haplogroup_branch_nav"
+_BRANCH_NAV_LIMIT = 64
 _TYPE_CODES = {"y": "Y-DNA", "mt": "mtDNA"}
 logger = logging.getLogger(__name__)
 
@@ -142,6 +145,32 @@ def _yfull_branch_service(context: ContextTypes.DEFAULT_TYPE) -> YFullBranchServ
     service = YFullBranchService(cache_dir)
     context.application.bot_data["yfull_branch_service"] = service
     return service
+
+
+def _remember_branch_nav_target(context: ContextTypes.DEFAULT_TYPE, branch_name: str) -> str:
+    user_data = getattr(context, "user_data", None)
+    if not isinstance(user_data, dict):
+        user_data = {}
+        setattr(context, "user_data", user_data)
+    storage = user_data.setdefault(_BRANCH_NAV_KEY, {})
+    if not isinstance(storage, dict):
+        storage = {}
+        user_data[_BRANCH_NAV_KEY] = storage
+    token = hashlib.sha256(branch_name.encode("utf-8")).hexdigest()[:12]
+    storage[token] = branch_name
+    while len(storage) > _BRANCH_NAV_LIMIT:
+        storage.pop(next(iter(storage)), None)
+    return token
+
+
+def _resolve_branch_nav_target(context: ContextTypes.DEFAULT_TYPE, token: str) -> str:
+    user_data = getattr(context, "user_data", None)
+    if not isinstance(user_data, dict):
+        return ""
+    storage = user_data.get(_BRANCH_NAV_KEY)
+    if not isinstance(storage, dict):
+        return ""
+    return str(storage.get(token) or "")
 
 
 def _other_input_flow_active(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> bool:
@@ -699,6 +728,82 @@ def _imported_haplogroup_note(file_name: str, result: ImportedHaplogroup) -> str
     return "\n".join(lines)
 
 
+def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -> list[list[InlineKeyboardButton]]:
+    branch = result.branch
+    rows: list[list[InlineKeyboardButton]] = []
+    if branch.parent:
+        parent_token = _remember_branch_nav_target(context, branch.parent)
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"↑ {branch.parent}"[:60],
+                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:{parent_token}",
+                )
+            ]
+        )
+    for child in (item for item in branch.children if not item.name.endswith("*")):
+        child_token = _remember_branch_nav_target(context, child.name)
+        label = f"↓ {child.name}"
+        if child.public_sample_count:
+            label += f" · {child.public_sample_count}"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    label[:60],
+                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:{child_token}",
+                )
+            ]
+        )
+        if len(rows) >= 9:
+            break
+    rows.extend(
+        [
+            [InlineKeyboardButton(_copy(lang, "Открыть в YFull", "Open in YFull"), url=branch.source_url)],
+            [InlineKeyboardButton(_copy(lang, "Найти другую ветку", "Find another branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")],
+        ]
+    )
+    return rows
+
+
+async def _complete_branch_lookup(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    body: str,
+    chat_id: int,
+    user_id: int,
+    lang: str,
+) -> bool:
+    try:
+        result = await asyncio.to_thread(_yfull_branch_service(context).lookup, body)
+    except YFullLookupError as exc:
+        rows = [[InlineKeyboardButton(_copy(lang, "Попробовать снова", "Try again"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")]]
+        await message.edit_text(
+            branch_lookup_error_text(exc.reason, lang),
+            reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            parse_mode="HTML",
+        )
+        set_active_main_menu_message(context, chat_id, user_id, message.message_id)
+        return False
+    except Exception:
+        logger.exception("YFull branch lookup failed")
+        await message.edit_text(
+            branch_lookup_error_text("unavailable", lang),
+            reply_markup=build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            parse_mode="HTML",
+        )
+        set_active_main_menu_message(context, chat_id, user_id, message.message_id)
+        return False
+
+    await message.edit_text(
+        branch_lookup_result_text(result, lang),
+        reply_markup=build_markup(_branch_result_rows(context, result, lang), f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+        parse_mode="HTML",
+    )
+    set_active_main_menu_message(context, chat_id, user_id, message.message_id)
+    return True
+
+
 async def _handle_branch_lookup_input(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -715,38 +820,16 @@ async def _handle_branch_lookup_input(
         parse_mode="HTML",
         do_quote=False,
     )
-    try:
-        result = await asyncio.to_thread(_yfull_branch_service(context).lookup, body)
-    except YFullLookupError as exc:
-        rows = [[InlineKeyboardButton(_copy(lang, "Попробовать снова", "Try again"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")]]
-        await status_message.edit_text(
-            branch_lookup_error_text(exc.reason, lang),
-            reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
-            parse_mode="HTML",
-        )
-        set_active_main_menu_message(context, chat_id, user_id, status_message.message_id)
-        raise ApplicationHandlerStop
-    except Exception:
-        logger.exception("YFull branch lookup failed")
-        await status_message.edit_text(
-            branch_lookup_error_text("unavailable", lang),
-            reply_markup=build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
-            parse_mode="HTML",
-        )
-        set_active_main_menu_message(context, chat_id, user_id, status_message.message_id)
-        raise ApplicationHandlerStop
-
-    flow.clear(chat_id, user_id)
-    rows = [
-        [InlineKeyboardButton(_copy(lang, "Открыть в YFull", "Open in YFull"), url=result.branch.source_url)],
-        [InlineKeyboardButton(_copy(lang, "Найти другую ветку", "Find another branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")],
-    ]
-    await status_message.edit_text(
-        branch_lookup_result_text(result, lang),
-        reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
-        parse_mode="HTML",
+    completed = await _complete_branch_lookup(
+        status_message,
+        context,
+        body=body,
+        chat_id=chat_id,
+        user_id=user_id,
+        lang=lang,
     )
-    set_active_main_menu_message(context, chat_id, user_id, status_message.message_id)
+    if completed:
+        flow.clear(chat_id, user_id)
     raise ApplicationHandlerStop
 
 
@@ -972,6 +1055,33 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             chat_id,
             lang=lang,
             edit_existing=True,
+        )
+        return
+    if action == "bn":
+        branch_name = _resolve_branch_nav_target(context, parts[2] if len(parts) > 2 else "")
+        if not branch_name:
+            await show_branch_lookup_prompt(
+                query.message,
+                context,
+                user_id,
+                chat_id,
+                lang=lang,
+                edit_existing=True,
+            )
+            return
+        await _show_or_edit(
+            query.message,
+            branch_lookup_loading_text(branch_name, lang),
+            build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            edit_existing=True,
+        )
+        await _complete_branch_lookup(
+            query.message,
+            context,
+            body=branch_name,
+            chat_id=chat_id,
+            user_id=user_id,
+            lang=lang,
         )
         return
     if action == "y":

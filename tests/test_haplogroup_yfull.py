@@ -28,7 +28,7 @@ YFULL_BRANCH_HTML = """
         <a class="yf-root">R-Y100</a>
         <span class="yf-snpforhg">Y100 * FT200(H)</span>
         <span title="BY300 * BY301" class="yf-plus-snps">+2 SNPs</span>
-        <span class="yf-age">formed 4500 ybp, TMRCA 3700 ybp</span>
+        <span title="formed CI 95% 6000&lt;-&gt;3100 ybp, TMRCA CI 95% 5500&lt;-&gt;2400 ybp" class="yf-age">formed 4500 ybp, TMRCA 3700 ybp</span>
         <ul>
           <li id="lR-Y100*">
             <a href="/tree/R-Y100*/">R-Y100*</a>
@@ -39,7 +39,7 @@ YFULL_BRANCH_HTML = """
           <li id="lR-Z200">
             <a href="/tree/R-Z200/">R-Z200</a>
             <span class="yf-snpforhg">Z200</span>
-            <span class="yf-age">formed 3700 ybp, TMRCA 1600 ybp</span>
+            <span title="formed CI 95% 5500&lt;-&gt;2400 ybp, TMRCA CI 95% 2300&lt;-&gt;950 ybp" class="yf-age">formed 3700 ybp, TMRCA 1600 ybp</span>
             <ul>
               <li id="lR-Z300">
                 <a href="/tree/R-Z300/">R-Z300</a>
@@ -89,11 +89,16 @@ class YFullBranchTests(unittest.TestCase):
         self.assertEqual(branch.snps, ("Y100", "FT200(H)", "BY300", "BY301"))
         self.assertEqual(branch.formed_ybp, 4500)
         self.assertEqual(branch.tmrca_ybp, 3700)
+        self.assertEqual(branch.formed_ci_ybp, (3100, 6000))
+        self.assertEqual(branch.tmrca_ci_ybp, (2400, 5500))
         self.assertEqual([child.name for child in branch.children], ["R-Y100*", "R-Z200"])
         self.assertEqual(branch.children[1].tmrca_ybp, 1600)
+        self.assertEqual(branch.children[1].tmrca_ci_ybp, (950, 2300))
+        self.assertEqual(branch.children[0].public_sample_count, 1)
+        self.assertEqual(branch.children[1].public_sample_count, 1)
         self.assertNotIn("R-Z300", [child.name for child in branch.children])
         self.assertEqual(branch.public_sample_count, 2)
-        self.assertEqual(branch.geographies, ("Spain", "Georgia"))
+        self.assertEqual([(item.label, item.count) for item in branch.geographies], [("Georgia", 1), ("Spain", 1)])
         self.assertEqual(branch.tree_version, "14.03.00")
         self.assertEqual(branch.release_date, "16 May 2026")
 
@@ -130,8 +135,11 @@ class YFullBranchTests(unittest.TestCase):
         text = branch_lookup_result_text(stale_result, "ru")
 
         self.assertIn("R-Y100", text)
-        self.assertIn("TMRCA: 3 700 лет назад", text)
-        self.assertIn("R-Z200", text)
+        self.assertIn("Общий предок: ≈ 3 700 лет назад (95%: 2 400–5 500)", text)
+        self.assertIn("16 мая 2026", text)
+        self.assertIn("Грузия — 1, Испания — 1", text)
+        self.assertIn("Дочерних ветвей: 1", text)
+        self.assertIn("Базальных образцов: 1", text)
         self.assertIn("последняя сохранённая версия", text)
         self.assertLess(len(text), 4096)
 

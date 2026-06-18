@@ -1,8 +1,37 @@
 from __future__ import annotations
 
 import html
+import re
 
-from .yfull import YFullLookupResult
+from .yfull import YFullGeography, YFullLookupResult
+
+
+_RU_GEOGRAPHY = {
+    "Brazil": "Бразилия",
+    "Georgia": "Грузия",
+    "Lebanon": "Ливан",
+    "Puerto Rico": "Пуэрто-Рико",
+    "Russia": "Россия",
+    "Saudi Arabia": "Саудовская Аравия",
+    "Spain": "Испания",
+    "Turkey": "Турция",
+    "United States": "США",
+}
+
+_RU_MONTHS = {
+    "January": "января",
+    "February": "февраля",
+    "March": "марта",
+    "April": "апреля",
+    "May": "мая",
+    "June": "июня",
+    "July": "июля",
+    "August": "августа",
+    "September": "сентября",
+    "October": "октября",
+    "November": "ноября",
+    "December": "декабря",
+}
 
 
 def _copy(lang: str, ru: str, en: str) -> str:
@@ -72,38 +101,41 @@ def branch_lookup_error_text(reason: str, lang: str = "ru") -> str:
 def branch_lookup_result_text(result: YFullLookupResult, lang: str = "ru") -> str:
     branch = result.branch
     lines = [f"<b>{html.escape(branch.name)}</b>"]
-    version = f"YFull YTree v{branch.tree_version}" if branch.tree_version else "YFull YTree"
+    version = f"YFull YTree {_short_tree_version(branch.tree_version)}" if branch.tree_version else "YFull YTree"
     if branch.release_date:
-        version += f" · {branch.release_date}"
+        version += f" · {_format_release_date(branch.release_date, lang)}"
     lines.extend([html.escape(version), ""])
 
     if branch.parent:
         lines.append(f"{_copy(lang, 'Родитель', 'Parent')}: <code>{html.escape(branch.parent)}</code>")
     if branch.path:
         path = _compact_path(branch.path)
-        lines.append(f"{_copy(lang, 'Путь', 'Path')}: <code>{html.escape(' › '.join(path))}</code>")
+        lines.append(f"{_copy(lang, 'Линия', 'Lineage')}: <code>{html.escape(' › '.join(path))}</code>")
     if branch.snps:
-        lines.append(f"SNP: <code>{html.escape(_compact_values(branch.snps, 8))}</code>")
+        lines.append(f"SNP: <code>{html.escape(_compact_values(branch.snps, 4))}</code>")
     if branch.formed_ybp is not None:
-        lines.append(f"{_copy(lang, 'Сформировалась', 'Formed')}: {_format_age(branch.formed_ybp, lang)}")
+        lines.append(
+            f"{_copy(lang, 'Возраст ветви', 'Branch age')}: "
+            f"{_format_age_estimate(branch.formed_ybp, branch.formed_ci_ybp, lang)}"
+        )
     if branch.tmrca_ybp is not None:
-        lines.append(f"TMRCA: {_format_age(branch.tmrca_ybp, lang)}")
+        lines.append(
+            f"{_copy(lang, 'Общий предок', 'Common ancestor')}: "
+            f"{_format_age_estimate(branch.tmrca_ybp, branch.tmrca_ci_ybp, lang)}"
+        )
 
-    lines.extend(["", f"{_copy(lang, 'Публичных образцов в поддереве', 'Public samples in subtree')}: {branch.public_sample_count}"])
+    lines.extend(["", f"{_copy(lang, 'Публичных образцов', 'Public samples')}: {branch.public_sample_count}"])
     if branch.geographies:
-        lines.append(f"{_copy(lang, 'География', 'Geography')}: {html.escape(_compact_values(branch.geographies, 6))}")
+        lines.append(
+            f"{_copy(lang, 'Происхождение', 'Origins')}: "
+            f"{html.escape(_format_geographies(branch.geographies, lang))}"
+        )
 
-    lines.extend(["", f"<b>{_copy(lang, 'Ближайшие дочерние ветви', 'Immediate child branches')}</b>"])
-    if branch.children:
-        for child in branch.children[:8]:
-            label = f"• <code>{html.escape(child.name)}</code>"
-            if child.tmrca_ybp is not None:
-                label += f" · TMRCA {_format_age(child.tmrca_ybp, lang)}"
-            lines.append(label)
-        if len(branch.children) > 8:
-            lines.append(_copy(lang, f"…и ещё {len(branch.children) - 8}", f"…and {len(branch.children) - 8} more"))
-    else:
-        lines.append(_copy(lang, "Дочерние ветви не показаны.", "No child branches are shown."))
+    child_count = sum(1 for child in branch.children if not child.name.endswith("*"))
+    basal_samples = sum(child.public_sample_count for child in branch.children if child.name.endswith("*"))
+    lines.extend(["", f"{_copy(lang, 'Дочерних ветвей', 'Child branches')}: {child_count}"])
+    if basal_samples:
+        lines.append(f"{_copy(lang, 'Базальных образцов', 'Basal samples')}: {basal_samples}")
 
     if result.cache_status == "stale":
         lines.extend(
@@ -120,9 +152,9 @@ def branch_lookup_result_text(result: YFullLookupResult, lang: str = "ru") -> st
 
 
 def _compact_path(path: tuple[str, ...]) -> tuple[str, ...]:
-    if len(path) <= 9:
+    if len(path) <= 6:
         return path
-    return (path[0], "…", *path[-7:])
+    return (path[0], "…", *path[-4:])
 
 
 def _compact_values(values: tuple[str, ...], limit: int) -> str:
@@ -132,6 +164,36 @@ def _compact_values(values: tuple[str, ...], limit: int) -> str:
     return ", ".join(shown)
 
 
-def _format_age(value: int, lang: str) -> str:
+def _format_age_estimate(value: int, interval: tuple[int, int] | None, lang: str) -> str:
     formatted = f"{value:,}".replace(",", " ")
-    return f"{formatted} {_copy(lang, 'лет назад', 'ybp')}"
+    result = f"≈ {formatted} {_copy(lang, 'лет назад', 'ybp')}"
+    if interval is not None:
+        low, high = interval
+        low_text = f"{low:,}".replace(",", " ")
+        high_text = f"{high:,}".replace(",", " ")
+        result += f" (95%: {low_text}–{high_text})"
+    return result
+
+
+def _short_tree_version(value: str) -> str:
+    return value[:-3] if value.endswith(".00") else value
+
+
+def _format_release_date(value: str, lang: str) -> str:
+    if lang == "en":
+        return value
+    match = re.fullmatch(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})", value.strip())
+    if match is None:
+        return value
+    month = _RU_MONTHS.get(match.group(2), match.group(2))
+    return f"{match.group(1)} {month} {match.group(3)}"
+
+
+def _format_geographies(values: tuple[YFullGeography, ...], lang: str, limit: int = 5) -> str:
+    parts = []
+    for item in values[:limit]:
+        label = _RU_GEOGRAPHY.get(item.label, item.label) if lang != "en" else item.label
+        parts.append(f"{label} — {item.count}")
+    if len(values) > limit:
+        parts.append(f"+{len(values) - limit}")
+    return ", ".join(parts)
