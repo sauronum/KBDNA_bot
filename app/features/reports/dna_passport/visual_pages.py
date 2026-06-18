@@ -65,6 +65,7 @@ def render_overview_page(data: DNAPassportData, output_path: Path, *, page_numbe
     image, draw, fonts = _create_overview_page(data, page_number=page_number, total_pages=total_pages)
     _draw_overview_sample(draw, fonts, data)
     _draw_overview_source_data(draw, fonts, data)
+    _draw_ancestry_topline(draw, fonts, data, top=1050)
     return save_page(image, output_path)
 
 
@@ -225,8 +226,13 @@ def _draw_overview_section_label(
 
 
 
-def _draw_ancestry_topline(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 286
+def _draw_ancestry_topline(
+    draw: ImageDraw.ImageDraw,
+    fonts: dict[str, ImageFont.ImageFont],
+    data: DNAPassportData,
+    *,
+    top: int = 286,
+) -> None:
     draw_section_label(draw, fonts, MARGIN, top, "Генетическое пространство", accent=BLUE)
     region = "Недоступно"
     if data.g25 and data.g25.status == "ok":

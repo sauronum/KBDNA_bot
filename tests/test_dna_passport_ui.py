@@ -456,6 +456,7 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("Выбранные маркеры", source)
         self.assertIn("Схема генетической близости", source)
         self.assertIn("расчёт по полному G25-вектору", source)
+        self.assertIn("_draw_ancestry_topline(draw, fonts, data, top=1050)", source)
         self.assertIn("Звёзды отражают качество расчёта", source)
         self.assertIn("Региональное исследование Кавказа", source)
         self.assertIn("Портрет происхождения", source)
