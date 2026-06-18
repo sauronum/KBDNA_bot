@@ -23,7 +23,7 @@ def lab_root_text(samples: list[SampleAsset], rules: tuple[SnpRule, ...], *, lan
             [
                 "🧬 <b>SNP Lab</b>",
                 "",
-                "Choose what you want to do: check a marker, browse the SNP base, or build a category report.",
+                "Choose what you want to do: search for a SNP, browse the SNP base, or build a category report.",
                 "",
                 f"Samples with raw files: <b>{len(samples)}</b>",
                 f"SNP in report panel: <b>{len(rules)}</b>",
@@ -34,7 +34,7 @@ def lab_root_text(samples: list[SampleAsset], rules: tuple[SnpRule, ...], *, lan
         [
             "🧬 <b>SNP Lab</b>",
             "",
-            "Выберите действие: быстро посмотреть интересные SNP, проверить rsID, открыть базу или собрать отчёт по категориям.",
+            "Выберите действие: быстро посмотреть интересные SNP, найти SNP, открыть базу или собрать отчёт по категориям.",
             "",
             f"Sample с raw-файлом: <b>{len(samples)}</b>",
             f"SNP в панели отчёта: <b>{len(rules)}</b>",
@@ -47,7 +47,7 @@ def build_lab_root_keyboard(samples: list[SampleAsset], *, lang: str = "ru", pag
     if lang == "en":
         rows = [
             [InlineKeyboardButton("🧪 Interesting SNP", callback_data="snp_report:interesting")],
-            [InlineKeyboardButton("🔎 Check rsID in sample", callback_data="snp_report:search")],
+            [InlineKeyboardButton("🔎 SNP search", callback_data="snp_report:search")],
             [InlineKeyboardButton("📚 SNP base", callback_data="snp_report:db")],
             [InlineKeyboardButton("📊 Category report", callback_data="snp_report:report")],
             _dna_lab_footer_row(),
@@ -55,7 +55,7 @@ def build_lab_root_keyboard(samples: list[SampleAsset], *, lang: str = "ru", pag
     else:
         rows = [
             [InlineKeyboardButton("🧪 Интересные SNP", callback_data="snp_report:interesting")],
-            [InlineKeyboardButton("🔎 Проверить rsID в sample", callback_data="snp_report:search")],
+            [InlineKeyboardButton("🔎 Поиск SNP", callback_data="snp_report:search")],
             [InlineKeyboardButton("📚 База SNP", callback_data="snp_report:db")],
             [InlineKeyboardButton("📊 Отчёт по категориям", callback_data="snp_report:report")],
             _dna_lab_footer_row(),

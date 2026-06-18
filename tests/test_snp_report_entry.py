@@ -119,7 +119,9 @@ class SnpReportEntryTests(unittest.TestCase):
         self.assertIn("<b>SNP Lab</b>", text)
         self.assertIn("Выберите действие", text)
         keyboard = kwargs["reply_markup"].inline_keyboard
+        labels = [[button.text for button in row] for row in keyboard]
         callbacks = [[button.callback_data for button in row] for row in keyboard]
+        self.assertIn(["🔎 Поиск SNP"], labels)
         self.assertEqual(
             callbacks,
             [
