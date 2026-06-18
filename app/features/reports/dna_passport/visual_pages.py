@@ -24,10 +24,7 @@ from .visual_style import (
     OVERVIEW_BORDER,
     OVERVIEW_CARD,
     OVERVIEW_CYAN,
-    OVERVIEW_FAINT,
     OVERVIEW_MUTED,
-    OVERVIEW_PANEL,
-    OVERVIEW_PANEL_ALT,
     OVERVIEW_ROSE,
     OVERVIEW_TEXT,
     OVERVIEW_VIOLET,
@@ -66,7 +63,7 @@ from .visual_style import (
 
 def render_overview_page(data: DNAPassportData, output_path: Path, *, page_number: int, total_pages: int) -> Path:
     image, draw, fonts = _create_overview_page(data, page_number=page_number, total_pages=total_pages)
-    _draw_overview_person(draw, fonts, data)
+    _draw_overview_sample(draw, fonts, data)
     _draw_overview_source_data(draw, fonts, data)
     _draw_overview_lineage(draw, fonts, data)
     return save_page(image, output_path)
@@ -139,53 +136,14 @@ def _draw_overview_header(
     draw.line((MARGIN, 220, right, 220), fill=(*OVERVIEW_BORDER, 220), width=2)
 
 
-def _draw_overview_person(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    photo_box = (MARGIN, 262, MARGIN + 282, 548)
-    _draw_overview_card(draw, photo_box, radius=30, fill=OVERVIEW_PANEL)
-    x1, y1, x2, y2 = photo_box
-    cx = (x1 + x2) // 2
-    draw.ellipse((cx - 46, y1 + 46, cx + 46, y1 + 138), fill=(*OVERVIEW_PANEL_ALT, 255), outline=(*OVERVIEW_BORDER, 210), width=2)
-    draw.ellipse((cx - 24, y1 + 62, cx + 24, y1 + 110), fill=(*OVERVIEW_FAINT, 138))
-    draw.polygon(
-        (
-            (cx - 62, y1 + 172),
-            (cx - 42, y1 + 142),
-            (cx - 18, y1 + 128),
-            (cx + 18, y1 + 128),
-            (cx + 42, y1 + 142),
-            (cx + 62, y1 + 172),
-            (cx + 62, y1 + 192),
-            (cx - 62, y1 + 192),
-        ),
-        fill=(*OVERVIEW_FAINT, 120),
-    )
-    draw.text((cx, y2 - 54), "ФОТО НЕ ДОБАВЛЕНО", font=fonts["small"], fill=(*OVERVIEW_MUTED, 255), anchor="ma")
-
-    divider_x = MARGIN + 330
-    draw.line((divider_x, 280, divider_x, 532), fill=(*OVERVIEW_BORDER, 235), width=2)
-    left = divider_x + 46
-    field_right = left + 520
+def _draw_overview_sample(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
     sample = clean(getattr(getattr(data, "sample", None), "display_name", "") or "Образец")
-    draw.text((left, 276), ellipsize(draw, sample, fonts["person_name"], field_right - left), font=fonts["person_name"], fill=(*OVERVIEW_TEXT, 255))
-    _draw_person_field(draw, fonts, (left, 390, field_right, 458), "Дата рождения", "—")
-    _draw_person_field(draw, fonts, (left, 478, field_right, 546), "Пол", "—")
-
-
-def _draw_person_field(
-    draw: ImageDraw.ImageDraw,
-    fonts: dict[str, ImageFont.ImageFont],
-    box: tuple[int, int, int, int],
-    label: str,
-    value: str,
-) -> None:
-    _draw_overview_card(draw, box, radius=22, fill=OVERVIEW_PANEL_ALT, shadow=False)
-    x1, y1, _x2, _y2 = box
-    draw.text((x1 + 24, y1 + 20), label, font=fonts["small"], fill=(*OVERVIEW_MUTED, 255))
-    draw.text((_x2 - 24, y1 + 20), value, font=fonts["body_bold"], fill=(*OVERVIEW_TEXT, 255), anchor="ra")
+    draw.text((MARGIN, 286), "ОБРАЗЕЦ", font=fonts["small_bold"], fill=(*OVERVIEW_MUTED, 255))
+    draw.text((MARGIN, 326), ellipsize(draw, sample, fonts["person_name"], 820), font=fonts["person_name"], fill=(*OVERVIEW_TEXT, 255))
 
 
 def _draw_overview_source_data(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 590
+    top = 460
     _draw_overview_section_label(draw, fonts, MARGIN, top, "Исходные данные", OVERVIEW_CYAN)
     box = (MARGIN, top + 62, WIDTH - MARGIN, top + 520)
     _draw_overview_card(draw, box, radius=34, fill=OVERVIEW_CARD)
@@ -241,7 +199,7 @@ def _raw_quality_label(call_rate: float | None) -> str:
 
 
 def _draw_overview_lineage(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 1180
+    top = 1050
     _draw_overview_section_label(draw, fonts, MARGIN, top, "Прямые линии", OVERVIEW_VIOLET)
     lineage = data.lineage
     mt_count = int(getattr(lineage, "mtdna_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
