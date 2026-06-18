@@ -4,7 +4,10 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from PIL import Image, ImageStat
+
 from app.features.haplogroups.branch_ui import branch_lookup_result_text
+from app.features.haplogroups.visualization import render_yfull_branch_png
 from app.features.haplogroups.yfull import (
     YFullBranchService,
     YFullLookupError,
@@ -60,6 +63,23 @@ YFULL_BRANCH_HTML = """
 
 
 class YFullBranchTests(unittest.TestCase):
+    def test_branch_visual_renders_dark_and_light_cards(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            service = YFullBranchService(Path(temp_dir) / "cache", fetch_html=lambda url: YFULL_BRANCH_HTML)
+            result = service.lookup("R-Y100")
+            dark_path = Path(temp_dir) / "dark.png"
+            light_path = Path(temp_dir) / "light.png"
+
+            render_yfull_branch_png(dark_path, result, lang="ru", theme="dark")
+            render_yfull_branch_png(light_path, result, lang="en", theme="light")
+
+            with Image.open(dark_path) as dark, Image.open(light_path) as light:
+                self.assertEqual(dark.format, "PNG")
+                self.assertEqual(dark.size, (1280, 900))
+                self.assertEqual(light.size, (1280, 900))
+                self.assertGreater(sum(ImageStat.Stat(dark).stddev), 20)
+                self.assertNotEqual(dark.getpixel((10, 10)), light.getpixel((10, 10)))
+
     def test_normalize_branch_accepts_code_and_public_yfull_url(self) -> None:
         self.assertEqual(normalize_yfull_branch_query("r-y23968"), "R-Y23968")
         self.assertEqual(

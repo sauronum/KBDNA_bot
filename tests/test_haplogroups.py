@@ -26,6 +26,7 @@ from app.features.haplogroups.menu import (
     _FILE_UPLOAD_ACTION,
     _import_haplogroup_document,
     _paginate_records,
+    _send_branch_visual,
     haplogroups_document_input_handler,
     haplogroups_text_input_handler,
     parse_haplogroup_input,
@@ -457,6 +458,7 @@ class HaplogroupTests(unittest.TestCase):
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:0123456789ab",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:bv:0123456789ab",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:detect",
@@ -549,10 +551,20 @@ class _StatusMessage:
     def __init__(self) -> None:
         self.text = ""
         self.reply_markup = None
+        self.photos: list[tuple[bytes, str]] = []
+        self.replies: list[str] = []
 
     async def edit_text(self, text: str, **kwargs) -> None:
         self.text = text
         self.reply_markup = kwargs.get("reply_markup")
+
+    async def reply_photo(self, photo, caption: str = "", **kwargs):
+        self.photos.append((photo.read(), caption))
+        return SimpleNamespace(message_id=12)
+
+    async def reply_text(self, text: str, **kwargs):
+        self.replies.append(text)
+        return SimpleNamespace(message_id=12)
 
 
 class _TextMessage:
@@ -609,6 +621,30 @@ class _MyDataStub:
 
 
 class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_branch_visual_is_sent_as_png_and_temp_file_is_removed(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            image_path = Path(temp_dir) / "branch.png"
+            context = SimpleNamespace(application=SimpleNamespace(bot_data={}))
+            message = _StatusMessage()
+
+            with patch("app.features.haplogroups.menu._yfull_branch_service", return_value=_YFullServiceStub()), patch(
+                "app.features.haplogroups.menu._create_branch_visual_path",
+                return_value=image_path,
+            ):
+                rendered = await _send_branch_visual(
+                    message,
+                    context,
+                    branch_name="R-Y100",
+                    user_id=123,
+                    lang="ru",
+                )
+
+            self.assertTrue(rendered)
+            self.assertEqual(len(message.photos), 1)
+            self.assertTrue(message.photos[0][0].startswith(b"\x89PNG\r\n\x1a\n"))
+            self.assertIn("R-Y100", message.photos[0][1])
+            self.assertFalse(image_path.exists())
+
     async def test_stale_branch_flow_does_not_capture_plain_text(self) -> None:
         flow = HaplogroupFlowStore()
         flow.expect(10, 123, {}, action=_BRANCH_LOOKUP_ACTION)
@@ -673,6 +709,14 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual([button.text for button in nav_buttons], ["↑ R1b", "↓ R-Z200 · 2"])
         self.assertTrue(all(len(button.callback_data.encode("utf-8")) <= 64 for button in nav_buttons))
+        visual_buttons = [
+            button
+            for row in message.status.reply_markup.inline_keyboard
+            for button in row
+            if button.callback_data and ":bv:" in button.callback_data
+        ]
+        self.assertEqual(len(visual_buttons), 1)
+        self.assertIn("Карточка", visual_buttons[0].text)
         url_buttons = [
             button
             for row in message.status.reply_markup.inline_keyboard

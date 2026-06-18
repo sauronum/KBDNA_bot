@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html
 import logging
+import tempfile
 import time
 from math import ceil
 from pathlib import Path
+from uuid import uuid4
 
 from telegram import InlineKeyboardButton, Update
 from telegram.ext import Application, ApplicationHandlerStop, ContextTypes
@@ -54,6 +57,7 @@ from .ui import (
     upload_result_text,
     y_prediction_text,
 )
+from .visualization import render_yfull_branch_png
 from .yfull import YFullBranchService, YFullLookupError
 
 
@@ -70,6 +74,7 @@ _BRANCH_NAV_LIMIT = 64
 _FLOW_TTL_SECONDS = 15 * 60
 _TYPE_CODES = {"y": "Y-DNA", "mt": "mtDNA"}
 logger = logging.getLogger(__name__)
+THEME_DARK = "dark"
 
 
 def _copy(lang: str, ru: str, en: str) -> str:
@@ -160,6 +165,22 @@ def _yfull_branch_service(context: ContextTypes.DEFAULT_TYPE) -> YFullBranchServ
     service = YFullBranchService(cache_dir)
     context.application.bot_data["yfull_branch_service"] = service
     return service
+
+
+def _branch_visual_theme(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> str:
+    store = context.application.bot_data.get("user_settings_store")
+    get_theme = getattr(store, "get_theme", None)
+    if not callable(get_theme):
+        return THEME_DARK
+    try:
+        return "light" if str(get_theme(user_id)).strip().lower() == "light" else THEME_DARK
+    except Exception:
+        logger.debug("Could not read haplogroup visual theme", exc_info=True)
+        return THEME_DARK
+
+
+def _create_branch_visual_path() -> Path:
+    return Path(tempfile.gettempdir()) / f"kbdna_yfull_{uuid4().hex}.png"
 
 
 def _remember_branch_nav_target(context: ContextTypes.DEFAULT_TYPE, branch_name: str) -> str:
@@ -827,6 +848,76 @@ def _import_haplogroup_document(
     return records, str_profile
 
 
+def _render_branch_visual(
+    service: YFullBranchService,
+    branch_name: str,
+    output_path: Path,
+    *,
+    lang: str,
+    theme: str,
+):
+    result = service.lookup(branch_name)
+    render_yfull_branch_png(output_path, result, lang=lang, theme=theme)
+    return result
+
+
+def _branch_visual_caption(result, lang: str) -> str:
+    branch = result.branch
+    version = f"YFull YTree v{branch.tree_version}" if branch.tree_version else "YFull YTree"
+    details = []
+    if branch.formed_ybp is not None:
+        details.append(f"{_copy(lang, 'сформировалась', 'formed')}: {branch.formed_ybp:,}".replace(",", " "))
+    if branch.tmrca_ybp is not None:
+        details.append(f"TMRCA: {branch.tmrca_ybp:,}".replace(",", " "))
+    lines = [f"<b>{html.escape(branch.name)}</b>", html.escape(version)]
+    if details:
+        lines.append(" · ".join(details))
+    return "\n".join(lines)
+
+
+async def _send_branch_visual(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    branch_name: str,
+    user_id: int,
+    lang: str,
+) -> bool:
+    image_path = _create_branch_visual_path()
+    try:
+        result = await asyncio.to_thread(
+            _render_branch_visual,
+            _yfull_branch_service(context),
+            branch_name,
+            image_path,
+            lang=lang,
+            theme=_branch_visual_theme(context, user_id),
+        )
+        with image_path.open("rb") as handle:
+            await message.reply_photo(
+                photo=handle,
+                caption=_branch_visual_caption(result, lang),
+                parse_mode="HTML",
+                do_quote=False,
+            )
+        return True
+    except YFullLookupError as exc:
+        await message.reply_text(branch_lookup_error_text(exc.reason, lang), parse_mode="HTML", do_quote=False)
+        return False
+    except Exception:
+        logger.exception("YFull branch visual failed")
+        await message.reply_text(
+            _copy(lang, "Не удалось собрать карточку ветви.", "Could not render the branch card."),
+            do_quote=False,
+        )
+        return False
+    finally:
+        try:
+            image_path.unlink()
+        except OSError:
+            pass
+
+
 def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -> list[list[InlineKeyboardButton]]:
     branch = result.branch
     rows: list[list[InlineKeyboardButton]] = []
@@ -857,6 +948,12 @@ def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -
             break
     rows.extend(
         [
+            [
+                InlineKeyboardButton(
+                    _copy(lang, "🖼 Карточка ветви", "🖼 Branch card"),
+                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bv:{_remember_branch_nav_target(context, branch.name)}",
+                )
+            ],
             [InlineKeyboardButton(_copy(lang, "Открыть в YFull", "Open in YFull"), url=branch.source_url)],
             [InlineKeyboardButton(_copy(lang, "Найти другую ветку", "Find another branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")],
         ]
@@ -1147,6 +1244,26 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             chat_id,
             lang=lang,
             edit_existing=True,
+        )
+        return
+    if action == "bv":
+        branch_name = _resolve_branch_nav_target(context, parts[2] if len(parts) > 2 else "")
+        if not branch_name:
+            await show_branch_lookup_prompt(
+                query.message,
+                context,
+                user_id,
+                chat_id,
+                lang=lang,
+                edit_existing=True,
+            )
+            return
+        await _send_branch_visual(
+            query.message,
+            context,
+            branch_name=branch_name,
+            user_id=user_id,
+            lang=lang,
         )
         return
     if action == "bn":
