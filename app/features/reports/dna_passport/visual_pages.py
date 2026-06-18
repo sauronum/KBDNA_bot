@@ -242,15 +242,19 @@ def _draw_ancestry_topline(
     gap = 28
     card_top = top + 78
     draw_card(draw, (MARGIN, card_top, MARGIN + left_w, card_top + 242), radius=34, fill=PANEL_DEEP, outline=BORDER)
-    draw.text((MARGIN + 42, card_top + 42), "итог по G25", font=fonts["card_label"], fill=(*MUTED, 255))
-    draw.text((MARGIN + 42, card_top + 96), ellipsize(draw, region, fonts["metric_big"], left_w - 84), font=fonts["metric_big"], fill=(*TEXT, 255))
-    draw_pill(draw, fonts, MARGIN + 42, card_top + 174, "расчёт по полному G25-вектору", accent=BLUE)
+    draw.text(
+        (MARGIN + left_w // 2, card_top + 121),
+        ellipsize(draw, region, fonts["metric_big"], left_w - 84),
+        font=fonts["metric_big"],
+        fill=(*TEXT, 255),
+        anchor="mm",
+    )
 
     right_x = MARGIN + left_w + gap
     draw_card(draw, (right_x, card_top, WIDTH - MARGIN, card_top + 242), radius=34, fill=PANEL, outline=BORDER_SOFT)
     draw.text((right_x + 38, card_top + 36), "Top-3 референсы", font=fonts["card_label"], fill=(*TEXT, 255))
     if not refs:
-        draw.text((right_x + 38, card_top + 120), "G25-профиль не найден", font=fonts["body_bold"], fill=(*MUTED, 255))
+        draw.text((right_x + 38, card_top + 120), "Данные происхождения не найдены", font=fonts["body_bold"], fill=(*MUTED, 255))
         return
     for index, item in enumerate(refs, start=1):
         y = card_top + 84 + (index - 1) * 46
@@ -271,7 +275,7 @@ def _draw_ancestry_coordinate_space(draw: ImageDraw.ImageDraw, fonts: dict[str, 
     _draw_distance_scheme(draw, fonts, plot, refs)
     draw_wrapped(
         draw,
-        "Схема отображает относительные G25-дистанции. Ранжирование рассчитано по полному G25-вектору.",
+        "Схема показывает относительную генетическую близость образца к ближайшим референсным популяциям.",
         fonts["small"],
         x1 + 42,
         y2 - 62,
@@ -296,7 +300,7 @@ def _draw_distance_scheme(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.
     draw.text((cx, cy + 50), "образец", font=fonts["body_bold"], fill=(*TEXT, 255), anchor="ma")
 
     if not refs:
-        draw.text((cx, cy - 118), "G25-профиль не найден", font=fonts["body_bold"], fill=(*MUTED, 255), anchor="ma")
+        draw.text((cx, cy - 118), "Данные происхождения не найдены", font=fonts["body_bold"], fill=(*MUTED, 255), anchor="ma")
         return
 
     layout = _radial_reference_layout(plot, refs)
