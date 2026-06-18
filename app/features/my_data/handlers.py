@@ -1676,6 +1676,13 @@ async def my_data_callback_handler(update: Update, context: ContextTypes.DEFAULT
     if action == "sample_delete_confirm":
         deleted = _data_store(context).delete_sample(user_id, asset_id)
         if deleted:
+            haplogroup_store = context.application.bot_data.get("haplogroup_store")
+            delete_sample_data = getattr(haplogroup_store, "delete_sample_data", None)
+            if callable(delete_sample_data):
+                try:
+                    delete_sample_data(user_id, asset_id)
+                except Exception:
+                    logger.exception("Could not delete haplogroup data linked to sample %s", asset_id)
             await show_view_samples_menu(query.message, context, user_id, edit_existing=True)
         else:
             await query.answer("Sample not found." if lang == "en" else "Sample не найден.", show_alert=True)

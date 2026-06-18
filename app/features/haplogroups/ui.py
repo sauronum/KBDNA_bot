@@ -34,15 +34,23 @@ def build_markup(rows: list[list[InlineKeyboardButton]], back_callback: str, *, 
 
 
 def haplogroups_root_text(lang: str = "ru") -> str:
+    if lang == "en":
+        return "\n".join(
+            [
+                "<b>🌿 Haplogroups</b>",
+                "",
+                "Personal Y-DNA, mtDNA and Y-STR records linked to your samples.",
+                "",
+                "Choose a section.",
+            ]
+        )
     return "\n".join(
         [
             "<b>🌿 Haplogroups</b>",
             "",
-            f"<b>{_copy(lang, 'Разделы', 'Sections')}</b>",
-            "🧬 Y-DNA",
-            "🧬 mtDNA",
-            "🧮 Y-STR distance",
-            "📚 Saved by sample",
+            "Личные Y-DNA, mtDNA и Y-STR записи по вашим sample.",
+            "",
+            "Выберите раздел.",
         ]
     )
 
@@ -51,23 +59,23 @@ def lineage_menu_text(haplogroup_type: str, lang: str = "ru") -> str:
     if haplogroup_type == "Y-DNA":
         body = _copy(
             lang,
-            "Y-SNP/raw prediction, импорт FTDNA SNP Results и сохранённые Y-DNA ветки.",
+            "Определить ветку из raw, загрузить внешний результат или сохранить Y-DNA вручную.",
             "Y-SNP/raw prediction, FTDNA SNP Results import and saved Y-DNA branches.",
         )
     else:
         body = _copy(
             lang,
-            "Проверка mtDNA-маркеров в raw, импорт внешнего результата и сохранённые mtDNA ветки.",
+            "Проверить mtDNA-маркеры в raw, загрузить внешний результат или сохранить mtDNA вручную.",
             "mtDNA marker scan from raw data, external result import and saved mtDNA branches.",
         )
-    return "\n".join([f"<b>🧬 {html.escape(haplogroup_type)}</b>", "", f"<b>{_copy(lang, 'Что доступно', 'What you can do')}</b>", body])
+    return "\n".join([f"<b>🧬 {html.escape(haplogroup_type)}</b>", "", body])
 
 
 def saved_samples_text(samples: list[SampleAsset], lang: str = "ru") -> str:
     lines = [
-        "<b>📚 Saved by sample</b>",
+        f"<b>{_copy(lang, '📚 Записи по sample', '📚 Saved by sample')}</b>",
         "",
-        _copy(lang, "Выберите sample, чтобы открыть связанные Y-DNA/mtDNA записи.", "Choose a sample to open linked Y-DNA/mtDNA records."),
+        _copy(lang, "Выберите sample, чтобы открыть его Y-DNA/mtDNA записи.", "Choose a sample to open linked Y-DNA/mtDNA records."),
         "",
         f"<b>Samples:</b> {len(samples)}",
     ]
@@ -78,9 +86,9 @@ def saved_samples_text(samples: list[SampleAsset], lang: str = "ru") -> str:
 
 def upload_result_text(samples: list[SampleAsset], lang: str = "ru") -> str:
     lines = [
-        "<b>📤 Upload test result</b>",
+        f"<b>{_copy(lang, '📤 Загрузить результат', '📤 Upload test result')}</b>",
         "",
-        _copy(lang, "Выберите sample для внешнего Y-DNA, mtDNA или Y-STR/DYS файла.", "Choose sample for an external Y-DNA, mtDNA or Y-STR/DYS result file."),
+        _copy(lang, "Выберите sample для Y-DNA, mtDNA или Y-STR/DYS файла.", "Choose sample for an external Y-DNA, mtDNA or Y-STR/DYS result file."),
         "",
         f"<b>Samples:</b> {len(samples)}",
     ]
@@ -92,13 +100,13 @@ def upload_result_text(samples: list[SampleAsset], lang: str = "ru") -> str:
 def upload_result_prompt_text(sample: SampleAsset, lang: str = "ru") -> str:
     return "\n".join(
         [
-            "<b>📤 Upload test result</b>",
+            f"<b>{_copy(lang, '📤 Загрузить результат', '📤 Upload test result')}</b>",
             "",
             f"Sample: <b>{html.escape(sample.display_name)}</b>",
             "",
             _copy(
                 lang,
-                "Пришлите .txt, .csv или .tsv файл с haplogroup-полями или FTDNA SNP Results.",
+                "Пришлите .txt, .csv или .tsv файл с haplogroup-полями, FTDNA SNP Results или Y-STR/DYS.",
                 "Send a .txt, .csv or .tsv result file with haplogroup fields or FTDNA SNP Results.",
             ),
             "",
@@ -116,7 +124,13 @@ def upload_result_prompt_text(sample: SampleAsset, lang: str = "ru") -> str:
     )
 
 
-def imported_records_text(sample: SampleAsset, records: list[HaplogroupRecord], lang: str = "ru") -> str:
+def imported_records_text(
+    sample: SampleAsset,
+    records: list[HaplogroupRecord],
+    lang: str = "ru",
+    *,
+    str_profile: YStrProfile | None = None,
+) -> str:
     lines = [
         f"<b>✅ {_copy(lang, 'Haplogroup-файл импортирован', 'Haplogroup file imported')}</b>",
         "",
@@ -130,6 +144,11 @@ def imported_records_text(sample: SampleAsset, records: list[HaplogroupRecord], 
         lines.append(html.escape(label))
         if record.note:
             lines.append(html.escape(record.note.replace("\n", " | ")[:220]))
+    if str_profile is not None:
+        lines.append(
+            f"{_copy(lang, 'Также сохранён Y-STR профиль', 'Y-STR profile also saved')}: "
+            f"{str_profile.marker_count}"
+        )
     return "\n".join(lines)
 
 
@@ -149,7 +168,7 @@ def imported_str_profile_text(sample: SampleAsset, profile: YStrProfile, lang: s
 
 def str_profiles_text(profiles: list[YStrProfile], lang: str = "ru") -> str:
     lines = [
-        "<b>🧮 Y-STR distance</b>",
+        f"<b>{_copy(lang, '🧮 Y-STR', '🧮 Y-STR distance')}</b>",
         "",
         f"{_copy(lang, 'Сохранено профилей', 'Saved profiles')}: {len(profiles)}",
     ]
@@ -179,7 +198,7 @@ def str_profile_detail_text(profile: YStrProfile, lang: str = "ru") -> str:
 
 def str_compare_picker_text(profiles: list[YStrProfile], left: YStrProfile | None = None, lang: str = "ru") -> str:
     lines = [
-        "<b>🧮 Compare Y-STR distance</b>",
+        f"<b>{_copy(lang, '🧮 Сравнить Y-STR', '🧮 Compare Y-STR distance')}</b>",
         "",
     ]
     if left is None:
@@ -198,11 +217,14 @@ def str_distance_text(result: YStrDistanceResult, lang: str = "ru") -> str:
         f"A: <b>{html.escape(result.left_name)}</b>",
         f"B: <b>{html.escape(result.right_name)}</b>",
         f"{_copy(lang, 'Сравнено маркеров', 'Compared markers')}: {result.compared_markers}",
-        f"{_copy(lang, 'Генетическая дистанция', 'Genetic distance')}: <b>{result.distance}</b>",
     ]
-    if result.differences:
-        lines.extend(["", f"<b>{_copy(lang, 'Отличающиеся маркеры', 'Different markers')}</b>", _str_difference_table(result)])
+    if result.compared_markers == 0:
+        lines.extend(["", _copy(lang, "Общих маркеров нет — дистанция не рассчитана.", "There are no shared markers, so distance was not calculated.")])
     else:
+        lines.append(f"{_copy(lang, 'Генетическая дистанция', 'Genetic distance')}: <b>{result.distance}</b>")
+    if result.compared_markers and result.differences:
+        lines.extend(["", f"<b>{_copy(lang, 'Отличающиеся маркеры', 'Different markers')}</b>", _str_difference_table(result)])
+    elif result.compared_markers:
         lines.extend(["", _copy(lang, "В общих маркерах отличий нет.", "No differences in shared markers.")])
     return "\n".join(lines)
 
@@ -210,7 +232,7 @@ def str_distance_text(result: YStrDistanceResult, lang: str = "ru") -> str:
 def raw_detect_type_text(lang: str = "ru") -> str:
     return "\n".join(
         [
-            "<b>🧬 Detect from raw</b>",
+            f"<b>{_copy(lang, '🧬 Определить из raw', '🧬 Detect from raw')}</b>",
             "",
             _copy(lang, "Выберите, какие маркеры искать в raw-файле sample.", "Choose which markers to scan in the sample raw file."),
         ]
@@ -228,7 +250,7 @@ def manual_type_text(lang: str = "ru") -> str:
 
 
 def sample_picker_text(samples: list[SampleAsset], haplogroup_type: str, *, mode: str = "manual", lang: str = "ru") -> str:
-    title = f"🧬 Raw {haplogroup_type} scan" if mode == "detect" else _copy(lang, f"🌿 Добавить {haplogroup_type}", f"🌿 Add {haplogroup_type}")
+    title = _copy(lang, f"🧬 Определить {haplogroup_type} из raw", f"🧬 Raw {haplogroup_type} scan") if mode == "detect" else _copy(lang, f"🌿 Добавить {haplogroup_type}", f"🌿 Add {haplogroup_type}")
     lines = [
         f"<b>{html.escape(title)}</b>",
         "",
@@ -267,7 +289,7 @@ def records_list_text(
     haplogroup_type: str | None = None,
     lang: str = "ru",
 ) -> str:
-    title = "🌿 Haplogroup reports" if sample is not None else "💾 Saved haplogroups"
+    title = _copy(lang, "🌿 Haplogroup-записи", "🌿 Haplogroup reports") if sample is not None else _copy(lang, "💾 Сохранённые haplogroups", "💾 Saved haplogroups")
     lines = [
         f"<b>{title}</b>",
         "",
@@ -299,28 +321,28 @@ def record_saved_text(record: HaplogroupRecord, lang: str = "ru") -> str:
             f"<b>✅ {_copy(lang, 'Haplogroup сохранён', 'Haplogroup saved')}</b>",
             "",
             f"Sample: <b>{html.escape(record.sample_name)}</b>",
-            f"Type: {html.escape(record.haplogroup_type)}",
+            f"{_copy(lang, 'Тип', 'Type')}: {html.escape(record.haplogroup_type)}",
             f"Haplogroup: <b>{html.escape(record.haplogroup)}</b>",
             *([f"Terminal SNP: {html.escape(record.terminal_snp)}"] if record.terminal_snp else []),
-            *([f"Source: {html.escape(record.source)}"] if record.source else []),
-            f"Confidence: {html.escape(record.confidence)}",
+            *([f"{_copy(lang, 'Источник', 'Source')}: {html.escape(record.source)}"] if record.source else []),
+            f"{_copy(lang, 'Уверенность', 'Confidence')}: {html.escape(record.confidence)}",
         ]
     )
 
 
 def record_detail_text(record: HaplogroupRecord, lang: str = "ru") -> str:
     lines = [
-        "<b>🌿 Haplogroup report</b>",
+        f"<b>{_copy(lang, '🌿 Haplogroup-запись', '🌿 Haplogroup report')}</b>",
         "",
         f"Sample: <b>{html.escape(record.sample_name)}</b>",
-        f"Type: {html.escape(record.haplogroup_type)}",
+        f"{_copy(lang, 'Тип', 'Type')}: {html.escape(record.haplogroup_type)}",
         f"Haplogroup: <b>{html.escape(record.haplogroup)}</b>",
     ]
     if record.terminal_snp:
         lines.append(f"Terminal SNP: {html.escape(record.terminal_snp)}")
     if record.source:
-        lines.append(f"Source: {html.escape(record.source)}")
-    lines.append(f"Confidence: {html.escape(record.confidence)}")
+        lines.append(f"{_copy(lang, 'Источник', 'Source')}: {html.escape(record.source)}")
+    lines.append(f"{_copy(lang, 'Уверенность', 'Confidence')}: {html.escape(record.confidence)}")
     if record.note:
         lines.extend(["", html.escape(record.note)])
     lines.extend(["", f"{_copy(lang, 'Сохранено', 'Saved')}: {html.escape(record.created_at)}"])
@@ -332,62 +354,63 @@ def error_text(title: str, message: str) -> str:
 
 
 def raw_scan_result_text(sample: SampleAsset, scan: RawHaplogroupScan, *, lang: str = "ru") -> str:
+    title = _copy(lang, f"🧬 Проверка raw: {scan.haplogroup_type}", f"🧬 Raw {scan.haplogroup_type} scan")
     lines = [
-        f"<b>🧬 Raw {html.escape(scan.haplogroup_type)} scan</b>",
+        f"<b>{html.escape(title)}</b>",
         "",
         f"Sample: <b>{html.escape(sample.display_name)}</b>",
-        f"Vendor hint: {html.escape(scan.vendor_hint)}",
-        f"Chromosomes checked: {', '.join(scan.target_chromosomes)}",
-        f"Markers in raw: {scan.total_markers}",
-        f"Called markers: {scan.called_markers}",
-        f"Status: {html.escape(scan.status)}",
+        f"{_copy(lang, 'Формат raw', 'Vendor hint')}: {html.escape(scan.vendor_hint)}",
+        f"{_copy(lang, 'Проверены хромосомы', 'Chromosomes checked')}: {', '.join(scan.target_chromosomes)}",
+        f"{_copy(lang, 'Маркеров в raw', 'Markers in raw')}: {scan.total_markers}",
+        f"{_copy(lang, 'Подходящих маркеров', 'Called markers')}: {scan.called_markers}",
+        f"{_copy(lang, 'Статус', 'Status')}: {html.escape(scan.status)}",
         "",
         html.escape(_haplogroup_note(scan.note, lang=lang)),
     ]
     counts = _interesting_chromosome_counts(scan)
     if counts:
-        lines.extend(["", f"Raw chromosome counts: {html.escape(counts)}"])
+        lines.extend(["", f"{_copy(lang, 'Счётчики по raw-хромосомам', 'Raw chromosome counts')}: {html.escape(counts)}"])
     genotype_counts = _target_genotype_counts(scan)
     if genotype_counts:
-        lines.append(f"Target genotype counts: {html.escape(genotype_counts)}")
+        lines.append(f"{_copy(lang, 'Генотипы целевых маркеров', 'Target genotype counts')}: {html.escape(genotype_counts)}")
     if scan.usable_markers:
-        lines.extend(["", "<b>Example markers</b>", _marker_table(scan)])
+        lines.extend(["", f"<b>{_copy(lang, 'Примеры маркеров', 'Example markers')}</b>", _marker_table(scan)])
     elif scan.marker_examples:
-        lines.extend(["", "<b>Raw marker examples</b>", _marker_table(scan, called_only=False)])
+        lines.extend(["", f"<b>{_copy(lang, 'Примеры raw-маркеров', 'Raw marker examples')}</b>", _marker_table(scan, called_only=False)])
     return "\n".join(lines)
 
 
 def y_prediction_text(sample: SampleAsset, prediction: YHaplogroupPrediction, *, lang: str = "ru") -> str:
     lines = [
-        "<b>🧬 Y-DNA prediction</b>",
+        f"<b>{_copy(lang, '🧬 Прогноз Y-DNA', '🧬 Y-DNA prediction')}</b>",
         "",
         f"Sample: <b>{html.escape(sample.display_name)}</b>",
-        f"Matched reference markers: {prediction.matched_reference_markers}",
-        f"Positive SNPs: {len(prediction.positive_calls)}",
-        f"Conflicting positives: {len(prediction.conflicting_positive_calls)}",
-        f"Negative SNPs: {len(prediction.negative_calls)}",
-        f"Ambiguous SNPs: {len(prediction.ambiguous_calls)}",
+        f"{_copy(lang, 'Совпавших reference SNP', 'Matched reference markers')}: {prediction.matched_reference_markers}",
+        f"{_copy(lang, 'Положительных SNP', 'Positive SNPs')}: {len(prediction.positive_calls)}",
+        f"{_copy(lang, 'Конфликтующих positives', 'Conflicting positives')}: {len(prediction.conflicting_positive_calls)}",
+        f"{_copy(lang, 'Отрицательных SNP', 'Negative SNPs')}: {len(prediction.negative_calls)}",
+        f"{_copy(lang, 'Неоднозначных SNP', 'Ambiguous SNPs')}: {len(prediction.ambiguous_calls)}",
     ]
     if prediction.haplogroup:
         lines.extend(
             [
                 "",
-                f"Likely haplogroup: <b>{html.escape(prediction.haplogroup)}</b>",
-                f"Deepest positive SNP: <b>{html.escape(prediction.terminal_snp)}</b>",
-                f"Confidence: {html.escape(prediction.confidence)}",
+                f"{_copy(lang, 'Вероятная гаплогруппа', 'Likely haplogroup')}: <b>{html.escape(prediction.haplogroup)}</b>",
+                f"{_copy(lang, 'Самый глубокий positive SNP', 'Deepest positive SNP')}: <b>{html.escape(prediction.terminal_snp)}</b>",
+                f"{_copy(lang, 'Уверенность', 'Confidence')}: {html.escape(prediction.confidence)}",
             ]
         )
     else:
-        lines.extend(["", "Likely haplogroup: no call", f"Confidence: {html.escape(prediction.confidence)}"])
+        lines.extend(["", _copy(lang, "Вероятная гаплогруппа: не определена", "Likely haplogroup: no call"), f"{_copy(lang, 'Уверенность', 'Confidence')}: {html.escape(prediction.confidence)}"])
     lines.extend(["", html.escape(_haplogroup_note(prediction.note, lang=lang))])
     if prediction.lineage_counts:
-        lines.extend(["", f"Lineage vote: {html.escape(_lineage_vote_text(prediction))}"])
+        lines.extend(["", f"{_copy(lang, 'Голоса по ветвям', 'Lineage vote')}: {html.escape(_lineage_vote_text(prediction))}"])
     if prediction.positive_calls:
-        lines.extend(["", "<b>Top positive SNPs</b>", _ysnp_table(prediction.positive_calls)])
+        lines.extend(["", f"<b>{_copy(lang, 'Главные positive SNP', 'Top positive SNPs')}</b>", _ysnp_table(prediction.positive_calls)])
     if prediction.conflicting_positive_calls:
-        lines.extend(["", "<b>Conflicting positives</b>", _ysnp_table(prediction.conflicting_positive_calls)])
+        lines.extend(["", f"<b>{_copy(lang, 'Конфликтующие positives', 'Conflicting positives')}</b>", _ysnp_table(prediction.conflicting_positive_calls)])
     if prediction.ambiguous_calls:
-        lines.extend(["", "<b>Ambiguous SNPs</b>", _ysnp_table(prediction.ambiguous_calls)])
+        lines.extend(["", f"<b>{_copy(lang, 'Неоднозначные SNP', 'Ambiguous SNPs')}</b>", _ysnp_table(prediction.ambiguous_calls)])
     return "\n".join(lines)
 
 

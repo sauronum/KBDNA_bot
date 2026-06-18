@@ -12,6 +12,7 @@ from app.features.haplogroups.domain import (
     DEFAULT_Y_SNP_REFERENCE_PATH,
     compare_y_str_profiles,
     load_y_snp_reference,
+    normalize_haplogroup_value,
     parse_haplogroup_result_file,
     parse_y_str_result_file,
     predict_y_haplogroup_from_raw,
@@ -23,6 +24,7 @@ from app.features.haplogroups.menu import (
     HaplogroupFlowStore,
     _BRANCH_LOOKUP_ACTION,
     _FILE_UPLOAD_ACTION,
+    _import_haplogroup_document,
     _paginate_records,
     haplogroups_document_input_handler,
     haplogroups_text_input_handler,
@@ -31,7 +33,7 @@ from app.features.haplogroups.menu import (
     show_haplogroups_menu,
 )
 from app.features.haplogroups.storage import HaplogroupRecord, HaplogroupStore
-from app.features.haplogroups.ui import raw_scan_result_text
+from app.features.haplogroups.ui import raw_scan_result_text, str_distance_text
 from app.features.haplogroups.yfull import YFullBranch, YFullChildBranch, YFullGeography, YFullLookupResult
 from app.features.my_data.storage import SampleAsset
 
@@ -58,6 +60,12 @@ def _haplogroup_record(index: int) -> HaplogroupRecord:
 
 
 class HaplogroupTests(unittest.TestCase):
+    def test_pending_flow_expires(self) -> None:
+        flow = HaplogroupFlowStore(ttl_seconds=10)
+        with patch("app.features.haplogroups.menu.time.monotonic", side_effect=[100.0, 111.0]):
+            flow.expect(10, 123, {"sample_id": "sample-1"})
+            self.assertIsNone(flow.get(10, 123))
+
     def test_parse_haplogroup_input_accepts_optional_fields(self) -> None:
         parsed = parse_haplogroup_input(
             "\n".join(
@@ -76,6 +84,12 @@ class HaplogroupTests(unittest.TestCase):
         self.assertEqual(parsed["source"], "FTDNA")
         self.assertEqual(parsed["confidence"], "confirmed")
         self.assertEqual(parsed["note"], "Big Y result")
+
+    def test_manual_and_imported_haplogroups_are_validated_and_normalized(self) -> None:
+        self.assertEqual(normalize_haplogroup_value("r-m269"), "R-M269")
+        self.assertEqual(normalize_haplogroup_value("hv12a2"), "HV12a2")
+        self.assertEqual(parse_haplogroup_input("haplogroup: j2a1a")["haplogroup"], "J2a1a")
+        self.assertEqual(parse_haplogroup_input("Smith")["haplogroup"], "")
 
     def test_haplogroup_store_saves_sample_records(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -136,6 +150,36 @@ class HaplogroupTests(unittest.TestCase):
         self.assertEqual(records[0].record_id, second.record_id)
         self.assertNotEqual(records[0].record_id, first.record_id)
         self.assertEqual(records[0].source, "FTDNA SNP Results")
+
+    def test_sample_data_deletion_removes_haplogroups_and_y_str(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            store = HaplogroupStore(Path(temp_dir))
+            store.save_record(123, sample_id="sample-1", sample_name="One", haplogroup_type="Y-DNA", haplogroup="R-M269")
+            store.save_y_str_profile(123, sample_id="sample-1", sample_name="One", source="FTDNA", marker_values={"DYS393": [13]})
+
+            removed = store.delete_sample_data(123, "sample-1")
+
+            self.assertEqual(removed, (1, 1))
+            self.assertEqual(store.list_sample_records(123, "sample-1"), [])
+            self.assertEqual(store.list_y_str_profiles(123), [])
+
+    def test_combined_file_imports_haplogroup_and_y_str(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "combined.csv"
+            path.write_text(
+                "Y-DNA Haplogroup,DYS393,DYS390,DYS19,DYS391,DYS385\n"
+                "r-m269,13,24,14,10,11-14\n",
+                encoding="utf-8",
+            )
+            store = HaplogroupStore(Path(temp_dir) / "store")
+            sample = SampleAsset("sample-1", "One", "raw-1", [], "2026-06-18T00:00:00")
+
+            records, profile = _import_haplogroup_document(store, 123, sample, path, path.name)
+
+            self.assertEqual(records[0].haplogroup, "R-M269")
+            self.assertIsNotNone(profile)
+            assert profile is not None
+            self.assertEqual(profile.marker_count, 5)
 
     def test_raw_haplogroup_scan_counts_y_and_mt_markers(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -281,6 +325,15 @@ class HaplogroupTests(unittest.TestCase):
         self.assertEqual(result.compared_markers, 3)
         self.assertEqual(result.distance, 2)
         self.assertEqual(result.differences[0][0], "DYS385")
+
+    def test_y_str_without_shared_markers_does_not_report_zero_distance(self) -> None:
+        result = compare_y_str_profiles("A", {"DYS393": [13]}, "B", {"DYS390": [24]})
+
+        text = str_distance_text(result, "en")
+
+        self.assertEqual(result.compared_markers, 0)
+        self.assertNotIn("Genetic distance", text)
+        self.assertIn("distance was not calculated", text)
 
     def test_y_snp_prediction_uses_derived_reference_alleles(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -556,6 +609,42 @@ class _MyDataStub:
 
 
 class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stale_branch_flow_does_not_capture_plain_text(self) -> None:
+        flow = HaplogroupFlowStore()
+        flow.expect(10, 123, {}, action=_BRANCH_LOOKUP_ACTION)
+        context = SimpleNamespace(application=SimpleNamespace(bot_data={"haplogroup_flow_store": flow}))
+        message = _TextMessage("Smith")
+        update = SimpleNamespace(
+            message=message,
+            effective_chat=SimpleNamespace(id=10),
+            effective_user=SimpleNamespace(id=123),
+        )
+
+        await haplogroups_text_input_handler(update, context)
+
+        self.assertIsNone(flow.get(10, 123))
+        self.assertEqual(message.status.text, "")
+
+    async def test_matching_pending_takes_priority_over_haplogroup_flow(self) -> None:
+        flow = HaplogroupFlowStore()
+        flow.expect(10, 123, {}, action=_BRANCH_LOOKUP_ACTION)
+        matching_flow = SimpleNamespace(get_pending=lambda chat_id, user_id: {"action": "snp_input"})
+        context = SimpleNamespace(application=SimpleNamespace(bot_data={
+            "haplogroup_flow_store": flow,
+            "matching_flow_store": matching_flow,
+        }))
+        message = _TextMessage("rs2455144")
+        update = SimpleNamespace(
+            message=message,
+            effective_chat=SimpleNamespace(id=10),
+            effective_user=SimpleNamespace(id=123),
+        )
+
+        await haplogroups_text_input_handler(update, context)
+
+        self.assertIsNotNone(flow.get(10, 123))
+        self.assertEqual(message.status.text, "")
+
     async def test_branch_lookup_text_flow_renders_result_and_clears_pending(self) -> None:
         flow = HaplogroupFlowStore()
         flow.expect(10, 123, {}, action=_BRANCH_LOOKUP_ACTION)

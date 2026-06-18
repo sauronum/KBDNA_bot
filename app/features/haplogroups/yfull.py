@@ -24,6 +24,7 @@ _DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
 _MAX_HTML_BYTES = 3 * 1024 * 1024
 _BRANCH_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9*._-]{0,79}")
 _TREE_PATH_RE = re.compile(r"/(?:live/|sc/|chart/)?tree/([^/?#]+)/?", re.IGNORECASE)
+_MACRO_BRANCHES = set("ABCDEFGHIJKLMNOPQRST")
 
 
 class YFullLookupError(RuntimeError):
@@ -227,6 +228,8 @@ def normalize_yfull_branch_query(value: str) -> str:
     clean = clean.strip().strip("/")
     if _BRANCH_RE.fullmatch(clean) is None or ".." in clean:
         raise YFullLookupError("invalid_query")
+    if not any(character.isdigit() for character in clean) and clean.upper() not in _MACRO_BRANCHES:
+        raise YFullLookupError("invalid_query")
     if "-" in clean:
         prefix, suffix = clean.split("-", 1)
         return f"{prefix.upper()}-{suffix.upper()}"
@@ -331,6 +334,8 @@ class YFullBranchService:
         try:
             html_text = self.fetch_html(source_url)
             branch = parse_yfull_branch_html(html_text, source_url=source_url)
+            if not _branch_matches_query(branch_name, branch):
+                raise YFullLookupError("parse_error")
         except YFullLookupError as exc:
             if cached is not None and exc.reason in {"unavailable", "parse_error", "response_too_large"}:
                 return YFullLookupResult(branch=cached, cache_status="stale")
@@ -409,6 +414,23 @@ def _split_snps(primary: str, extra: str = "") -> tuple[str, ...]:
         if clean and clean not in values:
             values.append(clean)
     return tuple(values)
+
+
+def _branch_matches_query(query: str, branch: YFullBranch) -> bool:
+    query_aliases = _branch_identity_aliases(query)
+    branch_aliases: set[str] = set()
+    for value in (branch.name, *branch.snps):
+        branch_aliases.update(_branch_identity_aliases(value))
+    return bool(query_aliases & branch_aliases)
+
+
+def _branch_identity_aliases(value: str) -> set[str]:
+    clean = value.strip().upper()
+    aliases = {re.sub(r"[^A-Z0-9]+", "", clean)}
+    if "-" in clean:
+        aliases.add(re.sub(r"[^A-Z0-9]+", "", clean.split("-", 1)[1]))
+    aliases.update(re.findall(r"[A-Z]+[0-9][A-Z0-9]*", clean))
+    return {alias for alias in aliases if alias}
 
 
 def _age_value(value: str, label: str) -> int | None:

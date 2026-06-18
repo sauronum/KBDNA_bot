@@ -72,7 +72,7 @@ class YFullBranchTests(unittest.TestCase):
         )
 
     def test_normalize_branch_rejects_foreign_url_and_path_traversal(self) -> None:
-        for value in ("https://example.com/tree/R-Y23968/", "../R-Y23968", "R Y23968"):
+        for value in ("https://example.com/tree/R-Y23968/", "../R-Y23968", "R Y23968", "Smith"):
             with self.subTest(value=value), self.assertRaises(YFullLookupError) as raised:
                 normalize_yfull_branch_query(value)
             self.assertEqual(raised.exception.reason, "invalid_query")
@@ -125,6 +125,23 @@ class YFullBranchTests(unittest.TestCase):
         self.assertEqual(stale.cache_status, "stale")
         self.assertEqual(len(calls), 1)
         self.assertEqual(cached.branch.children[1].snps, ("Z200",))
+
+    def test_service_rejects_a_page_for_a_different_branch(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            service = YFullBranchService(Path(temp_dir), fetch_html=lambda url: YFULL_BRANCH_HTML)
+
+            with self.assertRaises(YFullLookupError) as raised:
+                service.lookup("G-Z999")
+
+        self.assertEqual(raised.exception.reason, "parse_error")
+
+    def test_service_accepts_an_alias_listed_on_the_branch(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            service = YFullBranchService(Path(temp_dir), fetch_html=lambda url: YFULL_BRANCH_HTML)
+
+            result = service.lookup("FT200")
+
+        self.assertEqual(result.branch.name, "R-Y100")
 
     def test_result_text_is_compact_and_mentions_stale_cache(self) -> None:
         with TemporaryDirectory() as temp_dir:

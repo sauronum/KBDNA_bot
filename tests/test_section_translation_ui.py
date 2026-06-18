@@ -342,8 +342,8 @@ class SectionTranslationUiTests(unittest.TestCase):
         keyboard = build_haplogroups_markup([], "main:root", lang="en")
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-        self.assertIn("Sections", haplogroups_root_text("en"))
-        self.assertIn("What you can do", lineage_menu_text("Y-DNA", "en"))
+        self.assertIn("Choose a section", haplogroups_root_text("en"))
+        self.assertIn("Y-SNP/raw prediction", lineage_menu_text("Y-DNA", "en"))
         self.assertIn("Choose a sample", haplogroup_sample_picker_text([sample], "Y-DNA", lang="en"))
         self.assertIn("Send the branch as text", haplogroup_input_text(sample, "Y-DNA", "en"))
         self.assertIn("Add haplogroup", manual_type_text("en"))

@@ -98,6 +98,14 @@ def clear_active_main_menu_message(context: ContextTypes.DEFAULT_TYPE, chat_id: 
         forget_active(context, chat_id, message_id=message_id)
 
 
+def _clear_pending_section_input(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> None:
+    for key in ("haplogroup_flow_store",):
+        store = context.application.bot_data.get(key)
+        clear = getattr(store, "clear", None)
+        if callable(clear):
+            clear(chat_id, user_id)
+
+
 async def ensure_active_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     query = update.callback_query
     if query is None or query.message is None or update.effective_chat is None or update.effective_user is None:
@@ -553,10 +561,13 @@ async def main_menu_callback_handler(update: Update, context: ContextTypes.DEFAU
 
     action = query.data.split(":", 1)[1]
     if action == "root":
+        if update.effective_chat is not None and update.effective_user is not None:
+            _clear_pending_section_input(context, update.effective_chat.id, update.effective_user.id)
         await show_main_menu(query.message, context, update.effective_user.id, edit_existing=True)
         return
     if action == "cancel":
         if update.effective_chat is not None and update.effective_user is not None:
+            _clear_pending_section_input(context, update.effective_chat.id, update.effective_user.id)
             clear_active_main_menu_message(
                 context,
                 update.effective_chat.id,

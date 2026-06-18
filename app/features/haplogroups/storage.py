@@ -55,13 +55,13 @@ class HaplogroupStore:
         record = HaplogroupRecord(
             record_id=self._new_record_id(),
             sample_id=sample_id,
-            sample_name=sample_name,
+            sample_name=sample_name.strip()[:160],
             haplogroup_type=haplogroup_type,
-            haplogroup=haplogroup.strip(),
-            terminal_snp=terminal_snp.strip(),
-            source=source.strip(),
-            confidence=confidence.strip() or "user-entered",
-            note=note.strip(),
+            haplogroup=haplogroup.strip()[:80],
+            terminal_snp=terminal_snp.strip()[:80],
+            source=source.strip()[:160],
+            confidence=(confidence.strip() or "user-entered")[:80],
+            note=note.strip()[:2000],
             created_at=self._now_iso(),
         )
         path = self._index_path(user_id)
@@ -90,6 +90,22 @@ class HaplogroupStore:
                 return record
         return None
 
+    def delete_sample_data(self, user_id: int, sample_id: str) -> tuple[int, int]:
+        record_path = self._index_path(user_id)
+        record_items = self._read_json_list(record_path)
+        kept_records = [item for item in record_items if str(item.get("sample_id") or "") != sample_id]
+        removed_records = len(record_items) - len(kept_records)
+        if removed_records:
+            self._write_json_list(record_path, kept_records)
+
+        profile_path = self._str_index_path(user_id)
+        profile_items = self._read_json_list(profile_path)
+        kept_profiles = [item for item in profile_items if str(item.get("sample_id") or "") != sample_id]
+        removed_profiles = len(profile_items) - len(kept_profiles)
+        if removed_profiles:
+            self._write_json_list(profile_path, kept_profiles)
+        return removed_records, removed_profiles
+
     def save_y_str_profile(
         self,
         user_id: int,
@@ -102,8 +118,8 @@ class HaplogroupStore:
         profile = YStrProfile(
             profile_id=self._new_record_id(),
             sample_id=sample_id,
-            sample_name=sample_name,
-            source=source.strip() or "uploaded file",
+            sample_name=sample_name.strip()[:160],
+            source=(source.strip() or "uploaded file")[:160],
             marker_values={key: list(values) for key, values in sorted(marker_values.items())},
             marker_count=len(marker_values),
             created_at=self._now_iso(),
@@ -148,7 +164,7 @@ class HaplogroupStore:
             return []
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             return []
         if not isinstance(payload, list):
             return []

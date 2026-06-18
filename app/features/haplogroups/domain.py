@@ -10,6 +10,13 @@ from g25_core.g25_engine import MISSING_GENOTYPES, RawCall, parse_raw_dna
 
 
 DEFAULT_Y_SNP_REFERENCE_PATH = Path(__file__).resolve().parent / "data" / "yhaplo" / "isogg.2016.01.04.txt"
+_HAPLOGROUP_TOKEN_RE = re.compile(
+    r"[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9][A-Za-z0-9*._-]*)?\+?(?=$|[^A-Za-z0-9])"
+)
+_HAPLOGROUP_MACRO_LABELS = {
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
+    "HV", "JT", "UK",
+}
 
 
 @dataclass(frozen=True)
@@ -654,12 +661,29 @@ def _build_imported_haplogroup(
     )
 
 
+def normalize_haplogroup_value(value: str) -> str:
+    clean = value.strip().strip('"').strip("'")
+    if not clean or len(clean) > 80 or _HAPLOGROUP_TOKEN_RE.fullmatch(clean) is None:
+        return ""
+    if not any(character.isdigit() for character in clean) and clean.upper() not in _HAPLOGROUP_MACRO_LABELS:
+        return ""
+    if "-" in clean:
+        prefix, suffix = clean.split("-", 1)
+        return f"{prefix[:1].upper()}{prefix[1:]}-{suffix.upper()}"
+    if clean[:2].upper() == "HV":
+        return "HV" + clean[2:]
+    return clean[:1].upper() + clean[1:]
+
+
 def _extract_haplogroup_value(value: str) -> str:
     clean = value.strip().strip('"').strip("'")
     clean = re.sub(r"\s+", " ", clean)
     clean = re.sub(r"^(predicted|confirmed|terminal|haplogroup)\s+", "", clean, flags=re.IGNORECASE)
-    match = re.search(r"\b[A-Z](?:[0-9][A-Za-z0-9]*)?(?:-[A-Z]{1,6}[0-9][A-Za-z0-9]*)?\b", clean)
-    return match.group(0) if match else ""
+    for match in _HAPLOGROUP_TOKEN_RE.finditer(clean):
+        normalized = normalize_haplogroup_value(match.group(0))
+        if normalized:
+            return normalized
+    return ""
 
 
 def _extract_terminal_snp(value: str) -> str:

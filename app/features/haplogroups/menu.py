@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import time
 from math import ceil
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from .branch_ui import (
 from .domain import (
     ImportedHaplogroup,
     compare_y_str_profiles,
+    normalize_haplogroup_value,
     parse_haplogroup_result_file,
     parse_y_str_result_file,
     predict_y_haplogroup_from_raw,
@@ -65,6 +67,7 @@ _STR_COMPARE_ACTION = "haplogroup_str_compare"
 _BRANCH_LOOKUP_ACTION = "haplogroup_branch_lookup"
 _BRANCH_NAV_KEY = "haplogroup_branch_nav"
 _BRANCH_NAV_LIMIT = 64
+_FLOW_TTL_SECONDS = 15 * 60
 _TYPE_CODES = {"y": "Y-DNA", "mt": "mtDNA"}
 logger = logging.getLogger(__name__)
 
@@ -94,18 +97,30 @@ def _file_too_large_text(lang: str) -> str:
 
 
 class HaplogroupFlowStore:
-    def __init__(self) -> None:
-        self._pending: dict[tuple[int, int], dict[str, object]] = {}
+    def __init__(self, *, ttl_seconds: float = _FLOW_TTL_SECONDS) -> None:
+        self.ttl_seconds = max(0.0, float(ttl_seconds))
+        self._pending: dict[tuple[int, int], tuple[float, dict[str, object]]] = {}
 
     def expect(self, chat_id: int, user_id: int, payload: dict[str, object], *, action: str = _TEXT_ADD_ACTION) -> None:
-        self._pending[(int(chat_id), int(user_id))] = {"action": action, **payload}
+        expires_at = time.monotonic() + self.ttl_seconds
+        self._pending[(int(chat_id), int(user_id))] = (expires_at, {"action": action, **payload})
 
     def get(self, chat_id: int, user_id: int) -> dict[str, object] | None:
-        payload = self._pending.get((int(chat_id), int(user_id)))
-        return dict(payload) if payload is not None else None
+        key = (int(chat_id), int(user_id))
+        entry = self._pending.get(key)
+        if entry is None:
+            return None
+        expires_at, payload = entry
+        if time.monotonic() > expires_at:
+            self._pending.pop(key, None)
+            return None
+        return dict(payload)
 
     def clear(self, chat_id: int, user_id: int) -> None:
         self._pending.pop((int(chat_id), int(user_id)), None)
+
+    def clear_pending(self, chat_id: int, user_id: int) -> None:
+        self.clear(chat_id, user_id)
 
 
 def register_haplogroup_services(application: Application, settings) -> None:
@@ -178,7 +193,26 @@ def _other_input_flow_active(context: ContextTypes.DEFAULT_TYPE, chat_id: int, u
     if my_data_flow is not None and hasattr(my_data_flow, "get_action"):
         if my_data_flow.get_action(chat_id, user_id) is not None:
             return True
+    matching_flow = context.application.bot_data.get("matching_flow_store")
+    if matching_flow is not None and hasattr(matching_flow, "get_pending"):
+        if matching_flow.get_pending(chat_id, user_id) is not None:
+            return True
+    vahaduo_flow = context.application.bot_data.get("dna_lab_vahaduo_store") or context.application.bot_data.get("vahaduo_store")
+    if vahaduo_flow is not None and hasattr(vahaduo_flow, "get"):
+        state = vahaduo_flow.get(chat_id, user_id)
+        if isinstance(state, dict) and state.get("awaiting"):
+            return True
+    user_data = getattr(context, "user_data", {}) or {}
+    for key in ("sozluk_pending", "ystr_pending"):
+        pending = user_data.get(key)
+        if isinstance(pending, dict) and int(pending.get("chat_id") or 0) == int(chat_id):
+            return True
     return False
+
+
+def _looks_like_haplogroup_input(value: str) -> bool:
+    clean = value.strip()
+    return bool(normalize_haplogroup_value(clean) or "://" in clean or any(character.isdigit() for character in clean))
 
 
 def _paginate(items: list[SampleAsset], page: int) -> tuple[list[SampleAsset], int, int]:
@@ -389,7 +423,20 @@ async def show_raw_scan_result(
         )
         return
     raw_path = _my_data_store(context).resolve_raw_file_path(raw_file)
-    scan = scan_raw_haplogroup_markers(raw_path, haplogroup_type)
+    try:
+        scan = await asyncio.to_thread(scan_raw_haplogroup_markers, raw_path, haplogroup_type)
+    except Exception:
+        logger.exception("Haplogroup raw scan failed")
+        await _show_or_edit(
+            message,
+            error_text(
+                _copy(lang, "Определить из raw", "Detect from raw"),
+                _copy(lang, "Не удалось прочитать raw-файл этого sample.", "Could not read this sample's raw file."),
+            ),
+            build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:dadd:{type_code}:0", lang=lang),
+            edit_existing=edit_existing,
+        )
+        return
     rows = []
     if type_code == "y" and scan.called_markers:
         rows.append([InlineKeyboardButton(_copy(lang, "🧬 Прогноз Y-DNA", "🧬 Predict Y haplogroup"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:yp:{sample.asset_id}")])
@@ -423,7 +470,21 @@ async def show_y_prediction(
             edit_existing=edit_existing,
         )
         return
-    prediction = predict_y_haplogroup_from_raw(_my_data_store(context).resolve_raw_file_path(raw_file))
+    raw_path = _my_data_store(context).resolve_raw_file_path(raw_file)
+    try:
+        prediction = await asyncio.to_thread(predict_y_haplogroup_from_raw, raw_path)
+    except Exception:
+        logger.exception("Y-DNA prediction failed")
+        await _show_or_edit(
+            message,
+            error_text(
+                _copy(lang, "Прогноз Y-DNA", "Y-DNA prediction"),
+                _copy(lang, "Не удалось построить прогноз по этому raw-файлу.", "Could not build a prediction from this raw file."),
+            ),
+            build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:dpick:y:{sample.asset_id}", lang=lang),
+            edit_existing=edit_existing,
+        )
+        return
     await _show_or_edit(
         message,
         y_prediction_text(sample, prediction, lang=lang),
@@ -694,7 +755,9 @@ def parse_haplogroup_input(body: str) -> dict[str, str]:
         key, separator, value = line.partition(":")
         normalized_key = key.strip().lower().replace("_", " ")
         clean_value = value.strip()
-        if separator and normalized_key in {"terminal", "terminal snp", "snp"}:
+        if separator and normalized_key in {"haplogroup", "haplo", "hg"}:
+            fields["haplogroup"] = clean_value
+        elif separator and normalized_key in {"terminal", "terminal snp", "snp"}:
             fields["terminal_snp"] = clean_value
         elif separator and normalized_key == "source":
             fields["source"] = clean_value
@@ -706,6 +769,7 @@ def parse_haplogroup_input(body: str) -> dict[str, str]:
             fields["haplogroup"] = line
         else:
             note_lines.append(line)
+    fields["haplogroup"] = normalize_haplogroup_value(fields["haplogroup"])
     fields["note"] = "\n".join(item for item in note_lines if item)
     return fields
 
@@ -726,6 +790,41 @@ def _imported_haplogroup_note(file_name: str, result: ImportedHaplogroup) -> str
     if result.conflicting_snps:
         lines.append("Conflicting positives: " + "; ".join(result.conflicting_snps[:12]))
     return "\n".join(lines)
+
+
+def _import_haplogroup_document(
+    store: HaplogroupStore,
+    user_id: int,
+    sample: SampleAsset,
+    temp_path: Path,
+    file_name: str,
+) -> tuple[list[HaplogroupRecord], YStrProfile | None]:
+    imported = parse_haplogroup_result_file(temp_path, original_file_name=file_name)
+    imported_str = parse_y_str_result_file(temp_path, original_file_name=file_name)
+    records = [
+        store.save_record(
+            user_id,
+            sample_id=sample.asset_id,
+            sample_name=sample.display_name,
+            haplogroup_type=result.haplogroup_type,
+            haplogroup=result.haplogroup,
+            terminal_snp=result.terminal_snp,
+            source=result.source,
+            confidence=result.confidence,
+            note=_imported_haplogroup_note(file_name, result),
+        )
+        for result in imported
+    ]
+    str_profile = None
+    if imported_str is not None:
+        str_profile = store.save_y_str_profile(
+            user_id,
+            sample_id=sample.asset_id,
+            sample_name=sample.display_name,
+            source=imported_str.source,
+            marker_values=imported_str.marker_values,
+        )
+    return records, str_profile
 
 
 def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -> list[list[InlineKeyboardButton]]:
@@ -850,6 +949,9 @@ async def haplogroups_text_input_handler(update: Update, context: ContextTypes.D
     if pending is None:
         return
     if pending.get("action") == _BRANCH_LOOKUP_ACTION:
+        if not _looks_like_haplogroup_input(body):
+            flow.clear(chat_id, user_id)
+            return
         await _handle_branch_lookup_input(
             update,
             context,
@@ -865,6 +967,9 @@ async def haplogroups_text_input_handler(update: Update, context: ContextTypes.D
 
     fields = parse_haplogroup_input(body)
     if not fields["haplogroup"]:
+        if not _looks_like_haplogroup_input(body):
+            flow.clear(chat_id, user_id)
+            return
         await update.message.reply_text(
             _copy(lang, "Пришлите haplogroup, например J2a1a или H13a1a.", "Send a haplogroup, for example J2a1a or H13a1a."),
             do_quote=False,
@@ -943,33 +1048,20 @@ async def haplogroups_document_input_handler(update: Update, context: ContextTyp
     try:
         telegram_file = await document.get_file()
         await telegram_file.download_to_drive(custom_path=str(temp_path))
-        imported = parse_haplogroup_result_file(temp_path, original_file_name=file_name)
-        records: list[HaplogroupRecord] = []
-        for result in imported:
-            records.append(
-                _store(context).save_record(
-                    user_id,
-                    sample_id=sample.asset_id,
-                    sample_name=sample.display_name,
-                    haplogroup_type=result.haplogroup_type,
-                    haplogroup=result.haplogroup,
-                    terminal_snp=result.terminal_snp,
-                    source=result.source,
-                    confidence=result.confidence,
-                    note=_imported_haplogroup_note(file_name, result),
-                )
-            )
-        str_profile = None
-        if not records:
-            imported_str = parse_y_str_result_file(temp_path, original_file_name=file_name)
-            if imported_str is not None:
-                str_profile = _store(context).save_y_str_profile(
-                    user_id,
-                    sample_id=sample.asset_id,
-                    sample_name=sample.display_name,
-                    source=imported_str.source,
-                    marker_values=imported_str.marker_values,
-                )
+        if temp_path.stat().st_size > HAPLOGROUP_RESULT_UPLOAD_LIMIT_BYTES:
+            flow.clear(chat_id, user_id)
+            await status_message.edit_text(_file_too_large_text(lang))
+            raise ApplicationHandlerStop
+        records, str_profile = await asyncio.to_thread(
+            _import_haplogroup_document,
+            _store(context),
+            user_id,
+            sample,
+            temp_path,
+            file_name,
+        )
+    except ApplicationHandlerStop:
+        raise
     except Exception:
         logger.exception("Haplogroup result file import failed")
         await update.message.reply_text(
@@ -1008,7 +1100,7 @@ async def haplogroups_document_input_handler(update: Update, context: ContextTyp
 
     rows = [[InlineKeyboardButton(_copy(lang, "Открыть записи", "Open records"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:hsample:{sample.asset_id}")]]
     await status_message.edit_text(
-        imported_records_text(sample, records, lang),
+        imported_records_text(sample, records, lang, str_profile=str_profile),
         reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
         parse_mode="HTML",
     )

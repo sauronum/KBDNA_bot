@@ -105,6 +105,7 @@ class MainMenuUiTests(unittest.TestCase):
 
     def test_cancel_clears_active_main_menu_state(self) -> None:
         forgotten: list[tuple[int, int]] = []
+        cleared_flows: list[tuple[int, int]] = []
 
         def forget_active(_context, chat_id: int, *, message_id: int | None = None) -> None:
             forgotten.append((chat_id, int(message_id or 0)))
@@ -124,7 +125,11 @@ class MainMenuUiTests(unittest.TestCase):
                 self.edited_text = text
 
         query = FakeQuery()
-        context = SimpleNamespace(application=SimpleNamespace(bot_data={"reply_menu_hooks": {"forget_active_reply_menu": forget_active}}))
+        flow_store = SimpleNamespace(clear=lambda chat_id, user_id: cleared_flows.append((chat_id, user_id)))
+        context = SimpleNamespace(application=SimpleNamespace(bot_data={
+            "reply_menu_hooks": {"forget_active_reply_menu": forget_active},
+            "haplogroup_flow_store": flow_store,
+        }))
         update = SimpleNamespace(
             callback_query=query,
             effective_chat=SimpleNamespace(id=10),
@@ -137,6 +142,7 @@ class MainMenuUiTests(unittest.TestCase):
         self.assertTrue(query.answered)
         self.assertEqual(query.edited_text, "Меню закрыто.")
         self.assertEqual(forgotten, [(10, 99)])
+        self.assertEqual(cleared_flows, [(10, 20)])
 
 
 if __name__ == "__main__":
