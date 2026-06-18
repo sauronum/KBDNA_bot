@@ -13,7 +13,6 @@ from app.main_menu import ensure_active_main_menu, set_active_main_menu_message
 from g25_core.command_service import G25CommandError
 
 from . import ui as vahaduo_ui
-from . import ready_models as vahaduo_ready_models
 from .service import VahaduoCommandService
 from .storage import VahaduoFullStore, VahaduoSavedSourceStore, VahaduoSavedTargetStore
 
@@ -768,113 +767,6 @@ async def vahaduo_callback_handler(update: Update, context: ContextTypes.DEFAULT
             flow.open(chat_id, user_id)
         flow.set_message_id(chat_id, user_id, query.message.message_id)
         await query.edit_message_text(vahaduo_ui._g25vahaduo_data_mode_text(lang=lang), reply_markup=vahaduo_ui._build_g25vahaduo_data_mode_keyboard(lang=lang))
-        return
-
-    if action == "ready_models":
-        _clear_other_pending(context, chat_id, user_id)
-        if flow.get(chat_id, user_id) is None:
-            flow.open(chat_id, user_id)
-        flow.set_message_id(chat_id, user_id, query.message.message_id)
-        await vahaduo_ready_models.show_ready_models_targets_menu(
-            query.message,
-            context,
-            user_id,
-            edit_existing=True,
-            lang=lang,
-        )
-        return
-
-    if action == "ready_model_target":
-        coordinate_id = payload[0] if payload else ""
-        await vahaduo_ready_models.show_ready_models_sets_menu(
-            query.message,
-            context,
-            user_id,
-            coordinate_id,
-            edit_existing=True,
-            lang=lang,
-        )
-        return
-
-    if action == "ready_model_sets":
-        token = payload[0] if payload else ""
-        await vahaduo_ready_models.show_ready_models_sets_by_token(
-            query.message,
-            context,
-            user_id,
-            token,
-            edit_existing=True,
-            lang=lang,
-        )
-        return
-
-    if action == "ready_model_set":
-        token = payload[0] if payload else ""
-        source_set_id = payload[1] if len(payload) > 1 else ""
-        await vahaduo_ready_models.show_ready_model_confirmation_menu(
-            query.message,
-            context,
-            user_id,
-            token,
-            source_set_id=source_set_id,
-            edit_existing=True,
-            lang=lang,
-        )
-        return
-
-    if action == "ready_model_confirm":
-        token = payload[0] if payload else ""
-        await vahaduo_ready_models.show_ready_model_confirmation_menu(
-            query.message,
-            context,
-            user_id,
-            token,
-            edit_existing=True,
-            lang=lang,
-        )
-        return
-
-    if action == "ready_model_run":
-        token = payload[0] if payload else ""
-        sent = await vahaduo_ready_models.show_ready_model_result_menu(
-            query.message,
-            context,
-            user_id,
-            token,
-            edit_existing=True,
-            lang=lang,
-        )
-        if getattr(sent, "message_id", None) is not None:
-            flow.set_message_id(chat_id, user_id, int(sent.message_id))
-            set_active_main_menu_message(context, chat_id, user_id, int(sent.message_id))
-        return
-
-    if action == "ready_model_result_back":
-        token = payload[0] if payload else ""
-        screen = vahaduo_ready_models.get_ready_model_confirmation_screen(context, user_id, token, lang)
-        await _show_or_replace_vahaduo_screen(
-            context,
-            query,
-            chat_id,
-            user_id,
-            screen.text,
-            screen.reply_markup,
-            parse_mode="HTML",
-        )
-        return
-
-    if action == "ready_model_result_models":
-        token = payload[0] if payload else ""
-        screen = vahaduo_ready_models.get_ready_models_sets_screen(context, user_id, token, lang)
-        await _show_or_replace_vahaduo_screen(
-            context,
-            query,
-            chat_id,
-            user_id,
-            screen.text,
-            screen.reply_markup,
-            parse_mode="HTML",
-        )
         return
 
     if action in {"vahaduo_mode_distance", "vahaduo_mode_single", "vahaduo_mode_multi"}:

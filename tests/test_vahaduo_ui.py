@@ -12,17 +12,6 @@ from app.features.vahaduo.menu import (
     _send_single_result_photo_from_query,
     vahaduo_callback_handler,
 )
-from app.features.vahaduo.ready_models import (
-    ReadyModelTarget,
-    build_ready_model_confirmation_keyboard,
-    build_ready_model_result_keyboard,
-    build_ready_models_sets_keyboard,
-    build_ready_models_targets_keyboard,
-    ready_model_confirmation_text,
-    ready_model_result_text,
-    ready_models_sets_text,
-    ready_models_targets_text,
-)
 from app.features.vahaduo.storage import VahaduoFullStore
 from app.features.vahaduo.ui import (
     _build_g25vahaduo_distance_result_keyboard,
@@ -49,8 +38,6 @@ from app.features.vahaduo.ui import (
     _g25vahaduo_target_library_text,
     _g25vahaduo_target_text,
 )
-from app.features.vahaduo.ready_models_runtime import SourceFitComponent, SourceFitResult
-from app.features.vahaduo.ready_model_sets import get_source_set, list_runnable_source_sets
 from app.main_menu import MainMenuStore
 from g25_core.render_fit_png import _multi_component_header, _single_visible_groups, render_distance_png, render_multi_heatmap_png, render_single_card_png
 
@@ -71,7 +58,7 @@ class VahaduoUiTests(unittest.TestCase):
         self.assertIn("📐 Vahaduo Lab", text)
         self.assertIn("G25 tools", text)
         self.assertNotIn("Modes", text)
-        self.assertEqual(labels[:5], ["📚 My sources", "📏 Distance", "🧬 Single", "🧩 Multi", "📚 Ready models"])
+        self.assertEqual(labels[:4], ["📚 My sources", "📏 Distance", "🧬 Single", "🧩 Multi"])
         self.assertIn("⬅️ Back", labels)
         self.assertIn("Cancel", labels)
 
@@ -81,46 +68,8 @@ class VahaduoUiTests(unittest.TestCase):
         labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
         self.assertEqual(text, "<b>📐 Vahaduo Lab</b>\n\nG25-инструменты")
-        self.assertEqual(labels[:5], ["📚 Мои источники", "📏 Distance", "🧬 Single", "🧩 Multi", "📚 Готовые модели"])
+        self.assertEqual(labels[:4], ["📚 Мои источники", "📏 Distance", "🧬 Single", "🧩 Multi"])
         self.assertEqual(labels[-2:], ["⬅️ Назад", "Отмена"])
-
-    def test_ready_models_flow_uses_vahaduo_copy(self) -> None:
-        source_sets = list_runnable_source_sets()
-        source_set = get_source_set("karachay_balkar_hypothesis")
-        self.assertIsNotNone(source_set)
-        target = ReadyModelTarget("coord-1", "Заур", "Za'ur,0,0")
-        result = SourceFitResult(
-            status="ok",
-            target_name="Заур",
-            source_set_id="karachay_balkar_hypothesis",
-            source_set_title="Карачаево-балкарская гипотеза",
-            distance=0.0151,
-            components=(SourceFitComponent("Maikop / Caucasus", "🏔", "Maikop", 62.7),),
-        )
-
-        targets_text = ready_models_targets_text([target])
-        targets_keyboard = build_ready_models_targets_keyboard([target])
-        sets_text = ready_models_sets_text("Заур", source_sets)
-        sets_keyboard = build_ready_models_sets_keyboard(source_sets, "flow1234")
-        confirm_text = ready_model_confirmation_text("Заур", source_set)  # type: ignore[arg-type]
-        confirm_keyboard = build_ready_model_confirmation_keyboard("flow1234")
-        result_text = ready_model_result_text(result, source_set)  # type: ignore[arg-type]
-        result_keyboard = build_ready_model_result_keyboard("flow1234")
-
-        self.assertIn("📚 Готовые модели", targets_text)
-        self.assertIn("Кураторские G25-fit модели источников.", targets_text)
-        self.assertIn("Выберите G25-профиль.", targets_text)
-        self.assertEqual(targets_keyboard.inline_keyboard[0][0].callback_data, "vahaduo:ready_model_target:coord-1")
-        self.assertIn("G25-профиль: Заур", sets_text)
-        self.assertIn("Выберите готовую модель.", sets_text)
-        self.assertEqual(sets_keyboard.inline_keyboard[0][0].callback_data, "vahaduo:ready_model_set:flow1234:bronze_age_caucasus")
-        self.assertIn("📚 Готовая модель", confirm_text)
-        self.assertIn("Модель: Карачаево-балкарская гипотеза", confirm_text)
-        self.assertIn("Это G25-fit модель, не qpAdm.", confirm_text)
-        self.assertIn("▶️ Запустить модель", [button.text for row in confirm_keyboard.inline_keyboard for button in row])
-        self.assertIn("📚 Готовые модели", result_text)
-        self.assertIn("Дистанция: 0.0151", result_text)
-        self.assertIn("🔁 Проверить другую модель", [button.text for row in result_keyboard.inline_keyboard for button in row])
 
     def test_distance_source_picker_uses_clean_labels(self) -> None:
         service = SimpleNamespace(
