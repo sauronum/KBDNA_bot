@@ -65,7 +65,6 @@ def render_overview_page(data: DNAPassportData, output_path: Path, *, page_numbe
     image, draw, fonts = _create_overview_page(data, page_number=page_number, total_pages=total_pages)
     _draw_overview_sample(draw, fonts, data)
     _draw_overview_source_data(draw, fonts, data)
-    _draw_overview_lineage(draw, fonts, data)
     return save_page(image, output_path)
 
 
@@ -196,38 +195,6 @@ def _raw_quality_label(call_rate: float | None) -> str:
     if value <= 1:
         value *= 100
     return f"{max(0.0, min(100.0, value)):.1f}%".replace(".", ",")
-
-
-def _draw_overview_lineage(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], data: DNAPassportData) -> None:
-    top = 1050
-    _draw_overview_section_label(draw, fonts, MARGIN, top, "Прямые линии", OVERVIEW_VIOLET)
-    lineage = data.lineage
-    mt_count = int(getattr(lineage, "mtdna_count", 0) or 0) if lineage is not None and lineage.status == "ok" else 0
-    box = (MARGIN, top + 62, WIDTH - MARGIN, top + 280)
-    _draw_overview_card(draw, box, radius=32, fill=OVERVIEW_CARD)
-    x1, y1, x2, y2 = box
-    middle = (x1 + x2) // 2
-    draw.line((middle, y1 + 34, middle, y1 + 126), fill=(*OVERVIEW_BORDER, 220), width=2)
-    statuses = (
-        (x1 + 42, "Отцовская линия", "Данных недостаточно", OVERVIEW_BLUE),
-        (middle + 42, "Материнская линия", "Ограниченное покрытие" if mt_count > 0 else "Данных недостаточно", OVERVIEW_CYAN),
-    )
-    for left, title, status, accent in statuses:
-        draw.ellipse((left, y1 + 38, left + 28, y1 + 66), fill=(*accent, 255))
-        draw.text((left + 48, y1 + 32), title, font=fonts["card_label"], fill=(*OVERVIEW_MUTED, 255))
-        draw.text((left, y1 + 84), status, font=fonts["list_title"], fill=(*OVERVIEW_TEXT, 255))
-    draw.line((x1 + 42, y1 + 142, x2 - 42, y1 + 142), fill=(*OVERVIEW_BORDER, 200), width=1)
-    draw_wrapped(
-        draw,
-        "Autosomal raw ограничен для прямых линий. Для точного анализа нужны отдельные Y-DNA и mtDNA-тесты.",
-        fonts["small"],
-        x1 + 42,
-        y1 + 164,
-        x2 - x1 - 84,
-        max_lines=2,
-        fill=OVERVIEW_MUTED,
-        line_gap=6,
-    )
 
 
 def _draw_overview_card(
