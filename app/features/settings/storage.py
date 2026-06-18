@@ -24,6 +24,9 @@ SEARCH_BASES = (
     SEARCH_BASE_ABKHAZ,
     SEARCH_BASE_ABAZA,
 )
+THEME_DARK = "dark"
+THEME_LIGHT = "light"
+SUPPORTED_THEMES = (THEME_DARK, THEME_LIGHT)
 
 
 def normalize_card_format(card_format: str | None) -> str:
@@ -47,6 +50,13 @@ def normalize_search_base(search_base: str | None) -> str:
     return SEARCH_BASE_KBDNA
 
 
+def normalize_theme(theme: str | None) -> str:
+    value = str(theme or "").strip().lower()
+    if value in SUPPORTED_THEMES:
+        return value
+    return THEME_DARK
+
+
 def normalize_notifications_enabled(value: object) -> bool:
     if isinstance(value, bool):
         return value
@@ -66,6 +76,7 @@ class UserSettings:
     result_mode: str = RESULT_MODE_SIMPLE
     search_base: str = SEARCH_BASE_KBDNA
     notifications_enabled: bool = True
+    theme: str = THEME_DARK
 
 
 class UserSettingsStore:
@@ -87,6 +98,7 @@ class UserSettingsStore:
             result_mode=normalize_result_mode(payload.get("result_mode")),
             search_base=normalize_search_base(payload.get("search_base")),
             notifications_enabled=normalize_notifications_enabled(payload.get("notifications_enabled", True)),
+            theme=normalize_theme(payload.get("theme")),
         )
 
     def get_language(self, user_id: int) -> str:
@@ -104,6 +116,9 @@ class UserSettingsStore:
     def get_notifications_enabled(self, user_id: int) -> bool:
         return self.get(user_id).notifications_enabled
 
+    def get_theme(self, user_id: int) -> str:
+        return self.get(user_id).theme
+
     def set_language(self, user_id: int, language: str) -> UserSettings:
         current = self.get(user_id)
         settings = UserSettings(
@@ -112,6 +127,7 @@ class UserSettingsStore:
             result_mode=current.result_mode,
             search_base=current.search_base,
             notifications_enabled=current.notifications_enabled,
+            theme=current.theme,
         )
         self._write(user_id, settings)
         return settings
@@ -124,6 +140,7 @@ class UserSettingsStore:
             result_mode=current.result_mode,
             search_base=current.search_base,
             notifications_enabled=current.notifications_enabled,
+            theme=current.theme,
         )
         self._write(user_id, settings)
         return settings
@@ -136,6 +153,7 @@ class UserSettingsStore:
             result_mode=normalize_result_mode(result_mode),
             search_base=current.search_base,
             notifications_enabled=current.notifications_enabled,
+            theme=current.theme,
         )
         self._write(user_id, settings)
         return settings
@@ -148,6 +166,7 @@ class UserSettingsStore:
             result_mode=current.result_mode,
             search_base=normalize_search_base(search_base),
             notifications_enabled=current.notifications_enabled,
+            theme=current.theme,
         )
         self._write(user_id, settings)
         return settings
@@ -160,6 +179,20 @@ class UserSettingsStore:
             result_mode=current.result_mode,
             search_base=current.search_base,
             notifications_enabled=bool(enabled),
+            theme=current.theme,
+        )
+        self._write(user_id, settings)
+        return settings
+
+    def set_theme(self, user_id: int, theme: str) -> UserSettings:
+        current = self.get(user_id)
+        settings = UserSettings(
+            language=current.language,
+            card_format=current.card_format,
+            result_mode=current.result_mode,
+            search_base=current.search_base,
+            notifications_enabled=current.notifications_enabled,
+            theme=normalize_theme(theme),
         )
         self._write(user_id, settings)
         return settings
@@ -176,5 +209,6 @@ class UserSettingsStore:
                 "result_mode": settings.result_mode,
                 "search_base": settings.search_base,
                 "notifications_enabled": settings.notifications_enabled,
+                "theme": settings.theme,
             },
         )

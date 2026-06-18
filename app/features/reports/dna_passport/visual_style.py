@@ -2,10 +2,17 @@ from __future__ import annotations
 
 import re
 import math
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from functools import lru_cache
 from datetime import datetime
 from pathlib import Path
+from typing import Iterator
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+from app.features.settings.storage import THEME_DARK, THEME_LIGHT, normalize_theme
 
 from .domain import DNAPassportData, DNAPassportInterestingSnpItem, DNAPassportTraitItem
 
@@ -15,23 +22,193 @@ HEIGHT = 1800
 MARGIN = 72
 CONTENT_WIDTH = WIDTH - MARGIN * 2
 
-BG_TOP = (6, 10, 24)
-BG_BOTTOM = (8, 34, 47)
-PANEL = (21, 36, 58)
-PANEL_SOFT = (29, 49, 76)
-PANEL_DEEP = (14, 28, 48)
-BORDER = (78, 107, 143)
-BORDER_SOFT = (50, 74, 104)
-TEXT = (242, 247, 252)
-MUTED = (180, 194, 214)
-FAINT = (112, 132, 158)
-CYAN = (94, 211, 221)
-BLUE = (124, 168, 255)
-VIOLET = (160, 132, 255)
-GOLD = (246, 193, 91)
-MINT = (107, 220, 177)
-ROSE = (227, 126, 166)
-INK = (4, 9, 18)
+BACKGROUND_ASSET = Path(__file__).with_name("assets") / "passport_background.png"
+DARK_BACKGROUND_ASSET = Path(__file__).with_name("assets") / "passport_background_dark.png"
+
+Color = tuple[int, int, int]
+
+
+@dataclass(frozen=True)
+class VisualTheme:
+    name: str
+    background_asset: Path
+    bg_top: Color
+    bg_bottom: Color
+    panel: Color
+    panel_soft: Color
+    panel_deep: Color
+    border: Color
+    border_soft: Color
+    text: Color
+    muted: Color
+    faint: Color
+    cyan: Color
+    blue: Color
+    violet: Color
+    gold: Color
+    mint: Color
+    rose: Color
+    overview_card: Color
+    overview_panel: Color
+    overview_panel_alt: Color
+    overview_border: Color
+    overview_text: Color
+    overview_muted: Color
+    overview_faint: Color
+    overview_cyan: Color
+    overview_blue: Color
+    overview_violet: Color
+    overview_rose: Color
+    badge_fill: Color
+    plot_fill: Color
+    progress_track: Color
+    card_shadow: Color
+
+
+DARK_VISUAL_THEME = VisualTheme(
+    name=THEME_DARK,
+    background_asset=DARK_BACKGROUND_ASSET,
+    bg_top=(6, 10, 24),
+    bg_bottom=(8, 34, 47),
+    panel=(21, 36, 58),
+    panel_soft=(29, 49, 76),
+    panel_deep=(14, 28, 48),
+    border=(78, 107, 143),
+    border_soft=(50, 74, 104),
+    text=(242, 247, 252),
+    muted=(180, 194, 214),
+    faint=(112, 132, 158),
+    cyan=(94, 211, 221),
+    blue=(124, 168, 255),
+    violet=(160, 132, 255),
+    gold=(246, 193, 91),
+    mint=(107, 220, 177),
+    rose=(227, 126, 166),
+    overview_card=(14, 28, 48),
+    overview_panel=(29, 49, 76),
+    overview_panel_alt=(21, 36, 58),
+    overview_border=(78, 107, 143),
+    overview_text=(242, 247, 252),
+    overview_muted=(180, 194, 214),
+    overview_faint=(112, 132, 158),
+    overview_cyan=(94, 211, 221),
+    overview_blue=(124, 168, 255),
+    overview_violet=(160, 132, 255),
+    overview_rose=(227, 126, 166),
+    badge_fill=(21, 36, 58),
+    plot_fill=(8, 18, 34),
+    progress_track=(42, 61, 86),
+    card_shadow=(0, 0, 0),
+)
+
+LIGHT_VISUAL_THEME = VisualTheme(
+    name=THEME_LIGHT,
+    background_asset=BACKGROUND_ASSET,
+    bg_top=(246, 250, 253),
+    bg_bottom=(228, 239, 248),
+    panel=(249, 252, 254),
+    panel_soft=(234, 243, 249),
+    panel_deep=(241, 247, 251),
+    border=(167, 196, 216),
+    border_soft=(195, 214, 227),
+    text=(27, 53, 72),
+    muted=(92, 119, 137),
+    faint=(130, 154, 169),
+    cyan=(94, 211, 221),
+    blue=(124, 168, 255),
+    violet=(160, 132, 255),
+    gold=(246, 193, 91),
+    mint=(107, 220, 177),
+    rose=(227, 126, 166),
+    overview_card=(250, 253, 254),
+    overview_panel=(235, 244, 248),
+    overview_panel_alt=(240, 247, 250),
+    overview_border=(190, 211, 223),
+    overview_text=(27, 53, 72),
+    overview_muted=(92, 119, 137),
+    overview_faint=(130, 154, 169),
+    overview_cyan=(38, 169, 181),
+    overview_blue=(64, 124, 190),
+    overview_violet=(123, 103, 194),
+    overview_rose=(194, 99, 139),
+    badge_fill=(228, 239, 246),
+    plot_fill=(238, 246, 251),
+    progress_track=(214, 228, 236),
+    card_shadow=(41, 91, 119),
+)
+
+_VISUAL_THEMES = {
+    THEME_DARK: DARK_VISUAL_THEME,
+    THEME_LIGHT: LIGHT_VISUAL_THEME,
+}
+_CURRENT_THEME: ContextVar[str] = ContextVar("dna_passport_visual_theme", default=THEME_DARK)
+
+
+def get_visual_theme(theme: str | None = None) -> VisualTheme:
+    name = normalize_theme(theme) if theme is not None else _CURRENT_THEME.get()
+    return _VISUAL_THEMES[name]
+
+
+@contextmanager
+def use_visual_theme(theme: str) -> Iterator[VisualTheme]:
+    normalized = normalize_theme(theme)
+    token = _CURRENT_THEME.set(normalized)
+    try:
+        yield _VISUAL_THEMES[normalized]
+    finally:
+        _CURRENT_THEME.reset(token)
+
+
+class _ThemeColor:
+    __slots__ = ("field",)
+
+    def __init__(self, field: str) -> None:
+        self.field = field
+
+    def _value(self) -> Color:
+        return getattr(get_visual_theme(), self.field)
+
+    def __iter__(self):
+        return iter(self._value())
+
+    def __len__(self) -> int:
+        return 3
+
+    def __getitem__(self, index: int) -> int:
+        return self._value()[index]
+
+
+BG_TOP = _ThemeColor("bg_top")
+BG_BOTTOM = _ThemeColor("bg_bottom")
+PANEL = _ThemeColor("panel")
+PANEL_SOFT = _ThemeColor("panel_soft")
+PANEL_DEEP = _ThemeColor("panel_deep")
+BORDER = _ThemeColor("border")
+BORDER_SOFT = _ThemeColor("border_soft")
+TEXT = _ThemeColor("text")
+MUTED = _ThemeColor("muted")
+FAINT = _ThemeColor("faint")
+CYAN = _ThemeColor("cyan")
+BLUE = _ThemeColor("blue")
+VIOLET = _ThemeColor("violet")
+GOLD = _ThemeColor("gold")
+MINT = _ThemeColor("mint")
+ROSE = _ThemeColor("rose")
+OVERVIEW_CARD = _ThemeColor("overview_card")
+OVERVIEW_PANEL = _ThemeColor("overview_panel")
+OVERVIEW_PANEL_ALT = _ThemeColor("overview_panel_alt")
+OVERVIEW_BORDER = _ThemeColor("overview_border")
+OVERVIEW_TEXT = _ThemeColor("overview_text")
+OVERVIEW_MUTED = _ThemeColor("overview_muted")
+OVERVIEW_FAINT = _ThemeColor("overview_faint")
+OVERVIEW_CYAN = _ThemeColor("overview_cyan")
+OVERVIEW_BLUE = _ThemeColor("overview_blue")
+OVERVIEW_VIOLET = _ThemeColor("overview_violet")
+OVERVIEW_ROSE = _ThemeColor("overview_rose")
+BADGE_FILL = _ThemeColor("badge_fill")
+PLOT_FILL = _ThemeColor("plot_fill")
+PROGRESS_TRACK = _ThemeColor("progress_track")
+CARD_SHADOW = _ThemeColor("card_shadow")
 
 TRAIT_LABELS_RU = {
     "pgs003835_height": "Рост",
@@ -97,30 +274,47 @@ POPULATION_LABELS_RU = {
 
 
 def create_page(data: DNAPassportData, *, page_title: str, page_number: int, total_pages: int) -> tuple[Image.Image, ImageDraw.ImageDraw, dict[str, ImageFont.ImageFont]]:
-    image = Image.new("RGB", (WIDTH, HEIGHT), BG_TOP)
+    image = create_background_image()
     draw = ImageDraw.Draw(image, "RGBA")
     fonts = load_fonts()
-    draw_background(draw)
     draw_header(draw, fonts, data, page_title=page_title, page_number=page_number, total_pages=total_pages)
     draw_footer(draw, fonts, page_number=page_number, total_pages=total_pages)
     return image, draw, fonts
 
 
+def create_background_image(theme: str | None = None) -> Image.Image:
+    name = get_visual_theme(theme).name
+    return _background_template(name).copy()
+
+
+@lru_cache(maxsize=2)
+def _background_template(theme: str) -> Image.Image:
+    style = get_visual_theme(theme)
+    if style.background_asset.exists():
+        with Image.open(style.background_asset) as source:
+            resampling = getattr(Image, "Resampling", Image).LANCZOS
+            return ImageOps.fit(source.convert("RGB"), (WIDTH, HEIGHT), method=resampling, centering=(0.5, 0.5))
+    image = Image.new("RGB", (WIDTH, HEIGHT), style.bg_top)
+    draw_background(ImageDraw.Draw(image, "RGBA"), theme=style.name)
+    return image
+
+
 def save_page(image: Image.Image, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path, format="PNG", optimize=True)
+    image.save(output_path, format="PNG", optimize=False, compress_level=4)
     return output_path
 
 
-def draw_background(draw: ImageDraw.ImageDraw) -> None:
+def draw_background(draw: ImageDraw.ImageDraw, *, theme: str | None = None) -> None:
+    style = get_visual_theme(theme)
     for y in range(HEIGHT):
         t = y / max(1, HEIGHT - 1)
-        color = tuple(int(BG_TOP[i] * (1 - t) + BG_BOTTOM[i] * t) for i in range(3))
+        color = tuple(int(style.bg_top[i] * (1 - t) + style.bg_bottom[i] * t) for i in range(3))
         draw.line((0, y, WIDTH, y), fill=color)
 
-    draw.polygon(((-180, 0), (268, 0), (92, HEIGHT), (-260, HEIGHT)), fill=(*CYAN, 14))
-    draw.polygon(((1030, 0), (WIDTH, 0), (WIDTH + 110, HEIGHT), (1220, HEIGHT)), fill=(*VIOLET, 16))
-    draw.polygon(((0, 1140), (WIDTH, 760), (WIDTH, 1068), (0, 1468)), fill=(*BLUE, 9))
+    draw.polygon(((-180, 0), (268, 0), (92, HEIGHT), (-260, HEIGHT)), fill=(*style.cyan, 14))
+    draw.polygon(((1030, 0), (WIDTH, 0), (WIDTH + 110, HEIGHT), (1220, HEIGHT)), fill=(*style.violet, 16))
+    draw.polygon(((0, 1140), (WIDTH, 760), (WIDTH, 1068), (0, 1468)), fill=(*style.blue, 9))
 
     for x in range(-260, WIDTH + 260, 118):
         draw.line((x, 0, x + 520, HEIGHT), fill=(82, 137, 171, 16), width=1)
@@ -129,13 +323,13 @@ def draw_background(draw: ImageDraw.ImageDraw) -> None:
     for x in range(MARGIN, WIDTH - MARGIN + 1, 96):
         draw.line((x, 236, x, HEIGHT - 146), fill=(61, 94, 125, 8), width=1)
 
-    draw.line((MARGIN, 248, WIDTH - MARGIN, 248), fill=(*BORDER, 105), width=1)
-    draw.line((MARGIN, HEIGHT - 126, WIDTH - MARGIN, HEIGHT - 126), fill=(*BORDER, 80), width=1)
+    draw.line((MARGIN, 248, WIDTH - MARGIN, 248), fill=(*style.border, 105), width=1)
+    draw.line((MARGIN, HEIGHT - 126, WIDTH - MARGIN, HEIGHT - 126), fill=(*style.border, 80), width=1)
 
-    _draw_helix_trace(draw)
+    _draw_helix_trace(draw, style)
 
 
-def _draw_helix_trace(draw: ImageDraw.ImageDraw) -> None:
+def _draw_helix_trace(draw: ImageDraw.ImageDraw, style: VisualTheme) -> None:
     left = WIDTH - 238
     top = 296
     height = 900
@@ -147,12 +341,12 @@ def _draw_helix_trace(draw: ImageDraw.ImageDraw) -> None:
         x_a = left + int(math.sin(phase) * 42)
         x_b = left + int(math.sin(phase + math.pi) * 42)
         alpha = 32 if step % 2 else 46
-        draw.line((x_a, y, x_b, y), fill=(*CYAN, alpha), width=2)
-        draw.ellipse((x_a - 4, y - 4, x_a + 4, y + 4), fill=(*MINT, alpha + 30))
-        draw.ellipse((x_b - 4, y - 4, x_b + 4, y + 4), fill=(*ROSE, alpha + 20))
+        draw.line((x_a, y, x_b, y), fill=(*style.cyan, alpha), width=2)
+        draw.ellipse((x_a - 4, y - 4, x_a + 4, y + 4), fill=(*style.mint, alpha + 30))
+        draw.ellipse((x_b - 4, y - 4, x_b + 4, y + 4), fill=(*style.rose, alpha + 20))
         if prev_a is not None and prev_b is not None:
-            draw.line((prev_a[0], prev_a[1], x_a, y), fill=(*BLUE, 38), width=2)
-            draw.line((prev_b[0], prev_b[1], x_b, y), fill=(*VIOLET, 35), width=2)
+            draw.line((prev_a[0], prev_a[1], x_a, y), fill=(*style.blue, 38), width=2)
+            draw.line((prev_b[0], prev_b[1], x_b, y), fill=(*style.violet, 35), width=2)
         prev_a = (x_a, y)
         prev_b = (x_b, y)
 
@@ -184,6 +378,7 @@ def draw_header(
     draw.text((MARGIN, 54), "KBDNA / DNA-ПАСПОРТ", font=fonts["eyebrow"], fill=(*CYAN, 255))
     draw.text((MARGIN, 94), f"{ellipsize(draw, sample, fonts['small_bold'], 620)} · {date}", font=fonts["small_bold"], fill=(*MUTED, 255))
     draw.text((MARGIN, 136), ellipsize(draw, page_title, fonts["section_title"], 980), font=fonts["section_title"], fill=(*TEXT, 255))
+    draw.line((MARGIN, 248, WIDTH - MARGIN, 248), fill=(*BORDER, 190), width=2)
 
 
 def draw_footer(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.ImageFont], *, page_number: int, total_pages: int) -> None:
@@ -242,7 +437,7 @@ def draw_progress(
     value: float,
     *,
     color: tuple[int, int, int] = CYAN,
-    background: tuple[int, int, int] = (39, 54, 75),
+    background: tuple[int, int, int] = PROGRESS_TRACK,
 ) -> None:
     x1, y1, x2, y2 = box
     value = max(0.0, min(1.0, float(value)))
@@ -472,6 +667,8 @@ def load_fonts() -> dict[str, ImageFont.ImageFont]:
     return {
         "eyebrow": font(25, bold=True),
         "hero": font(70, bold=True),
+        "hero_serif": font_serif(62),
+        "person_name": font_serif(68),
         "sample_title": font(43, bold=True),
         "section_title": font(62, bold=True),
         "subtitle": font(30),
@@ -502,3 +699,15 @@ def font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
         if candidate.exists():
             return ImageFont.truetype(str(candidate), size=size)
     return ImageFont.load_default()
+
+
+def font_serif(size: int) -> ImageFont.ImageFont:
+    candidates = [
+        Path("C:/Windows/Fonts/georgiab.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"),
+        Path("/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return ImageFont.truetype(str(candidate), size=size)
+    return font(size, bold=True)

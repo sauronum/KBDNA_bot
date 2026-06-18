@@ -135,11 +135,13 @@ from app.features.settings.menu import (
     build_result_mode_keyboard as build_global_result_mode_keyboard,
     build_search_base_keyboard as build_global_search_base_keyboard,
     build_settings_keyboard as build_global_settings_keyboard,
+    build_theme_keyboard as build_global_theme_keyboard,
     card_format_text as global_card_format_text,
     get_user_card_format as get_global_user_card_format,
     get_user_notifications_enabled as get_global_user_notifications_enabled,
     get_user_result_mode as get_global_user_result_mode,
     get_user_search_base as get_global_user_search_base,
+    get_user_theme as get_global_user_theme,
     language_text as global_language_text,
     notifications_text as global_notifications_text,
     privacy_data_summary as global_privacy_data_summary,
@@ -153,12 +155,14 @@ from app.features.settings.menu import (
     set_user_notifications_enabled as set_global_user_notifications_enabled,
     set_user_result_mode as set_global_user_result_mode,
     set_user_search_base as set_global_user_search_base,
+    set_user_theme as set_global_user_theme,
     show_privacy_delete_confirm as show_global_privacy_delete_confirm,
     show_privacy_delete_done as show_global_privacy_delete_done,
     show_privacy_export_menu as show_global_privacy_export_menu,
     show_privacy_export_result as show_global_privacy_export_result,
     settings_callback_handler as dna_lab_settings_callback_handler,
     settings_text as global_settings_text,
+    theme_text as global_theme_text,
 )
 from app.features.settings.storage import (
     SEARCH_BASE_ABAZA,
@@ -271,6 +275,8 @@ DNA_LAB_MANUAL_USAGE_CALLBACKS = {
     ("settings", "root"),
     ("settings", "language"),
     ("settings", "set_language"),
+    ("settings", "theme"),
+    ("settings", "set_theme"),
     ("settings", "card_format"),
     ("settings", "set_card_format"),
     ("settings", "result_mode"),
@@ -482,6 +488,12 @@ def _notifications_enabled_for_effective_user(update: Update, context: ContextTy
     if update.effective_user is None:
         return True
     return get_global_user_notifications_enabled(context, int(update.effective_user.id))
+
+
+def _theme_for_effective_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    if update.effective_user is None:
+        return "dark"
+    return get_global_user_theme(context, int(update.effective_user.id))
 
 
 def _is_private_chat(update: Update) -> bool:
@@ -1353,6 +1365,45 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             parse_mode="HTML",
             reply_markup=build_global_language_keyboard(
                 lang,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action in {"settings_theme", "theme"}:
+        _clear_sozluk_pending(context)
+        _clear_ystr_pending(context)
+        context.user_data.pop("ystr_root_back_callback", None)
+        lang = _language_for_effective_user(update, context)
+        theme = _theme_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_theme_text(lang, theme),
+            parse_mode="HTML",
+            reply_markup=build_global_theme_keyboard(
+                lang,
+                theme,
+                callback_prefix=MENU_CALLBACK_PREFIX,
+                back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
+                cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",
+            ),
+        )
+        return
+
+    if action.startswith("set_theme:"):
+        selected = action.split(":", 1)[1]
+        if update.effective_user is None or not set_global_user_theme(context, int(update.effective_user.id), selected):
+            await query.answer("Не удалось сохранить тему.", show_alert=True)
+            return
+        lang = _language_for_effective_user(update, context)
+        theme = _theme_for_effective_user(update, context)
+        await query.message.edit_text(
+            global_theme_text(lang, theme),
+            parse_mode="HTML",
+            reply_markup=build_global_theme_keyboard(
+                lang,
+                theme,
                 callback_prefix=MENU_CALLBACK_PREFIX,
                 back_callback=f"{MENU_CALLBACK_PREFIX}:settings",
                 cancel_callback=f"{MENU_CALLBACK_PREFIX}:cancel",

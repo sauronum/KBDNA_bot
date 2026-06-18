@@ -36,10 +36,14 @@ from .storage import (
     SEARCH_BASES,
     SUPPORTED_CARD_FORMATS,
     SUPPORTED_RESULT_MODES,
+    SUPPORTED_THEMES,
+    THEME_DARK,
+    THEME_LIGHT,
     UserSettingsStore,
     normalize_card_format,
     normalize_result_mode,
     normalize_search_base,
+    normalize_theme,
 )
 
 
@@ -269,6 +273,17 @@ def set_user_notifications_enabled(context: ContextTypes.DEFAULT_TYPE, user_id: 
     return True
 
 
+def get_user_theme(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> str:
+    return _settings_store(context).get_theme(user_id)
+
+
+def set_user_theme(context: ContextTypes.DEFAULT_TYPE, user_id: int, theme: str) -> bool:
+    if theme not in SUPPORTED_THEMES:
+        return False
+    _settings_store(context).set_theme(user_id, theme)
+    return True
+
+
 def card_format_label(card_format: str, lang: str) -> str:
     normalized = normalize_card_format(card_format)
     if lang == "en":
@@ -316,6 +331,21 @@ def notifications_status_label(enabled: bool, lang: str) -> str:
     if lang == "en":
         return "enabled" if enabled else "disabled"
     return "включены" if enabled else "выключены"
+
+
+def theme_label(theme: str, lang: str) -> str:
+    normalized = normalize_theme(theme)
+    if lang == "en":
+        labels = {
+            THEME_DARK: "🌙 Dark",
+            THEME_LIGHT: "☀️ Light",
+        }
+    else:
+        labels = {
+            THEME_DARK: "🌙 Тёмная",
+            THEME_LIGHT: "☀️ Светлая",
+        }
+    return labels[normalized]
 
 
 def privacy_data_summary(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> PrivacyDataSummary:
@@ -391,10 +421,12 @@ def build_settings_keyboard(
     language_button = "🌐 Language" if lang == "en" else "🌐 Язык"
     search_base_button = "🌍 Search base" if lang == "en" else "🌍 База поиска"
     notifications_button = "🔔 Notifications" if lang == "en" else "🔔 Уведомления"
+    theme_button = "🎨 Theme" if lang == "en" else "🎨 Тема"
     privacy_button = "🗑 Data and privacy" if lang == "en" else "🗑 Данные и приватность"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(language_button, callback_data=f"{callback_prefix}:language")],
+            [InlineKeyboardButton(theme_button, callback_data=f"{callback_prefix}:theme")],
             [InlineKeyboardButton(card_format_button, callback_data=f"{callback_prefix}:card_format")],
             [InlineKeyboardButton(result_mode_button, callback_data=f"{callback_prefix}:result_mode")],
             [InlineKeyboardButton(search_base_button, callback_data=f"{callback_prefix}:search_base")],
@@ -403,6 +435,53 @@ def build_settings_keyboard(
             [InlineKeyboardButton(t("nav.cancel", lang), callback_data=cancel_callback)],
         ]
     )
+
+
+def theme_text(lang: str, theme: str) -> str:
+    current_theme = theme_label(theme, lang)
+    if lang == "en":
+        return "\n".join(
+            [
+                "<b>🎨 Theme</b>",
+                "",
+                f"<b>Current theme:</b> {current_theme}",
+                "",
+                "The theme is applied to visual reports that support both variants.",
+            ]
+        )
+    return "\n".join(
+        [
+            "<b>🎨 Тема</b>",
+            "",
+            f"<b>Текущая тема:</b> {current_theme}",
+            "",
+            "Тема применяется к визуальным отчётам, для которых готовы оба варианта.",
+        ]
+    )
+
+
+def build_theme_keyboard(
+    lang: str,
+    theme: str,
+    *,
+    callback_prefix: str = SETTINGS_CALLBACK_PREFIX,
+    back_callback: str = f"{SETTINGS_CALLBACK_PREFIX}:root",
+    cancel_callback: str = "main:cancel",
+) -> InlineKeyboardMarkup:
+    current = normalize_theme(theme)
+    rows: list[list[InlineKeyboardButton]] = []
+    for option in SUPPORTED_THEMES:
+        suffix = " ✅" if option == current else ""
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"{theme_label(option, lang)}{suffix}",
+                    callback_data=f"{callback_prefix}:set_theme:{option}",
+                )
+            ]
+        )
+    rows.append(footer_keyboard_row(lang, back_callback, cancel_callback))
+    return InlineKeyboardMarkup(rows)
 
 
 def card_format_text(lang: str, card_format: str) -> str:
@@ -940,6 +1019,21 @@ async def show_language_menu(
         await message.reply_text(language_text(lang), reply_markup=build_language_keyboard(lang), parse_mode="HTML", do_quote=False)
 
 
+async def show_theme_menu(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    *,
+    edit_existing: bool = False,
+) -> None:
+    lang = get_user_language(context, user_id)
+    theme = get_user_theme(context, user_id)
+    if edit_existing:
+        await message.edit_text(theme_text(lang, theme), reply_markup=build_theme_keyboard(lang, theme), parse_mode="HTML")
+    else:
+        await message.reply_text(theme_text(lang, theme), reply_markup=build_theme_keyboard(lang, theme), parse_mode="HTML", do_quote=False)
+
+
 async def show_card_format_menu(
     message,
     context: ContextTypes.DEFAULT_TYPE,
@@ -1220,6 +1314,9 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
     if action == "language":
         await show_language_menu(query.message, context, user_id, edit_existing=True)
         return
+    if action == "theme":
+        await show_theme_menu(query.message, context, user_id, edit_existing=True)
+        return
     if action == "card_format":
         await show_card_format_menu(query.message, context, user_id, edit_existing=True)
         return
@@ -1334,6 +1431,13 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
         selected = parts[2] if len(parts) > 2 else ""
         set_user_language(context, user_id, selected)
         await show_settings_menu(query.message, context, user_id, edit_existing=True)
+        return
+    if action == "set_theme":
+        selected = parts[2] if len(parts) > 2 else ""
+        if not set_user_theme(context, user_id, selected):
+            await query.answer("Не удалось сохранить тему.", show_alert=True)
+            return
+        await show_theme_menu(query.message, context, user_id, edit_existing=True)
         return
     if action == "set_card_format":
         selected = parts[2] if len(parts) > 2 else ""

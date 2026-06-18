@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from app.features.settings.storage import THEME_DARK, normalize_theme
+
 from .domain import DNAPassportData
 from .visual_pages import (
     render_ancestry_page,
@@ -12,6 +14,7 @@ from .visual_pages import (
     render_snps_page,
     render_traits_page,
 )
+from .visual_style import use_visual_theme
 
 
 VisualRenderer = Callable[[DNAPassportData, Path], Path]
@@ -34,14 +37,20 @@ _PAGE_RENDERERS: tuple[tuple[str, str, Callable[..., Path]], ...] = (
 )
 
 
-def render_dna_passport_pages(data: DNAPassportData, output_dir: Path) -> list[DNAPassportVisualPage]:
+def render_dna_passport_pages(
+    data: DNAPassportData,
+    output_dir: Path,
+    *,
+    theme: str = THEME_DARK,
+) -> list[DNAPassportVisualPage]:
     output_dir.mkdir(parents=True, exist_ok=True)
     pages: list[DNAPassportVisualPage] = []
     total_pages = len(_PAGE_RENDERERS)
-    for index, (slug, title, renderer) in enumerate(_PAGE_RENDERERS, start=1):
-        path = output_dir / f"{index:02d}_{slug}.png"
-        renderer(data, path, page_number=index, total_pages=total_pages)
-        pages.append(DNAPassportVisualPage(slug=slug, title=title, page_number=index, path=path))
+    with use_visual_theme(normalize_theme(theme)):
+        for index, (slug, title, renderer) in enumerate(_PAGE_RENDERERS, start=1):
+            path = output_dir / f"{index:02d}_{slug}.png"
+            renderer(data, path, page_number=index, total_pages=total_pages)
+            pages.append(DNAPassportVisualPage(slug=slug, title=title, page_number=index, path=path))
     return pages
 
 

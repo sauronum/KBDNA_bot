@@ -48,6 +48,7 @@ class StorageIoTests(unittest.TestCase):
             self.assertEqual(settings.result_mode, "simple")
             self.assertEqual(settings.search_base, "kbdna")
             self.assertTrue(settings.notifications_enabled)
+            self.assertEqual(settings.theme, "dark")
             self.assertEqual(
                 json.loads((Path(tmp) / "42.json").read_text(encoding="utf-8")),
                 {
@@ -56,6 +57,7 @@ class StorageIoTests(unittest.TestCase):
                     "result_mode": "simple",
                     "search_base": "kbdna",
                     "notifications_enabled": True,
+                    "theme": "dark",
                 },
             )
 
@@ -68,11 +70,13 @@ class StorageIoTests(unittest.TestCase):
             settings = store.set_result_mode(42, "advanced")
             settings = store.set_search_base(42, "abkhaz")
             settings = store.set_notifications_enabled(42, False)
+            settings = store.set_theme(42, "light")
             self.assertEqual(settings.language, "en")
             self.assertEqual(settings.card_format, "mobile")
             self.assertEqual(settings.result_mode, "advanced")
             self.assertEqual(settings.search_base, "abkhaz")
             self.assertFalse(settings.notifications_enabled)
+            self.assertEqual(settings.theme, "light")
 
             settings = store.set_language(42, "ru")
             self.assertEqual(settings.language, "ru")
@@ -80,6 +84,7 @@ class StorageIoTests(unittest.TestCase):
             self.assertEqual(settings.result_mode, "advanced")
             self.assertEqual(settings.search_base, "abkhaz")
             self.assertFalse(settings.notifications_enabled)
+            self.assertEqual(settings.theme, "light")
 
             settings = store.set_card_format(42, "wide")
             self.assertEqual(settings.language, "ru")
@@ -87,6 +92,7 @@ class StorageIoTests(unittest.TestCase):
             self.assertEqual(settings.result_mode, "advanced")
             self.assertEqual(settings.search_base, "abkhaz")
             self.assertFalse(settings.notifications_enabled)
+            self.assertEqual(settings.theme, "light")
 
             settings = store.set_result_mode(42, "simple")
             self.assertEqual(settings.language, "ru")
@@ -94,10 +100,21 @@ class StorageIoTests(unittest.TestCase):
             self.assertEqual(settings.result_mode, "simple")
             self.assertEqual(settings.search_base, "abkhaz")
             self.assertFalse(settings.notifications_enabled)
+            self.assertEqual(settings.theme, "light")
             self.assertEqual(store.get_card_format(42), "wide")
             self.assertEqual(store.get_result_mode(42), "simple")
             self.assertEqual(store.get_search_base(42), "abkhaz")
             self.assertFalse(store.get_notifications_enabled(42))
+            self.assertEqual(store.get_theme(42), "light")
+
+    def test_user_settings_store_defaults_legacy_theme_to_dark(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "42.json"
+            path.write_text('{"language": "ru", "card_format": "wide"}', encoding="utf-8")
+
+            store = UserSettingsStore(Path(tmp))
+
+            self.assertEqual(store.get_theme(42), "dark")
 
     def test_privacy_export_and_delete_user_data(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

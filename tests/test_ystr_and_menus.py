@@ -561,6 +561,7 @@ class MenuKeyboardTests(unittest.TestCase):
             rows,
             [
                 ["🌐 Язык"],
+                ["🎨 Тема"],
                 ["🖼 Формат карточек"],
                 ["✨ Режим результатов"],
                 ["🌍 База поиска"],
@@ -573,12 +574,32 @@ class MenuKeyboardTests(unittest.TestCase):
             callbacks,
             [
                 [f"{bot.MENU_CALLBACK_PREFIX}:language"],
+                [f"{bot.MENU_CALLBACK_PREFIX}:theme"],
                 [f"{bot.MENU_CALLBACK_PREFIX}:card_format"],
                 [f"{bot.MENU_CALLBACK_PREFIX}:result_mode"],
                 [f"{bot.MENU_CALLBACK_PREFIX}:search_base"],
                 [f"{bot.MENU_CALLBACK_PREFIX}:notifications"],
                 [f"{bot.MENU_CALLBACK_PREFIX}:privacy"],
                 [f"{bot.MENU_CALLBACK_PREFIX}:cancel"],
+            ],
+        )
+
+    def test_theme_keyboard_marks_dark_as_default(self) -> None:
+        keyboard = settings_menu.build_theme_keyboard(
+            "ru",
+            "dark",
+            callback_prefix=bot.MENU_CALLBACK_PREFIX,
+            back_callback=f"{bot.MENU_CALLBACK_PREFIX}:settings",
+            cancel_callback=f"{bot.MENU_CALLBACK_PREFIX}:cancel",
+        )
+
+        self.assertEqual(_inline_text_rows(keyboard), [["🌙 Тёмная ✅"], ["☀️ Светлая"], ["⬅️ Назад", "Отмена"]])
+        self.assertEqual(
+            _inline_callback_rows(keyboard),
+            [
+                [f"{bot.MENU_CALLBACK_PREFIX}:set_theme:dark"],
+                [f"{bot.MENU_CALLBACK_PREFIX}:set_theme:light"],
+                [f"{bot.MENU_CALLBACK_PREFIX}:settings", f"{bot.MENU_CALLBACK_PREFIX}:cancel"],
             ],
         )
 

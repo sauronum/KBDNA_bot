@@ -12,6 +12,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import ContextTypes
 
 from app.features.my_data.storage import CoordinateAsset, MyDataStore, SampleAsset
+from app.features.settings.storage import THEME_DARK, UserSettingsStore, normalize_theme
 from app.features.traits.domain.runtime import TraitsRuntimeService
 from app.i18n import t
 from app.main_menu import set_active_main_menu_message
@@ -217,7 +218,8 @@ async def _send_passport_visual_album(
     if not hasattr(message, "reply_media_group"):
         return False
     try:
-        pages = await asyncio.to_thread(_render_passport_visual_pages_temp, data)
+        theme = _passport_theme(context, user_id)
+        pages = await asyncio.to_thread(_render_passport_visual_pages_temp, data, theme)
         await _reply_visual_pages(message, pages)
         token = _store_passport_detail(context, text=detail_text, back_callback=back_callback)
         detail_callback = f"{PASSPORT_CALLBACK_PREFIX}:detail:{token}"
@@ -250,10 +252,10 @@ async def _send_passport_visual_album(
                 logger.debug("Could not delete DNA passport visual temp directory", exc_info=True)
 
 
-def _render_passport_visual_pages_temp(data: DNAPassportData) -> list[DNAPassportVisualPage]:
+def _render_passport_visual_pages_temp(data: DNAPassportData, theme: str = THEME_DARK) -> list[DNAPassportVisualPage]:
     path = Path(tempfile.mkdtemp(prefix="kbdna_passport_pages_"))
     try:
-        return render_dna_passport_pages(data, path)
+        return render_dna_passport_pages(data, path, theme=theme)
     except Exception:
         shutil.rmtree(path, ignore_errors=True)
         raise
@@ -362,6 +364,17 @@ def _passport_service(context: ContextTypes.DEFAULT_TYPE) -> DNAPassportService:
 
 def _my_data_store(context: ContextTypes.DEFAULT_TYPE) -> MyDataStore:
     return context.application.bot_data["my_data_store"]
+
+
+def _passport_theme(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> str:
+    store = context.application.bot_data.get("user_settings_store")
+    if not isinstance(store, UserSettingsStore):
+        return THEME_DARK
+    try:
+        return normalize_theme(store.get_theme(user_id))
+    except Exception:
+        logger.debug("Could not read DNA passport visual theme", exc_info=True)
+        return THEME_DARK
 
 
 def _safe_samples(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> list[SampleAsset]:

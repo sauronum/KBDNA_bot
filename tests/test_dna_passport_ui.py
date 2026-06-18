@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import unittest
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageStat
 
 from app.features.my_data.storage import CoordinateAsset, SampleAsset
+from app.features.settings.storage import UserSettingsStore
 from app.features.reports.dna_passport.domain import (
     DNAPassportData,
     DNAPassportG25Population,
@@ -25,6 +27,7 @@ from app.features.snp_report.domain import load_snp_rules
 from app.features.reports.dna_passport.menu import (
     build_sample_picker_keyboard,
     handle_sample_selected,
+    _passport_theme,
     sample_picker_text,
     show_sample_picker_menu,
 )
@@ -32,7 +35,7 @@ from app.features.reports.dna_passport.render import render_dna_passport_html
 from app.features.reports.dna_passport.render_visual import render_dna_passport_pages, visual_page_order
 from app.features.reports.dna_passport.visual import render_dna_passport_visual_png
 from app.features.reports.dna_passport.visual_pages import _radial_reference_layout
-from app.features.reports.dna_passport.visual_style import draw_footer, draw_header, snp_display_result, snp_metric, visual_snp_items
+from app.features.reports.dna_passport.visual_style import BACKGROUND_ASSET, DARK_BACKGROUND_ASSET, draw_footer, draw_header, snp_display_result, snp_metric, visual_snp_items
 from app.features.reports.menu import (
     REPORT_PRODUCTS,
     build_report_detail_keyboard,
@@ -91,6 +94,9 @@ class _CaptureDraw:
         return len(str(text)) * 12
 
     def rounded_rectangle(self, *args, **kwargs):
+        return None
+
+    def line(self, *args, **kwargs):
         return None
 
 
@@ -259,18 +265,31 @@ class DNAPassportUiTests(unittest.TestCase):
 
     def test_passport_visual_pages_render_five_page_album(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            pages = render_dna_passport_pages(_passport_data(), Path(tmp))
+            root = Path(tmp)
+            pages = render_dna_passport_pages(_passport_data(), root / "dark")
 
             self.assertEqual([page.slug for page in pages], ["overview", "ancestry", "traits", "snps", "lines"])
             self.assertEqual(visual_page_order(), ("overview", "ancestry", "traits", "snps", "lines"))
             self.assertEqual([page.title for page in pages], ["Обложка", "Краткое происхождение", "Базовые признаки", "Интересные SNP", "Следующие шаги"])
+            brightness = {}
             for page in pages:
                 self.assertTrue(page.path.exists())
                 with Image.open(page.path) as image:
                     self.assertEqual(image.format, "PNG")
                     self.assertEqual(image.size, (1440, 1800))
                     extrema = image.convert("L").getextrema()
+                    brightness[page.slug] = ImageStat.Stat(image.convert("L")).mean[0]
                 self.assertGreater(extrema[1] - extrema[0], 20)
+            self.assertTrue(BACKGROUND_ASSET.exists())
+            self.assertTrue(DARK_BACKGROUND_ASSET.exists())
+            for slug, value in brightness.items():
+                self.assertLess(value, 80, slug)
+
+            light_pages = render_dna_passport_pages(_passport_data(), root / "light", theme="light")
+            for page in light_pages:
+                with Image.open(page.path) as image:
+                    value = ImageStat.Stat(image.convert("L")).mean[0]
+                self.assertGreater(value, 180, page.slug)
 
     def test_passport_visual_header_footer_rules(self) -> None:
         data = _passport_data()
@@ -371,6 +390,33 @@ class DNAPassportUiTests(unittest.TestCase):
             with Image.open(output_path) as image:
                 self.assertEqual(image.size, (1440, 1800))
 
+    def test_passport_visual_themes_are_isolated_between_threads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            jobs = (("dark", root / "dark.png"), ("light", root / "light.png"))
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [executor.submit(render_dna_passport_visual_png, _passport_data(), path, theme=theme) for theme, path in jobs]
+                for future in futures:
+                    future.result()
+
+            with Image.open(root / "dark.png") as image:
+                dark_brightness = ImageStat.Stat(image.convert("L")).mean[0]
+            with Image.open(root / "light.png") as image:
+                light_brightness = ImageStat.Stat(image.convert("L")).mean[0]
+
+            self.assertLess(dark_brightness, 80)
+            self.assertGreater(light_brightness, 180)
+
+    def test_passport_uses_saved_user_theme_with_dark_fallback(self) -> None:
+        context = _context(_FakeStore())
+        self.assertEqual(_passport_theme(context, 42), "dark")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings_store = UserSettingsStore(Path(tmp))
+            settings_store.set_theme(42, "light")
+            context.application.bot_data["user_settings_store"] = settings_store
+            self.assertEqual(_passport_theme(context, 42), "light")
+
     def test_passport_visual_renderer_uses_ready_passport_data_only(self) -> None:
         root = Path("app/features/reports/dna_passport")
         source = "\n".join(
@@ -395,8 +441,15 @@ class DNAPassportUiTests(unittest.TestCase):
         self.assertIn("8 базовых признаков", source)
         self.assertIn("Что можно изучить дальше", source)
         self.assertIn("Исходные данные", source)
+        self.assertIn("create_background_image", source)
         self.assertIn("Качество чтения", source)
         self.assertIn("autosomal raw", source)
+        self.assertIn("ФОТО НЕ ДОБАВЛЕНО", source)
+        self.assertIn("Дата рождения", source)
+        self.assertIn("X хромосома", source)
+        self.assertIn("Y хромосома", source)
+        self.assertIn("Для точного анализа нужны отдельные Y-DNA и mtDNA-тесты", source)
+        self.assertNotIn("_draw_metric_icon", source)
         self.assertIn("Выбранные маркеры", source)
         self.assertIn("Схема генетической близости", source)
         self.assertIn("расчёт по полному G25-вектору", source)
