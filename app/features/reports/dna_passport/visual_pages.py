@@ -204,12 +204,13 @@ def _draw_overview_source_data(draw: ImageDraw.ImageDraw, fonts: dict[str, Image
     draw.line((x1 + 44, y1 + 164, x2 - 44, y1 + 164), fill=(*OVERVIEW_BORDER, 205), width=2)
 
     quality = _raw_quality_label(raw.call_rate)
-    draw.text((x1 + 44, y1 + 198), "Качество чтения", font=fonts["card_label"], fill=(*OVERVIEW_MUTED, 255))
-    draw.text((x1 + 350, y1 + 188), quality, font=fonts["metric"], fill=(*OVERVIEW_TEXT, 255))
+    quality_center_y = y1 + 215
+    draw.text((x1 + 44, quality_center_y), "Качество чтения", font=fonts["card_label"], fill=(*OVERVIEW_MUTED, 255), anchor="lm")
+    draw.text((x1 + 350, quality_center_y), quality, font=fonts["metric"], fill=(*OVERVIEW_TEXT, 255), anchor="lm")
     quality_value = float(raw.call_rate or 0)
     if quality_value > 1:
         quality_value /= 100
-    draw_progress(draw, (x1 + 520, y1 + 217, x2 - 44, y1 + 235), quality_value, color=OVERVIEW_CYAN, background=PROGRESS_TRACK)
+    draw_progress(draw, (x1 + 520, quality_center_y - 9, x2 - 44, quality_center_y + 9), quality_value, color=OVERVIEW_CYAN, background=PROGRESS_TRACK)
     draw.line((x1 + 44, y1 + 266, x2 - 44, y1 + 266), fill=(*OVERVIEW_BORDER, 175), width=1)
 
     metrics = (
