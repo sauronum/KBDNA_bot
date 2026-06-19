@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -79,6 +80,47 @@ class YFullBranchTests(unittest.TestCase):
                 self.assertEqual(light.size, (1280, 900))
                 self.assertGreater(sum(ImageStat.Stat(dark).stddev), 20)
                 self.assertNotEqual(dark.getpixel((10, 10)), light.getpixel((10, 10)))
+
+    def test_branch_visual_adapts_to_empty_and_crowded_child_lists(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            service = YFullBranchService(Path(temp_dir) / "cache", fetch_html=lambda url: YFULL_BRANCH_HTML)
+            result = service.lookup("R-Y100")
+            child_template = result.branch.children[1]
+            variants = {
+                "empty": ((), 900),
+                "crowded": (
+                    tuple(
+                        replace(child_template, name=f"R-Z{index}", public_sample_count=index)
+                        for index in range(200, 220)
+                    ),
+                    1074,
+                ),
+            }
+
+            for name, (children, expected_height) in variants.items():
+                with self.subTest(name=name):
+                    output_path = Path(temp_dir) / f"{name}.png"
+                    crowded_result = replace(result, branch=replace(result.branch, children=children))
+                    render_yfull_branch_png(output_path, crowded_result, lang="ru", theme="light")
+                    with Image.open(output_path) as image:
+                        self.assertEqual(image.size, (1280, expected_height))
+
+    def test_branch_visual_expands_to_show_all_geographies(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            service = YFullBranchService(Path(temp_dir) / "cache", fetch_html=lambda url: YFULL_BRANCH_HTML)
+            result = service.lookup("R-Y100")
+            geography_template = result.branch.geographies[0]
+            geographies = tuple(
+                replace(geography_template, label=f"Region {index}", count=100 - index)
+                for index in range(10)
+            )
+            expanded_result = replace(result, branch=replace(result.branch, geographies=geographies))
+            output_path = Path(temp_dir) / "many-geographies.png"
+
+            render_yfull_branch_png(output_path, expanded_result, lang="en", theme="light")
+
+            with Image.open(output_path) as image:
+                self.assertEqual(image.size, (1280, 1047))
 
     def test_normalize_branch_accepts_code_and_public_yfull_url(self) -> None:
         self.assertEqual(normalize_yfull_branch_query("r-y23968"), "R-Y23968")
