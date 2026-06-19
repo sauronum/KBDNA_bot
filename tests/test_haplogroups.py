@@ -32,7 +32,6 @@ from app.features.haplogroups.menu import (
     haplogroups_text_input_handler,
     parse_haplogroup_input,
     show_branch_lookup_prompt,
-    show_branch_trees_menu,
     show_haplogroups_menu,
 )
 from app.features.haplogroups.storage import HaplogroupRecord, HaplogroupStore
@@ -815,7 +814,8 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             callbacks,
             [
-                f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:y",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:mt",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:str",
@@ -823,27 +823,13 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:cancel",
             ],
         )
-
-    async def test_haplogroup_trees_menu_offers_y_and_mt_trees(self) -> None:
-        message = _MenuMessage()
-
-        await show_branch_trees_menu(message, lang="ru")
-
-        self.assertIn("Деревья гаплогрупп", message.text)
-        callbacks = [
-            button.callback_data
+        labels = [
+            button.text
             for row in message.reply_markup.inline_keyboard
             for button in row
         ]
-        self.assertEqual(
-            callbacks,
-            [
-                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:y",
-                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:mt",
-                f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
-                f"{HAPLOGROUPS_CALLBACK_PREFIX}:cancel",
-            ],
-        )
+        self.assertIn("🌳 YFull YTree · Y-DNA", labels)
+        self.assertIn("🌳 YFull MTree · mtDNA", labels)
 
     async def test_document_upload_rejects_oversized_file_before_download(self) -> None:
         flow = HaplogroupFlowStore()
