@@ -58,7 +58,7 @@ from .ui import (
     y_prediction_text,
 )
 from .visualization import render_yfull_branch_png
-from .yfull import YFullBranchService, YFullLookupError
+from .yfull import TREE_MTDNA, YFullBranchService, YFullLookupError
 
 
 HAPLOGROUPS_CALLBACK_PREFIX = "haplogroups"
@@ -133,6 +133,10 @@ def register_haplogroup_services(application: Application, settings) -> None:
     application.bot_data["haplogroup_store"] = HaplogroupStore(haplogroup_root)
     application.bot_data["haplogroup_flow_store"] = HaplogroupFlowStore()
     application.bot_data["yfull_branch_service"] = YFullBranchService(haplogroup_root / "yfull_cache")
+    application.bot_data["yfull_mtree_service"] = YFullBranchService(
+        haplogroup_root / "yfull_mtree_cache",
+        tree_type=TREE_MTDNA,
+    )
 
 
 def _store(context: ContextTypes.DEFAULT_TYPE) -> HaplogroupStore:
@@ -165,6 +169,20 @@ def _yfull_branch_service(context: ContextTypes.DEFAULT_TYPE) -> YFullBranchServ
     service = YFullBranchService(cache_dir)
     context.application.bot_data["yfull_branch_service"] = service
     return service
+
+
+def _yfull_mtree_service(context: ContextTypes.DEFAULT_TYPE) -> YFullBranchService:
+    service = context.application.bot_data.get("yfull_mtree_service")
+    if isinstance(service, YFullBranchService):
+        return service
+    cache_dir = _store(context).root_dir / "yfull_mtree_cache"
+    service = YFullBranchService(cache_dir, tree_type=TREE_MTDNA)
+    context.application.bot_data["yfull_mtree_service"] = service
+    return service
+
+
+def _yfull_tree_service(context: ContextTypes.DEFAULT_TYPE, tree_type: str) -> YFullBranchService:
+    return _yfull_mtree_service(context) if tree_type == "mt" else _yfull_branch_service(context)
 
 
 def _branch_visual_theme(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> str:
@@ -267,12 +285,32 @@ async def show_haplogroups_menu(
 ) -> None:
     lang = lang or get_user_language(context, user_id)
     rows = [
-        [InlineKeyboardButton(_copy(lang, "Найти ветку", "Find a branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")],
+        [InlineKeyboardButton(_copy(lang, "🌳 Деревья гаплогрупп", "🌳 Haplogroup trees"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees")],
         [InlineKeyboardButton("🧬 Y-DNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:y")],
         [InlineKeyboardButton("🧬 mtDNA", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt")],
         [InlineKeyboardButton("🧮 Y-STR", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:str")],
     ]
     await _show_or_edit(message, haplogroups_root_text(lang), build_markup(rows, "main:root", lang=lang), edit_existing=edit_existing)
+
+
+async def show_branch_trees_menu(message, *, lang: str = "ru", edit_existing: bool = False) -> None:
+    rows = [
+        [InlineKeyboardButton("🧬 Y-DNA · YFull YTree", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:y")],
+        [InlineKeyboardButton("🧬 mtDNA · YFull MTree", callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:mt")],
+    ]
+    text_value = "\n".join(
+        [
+            f"<b>{_copy(lang, '🌳 Деревья гаплогрупп', '🌳 Haplogroup trees')}</b>",
+            "",
+            _copy(lang, "Выберите линию для поиска ветви.", "Choose a lineage to look up a branch."),
+        ]
+    )
+    await _show_or_edit(
+        message,
+        text_value,
+        build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+        edit_existing=edit_existing,
+    )
 
 
 async def show_branch_lookup_prompt(
@@ -281,14 +319,16 @@ async def show_branch_lookup_prompt(
     user_id: int,
     chat_id: int,
     *,
+    tree_type: str = "y",
     lang: str = "ru",
     edit_existing: bool = False,
 ) -> None:
-    _flow_store(context).expect(chat_id, user_id, {}, action=_BRANCH_LOOKUP_ACTION)
+    tree_type = "mt" if tree_type == "mt" else "y"
+    _flow_store(context).expect(chat_id, user_id, {"tree_type": tree_type}, action=_BRANCH_LOOKUP_ACTION)
     await _show_or_edit(
         message,
-        branch_lookup_prompt_text(lang),
-        build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+        branch_lookup_prompt_text(lang, tree_type=tree_type),
+        build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees", lang=lang),
         edit_existing=edit_existing,
     )
 
@@ -861,9 +901,10 @@ def _render_branch_visual(
     return result
 
 
-def _branch_visual_caption(result, lang: str) -> str:
+def _branch_visual_caption(result, lang: str, *, tree_type: str = "y") -> str:
     branch = result.branch
-    version = f"YFull YTree v{branch.tree_version}" if branch.tree_version else "YFull YTree"
+    tree_name = "MTree" if tree_type == "mt" else "YTree"
+    version = f"YFull {tree_name} v{branch.tree_version}" if branch.tree_version else f"YFull {tree_name}"
     details = []
     if branch.formed_ybp is not None:
         details.append(f"{_copy(lang, 'сформировалась', 'formed')}: {branch.formed_ybp:,}".replace(",", " "))
@@ -882,12 +923,13 @@ async def _send_branch_visual(
     branch_name: str,
     user_id: int,
     lang: str,
+    tree_type: str = "y",
 ) -> bool:
     image_path = _create_branch_visual_path()
     try:
         result = await asyncio.to_thread(
             _render_branch_visual,
-            _yfull_branch_service(context),
+            _yfull_tree_service(context, tree_type),
             branch_name,
             image_path,
             lang=lang,
@@ -896,13 +938,13 @@ async def _send_branch_visual(
         with image_path.open("rb") as handle:
             await message.reply_photo(
                 photo=handle,
-                caption=_branch_visual_caption(result, lang),
+                caption=_branch_visual_caption(result, lang, tree_type=tree_type),
                 parse_mode="HTML",
                 do_quote=False,
             )
         return True
     except YFullLookupError as exc:
-        await message.reply_text(branch_lookup_error_text(exc.reason, lang), parse_mode="HTML", do_quote=False)
+        await message.reply_text(branch_lookup_error_text(exc.reason, lang, tree_type=tree_type), parse_mode="HTML", do_quote=False)
         return False
     except Exception:
         logger.exception("YFull branch visual failed")
@@ -918,7 +960,7 @@ async def _send_branch_visual(
             pass
 
 
-def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -> list[list[InlineKeyboardButton]]:
+def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str, *, tree_type: str = "y") -> list[list[InlineKeyboardButton]]:
     branch = result.branch
     rows: list[list[InlineKeyboardButton]] = []
     if branch.parent:
@@ -927,7 +969,7 @@ def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -
             [
                 InlineKeyboardButton(
                     f"↑ {branch.parent}"[:60],
-                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:{parent_token}",
+                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:{tree_type}:{parent_token}",
                 )
             ]
         )
@@ -940,7 +982,7 @@ def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -
             [
                 InlineKeyboardButton(
                     label[:60],
-                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:{child_token}",
+                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:{tree_type}:{child_token}",
                 )
             ]
         )
@@ -951,11 +993,11 @@ def _branch_result_rows(context: ContextTypes.DEFAULT_TYPE, result, lang: str) -
             [
                 InlineKeyboardButton(
                     _copy(lang, "🖼 Карточка ветви", "🖼 Branch card"),
-                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bv:{_remember_branch_nav_target(context, branch.name)}",
+                    callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:bv:{tree_type}:{_remember_branch_nav_target(context, branch.name)}",
                 )
             ],
             [InlineKeyboardButton(_copy(lang, "Открыть в YFull", "Open in YFull"), url=branch.source_url)],
-            [InlineKeyboardButton(_copy(lang, "Найти другую ветку", "Find another branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")],
+            [InlineKeyboardButton(_copy(lang, "Найти другую ветвь", "Find another branch"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:{tree_type}")],
         ]
     )
     return rows
@@ -969,14 +1011,15 @@ async def _complete_branch_lookup(
     chat_id: int,
     user_id: int,
     lang: str,
+    tree_type: str = "y",
 ) -> bool:
     try:
-        result = await asyncio.to_thread(_yfull_branch_service(context).lookup, body)
+        result = await asyncio.to_thread(_yfull_tree_service(context, tree_type).lookup, body)
     except YFullLookupError as exc:
-        rows = [[InlineKeyboardButton(_copy(lang, "Попробовать снова", "Try again"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch")]]
+        rows = [[InlineKeyboardButton(_copy(lang, "Попробовать снова", "Try again"), callback_data=f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:{tree_type}")]]
         await message.edit_text(
-            branch_lookup_error_text(exc.reason, lang),
-            reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            branch_lookup_error_text(exc.reason, lang, tree_type=tree_type),
+            reply_markup=build_markup(rows, f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees", lang=lang),
             parse_mode="HTML",
         )
         set_active_main_menu_message(context, chat_id, user_id, message.message_id)
@@ -984,16 +1027,16 @@ async def _complete_branch_lookup(
     except Exception:
         logger.exception("YFull branch lookup failed")
         await message.edit_text(
-            branch_lookup_error_text("unavailable", lang),
-            reply_markup=build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            branch_lookup_error_text("unavailable", lang, tree_type=tree_type),
+            reply_markup=build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees", lang=lang),
             parse_mode="HTML",
         )
         set_active_main_menu_message(context, chat_id, user_id, message.message_id)
         return False
 
     await message.edit_text(
-        branch_lookup_result_text(result, lang),
-        reply_markup=build_markup(_branch_result_rows(context, result, lang), f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+        branch_lookup_result_text(result, lang, tree_type=tree_type),
+        reply_markup=build_markup(_branch_result_rows(context, result, lang, tree_type=tree_type), f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees", lang=lang),
         parse_mode="HTML",
     )
     set_active_main_menu_message(context, chat_id, user_id, message.message_id)
@@ -1009,10 +1052,11 @@ async def _handle_branch_lookup_input(
     user_id: int,
     lang: str,
     flow: HaplogroupFlowStore,
+    tree_type: str = "y",
 ) -> None:
     assert update.message is not None
     status_message = await update.message.reply_text(
-        branch_lookup_loading_text(body, lang),
+        branch_lookup_loading_text(body, lang, tree_type=tree_type),
         parse_mode="HTML",
         do_quote=False,
     )
@@ -1020,6 +1064,7 @@ async def _handle_branch_lookup_input(
         status_message,
         context,
         body=body,
+        tree_type=tree_type,
         chat_id=chat_id,
         user_id=user_id,
         lang=lang,
@@ -1053,6 +1098,7 @@ async def haplogroups_text_input_handler(update: Update, context: ContextTypes.D
             update,
             context,
             body=body,
+            tree_type="mt" if pending.get("tree_type") == "mt" else "y",
             chat_id=chat_id,
             user_id=user_id,
             lang=lang,
@@ -1236,24 +1282,32 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
         context.user_data.pop("haplogroups_add_data_origin", None)
         await show_haplogroups_menu(query.message, context, user_id, lang=lang, edit_existing=True)
         return
+    if action == "trees":
+        await show_branch_trees_menu(query.message, lang=lang, edit_existing=True)
+        return
     if action == "branch":
+        tree_type = "mt" if len(parts) > 2 and parts[2] == "mt" else "y"
         await show_branch_lookup_prompt(
             query.message,
             context,
             user_id,
             chat_id,
+            tree_type=tree_type,
             lang=lang,
             edit_existing=True,
         )
         return
     if action == "bv":
-        branch_name = _resolve_branch_nav_target(context, parts[2] if len(parts) > 2 else "")
+        tree_type = parts[2] if len(parts) > 2 and parts[2] in {"y", "mt"} else "y"
+        token_index = 3 if len(parts) > 2 and parts[2] in {"y", "mt"} else 2
+        branch_name = _resolve_branch_nav_target(context, parts[token_index] if len(parts) > token_index else "")
         if not branch_name:
             await show_branch_lookup_prompt(
                 query.message,
                 context,
                 user_id,
                 chat_id,
+                tree_type=tree_type,
                 lang=lang,
                 edit_existing=True,
             )
@@ -1262,32 +1316,37 @@ async def haplogroups_callback_handler(update: Update, context: ContextTypes.DEF
             query.message,
             context,
             branch_name=branch_name,
+            tree_type=tree_type,
             user_id=user_id,
             lang=lang,
         )
         return
     if action == "bn":
-        branch_name = _resolve_branch_nav_target(context, parts[2] if len(parts) > 2 else "")
+        tree_type = parts[2] if len(parts) > 2 and parts[2] in {"y", "mt"} else "y"
+        token_index = 3 if len(parts) > 2 and parts[2] in {"y", "mt"} else 2
+        branch_name = _resolve_branch_nav_target(context, parts[token_index] if len(parts) > token_index else "")
         if not branch_name:
             await show_branch_lookup_prompt(
                 query.message,
                 context,
                 user_id,
                 chat_id,
+                tree_type=tree_type,
                 lang=lang,
                 edit_existing=True,
             )
             return
         await _show_or_edit(
             query.message,
-            branch_lookup_loading_text(branch_name, lang),
-            build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:root", lang=lang),
+            branch_lookup_loading_text(branch_name, lang, tree_type=tree_type),
+            build_markup([], f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees", lang=lang),
             edit_existing=True,
         )
         await _complete_branch_lookup(
             query.message,
             context,
             body=branch_name,
+            tree_type=tree_type,
             chat_id=chat_id,
             user_id=user_id,
             lang=lang,

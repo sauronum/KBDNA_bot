@@ -10,6 +10,7 @@ from PIL import Image, ImageStat
 from app.features.haplogroups.branch_ui import branch_lookup_result_text
 from app.features.haplogroups.visualization import render_yfull_branch_png
 from app.features.haplogroups.yfull import (
+    TREE_MTDNA,
     YFullBranchService,
     YFullLookupError,
     normalize_yfull_branch_query,
@@ -58,6 +59,42 @@ YFULL_BRANCH_HTML = """
       </li>
     </ul>
     <p class="note">Haplogroup YTree v14.03.00 (16 May 2026)</p>
+  </body>
+</html>
+"""
+
+MTREE_BRANCH_HTML = """
+<html>
+  <head><title>H1a1 MTree</title></head>
+  <body>
+    <div id="tbl-header">YFull MTree v1.02.00</div>
+    <div id="bc">
+      <span><a href="/mtree/">Home</a></span>
+      <span><a href="/mtree/H/">H</a></span>
+      <span><a href="/mtree/H1/">H1</a></span>
+    </div>
+    <ul id="tree" class="yfullcom-tree">
+      <li id="lH1a1">
+        <a class="yf-root">H1a1</a>
+        <span class="yf-snpforhg">A73G * C146T</span>
+        <span title="formed CI 95% 9000&lt;-&gt;6500 ybp, TMRCA CI 95% 7000&lt;-&gt;4200 ybp" class="yf-age">formed 7600 ybp, TMRCA 5400 ybp</span>
+        <ul>
+          <li id="lH1a1a">
+            <a href="/mtree/H1a1a/">H1a1a</a>
+            <span class="yf-snpforhg">T16189C</span>
+            <span class="yf-age">formed 5400 ybp, TMRCA 3100 ybp</span>
+            <ul><li valSampleID="YF000101"><b title="Russia" class="yf-geo fl RU">RUS</b></li></ul>
+          </li>
+          <li id="lH1a1b">
+            <a href="/mtree/H1a1b/">H1a1b</a>
+            <span class="yf-snpforhg">G13708A</span>
+            <span class="yf-age">formed 5400 ybp, TMRCA 2800 ybp</span>
+            <ul><li valSampleID="YF000102"><b title="Georgia" class="yf-geo fl GE">GEO</b></li></ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+    <p class="note">MTree v1.02.00 (10 June 2026)</p>
   </body>
 </html>
 """
@@ -138,6 +175,38 @@ class YFullBranchTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(YFullLookupError) as raised:
                 normalize_yfull_branch_query(value)
             self.assertEqual(raised.exception.reason, "invalid_query")
+
+    def test_mtree_normalization_parser_service_and_copy(self) -> None:
+        self.assertEqual(normalize_yfull_branch_query("h1a1", tree_type=TREE_MTDNA), "H1a1")
+        self.assertEqual(
+            normalize_yfull_branch_query("https://www.yfull.com/mtree/U1b2d/", tree_type=TREE_MTDNA),
+            "U1b2d",
+        )
+        with TemporaryDirectory() as temp_dir:
+            urls = []
+
+            def fetch(url: str) -> str:
+                urls.append(url)
+                return MTREE_BRANCH_HTML
+
+            service = YFullBranchService(Path(temp_dir), fetch_html=fetch, tree_type=TREE_MTDNA)
+            result = service.lookup("H1a1")
+            image_path = Path(temp_dir) / "mtree.png"
+            render_yfull_branch_png(image_path, result, lang="ru", theme="light")
+
+            self.assertEqual(urls, ["https://www.yfull.com/mtree/H1a1/"])
+            self.assertEqual(result.branch.path, ("H", "H1", "H1a1"))
+            self.assertEqual(result.branch.snps, ("A73G", "C146T"))
+            self.assertEqual([child.name for child in result.branch.children], ["H1a1a", "H1a1b"])
+            self.assertEqual(result.branch.source_url, "https://www.yfull.com/mtree/H1a1/")
+            self.assertEqual(result.branch.tree_version, "1.02.00")
+            self.assertEqual(result.branch.release_date, "10 June 2026")
+            with Image.open(image_path) as image:
+                self.assertEqual(image.size, (1280, 900))
+
+        text = branch_lookup_result_text(result, "ru", tree_type="mt")
+        self.assertIn("YFull MTree", text)
+        self.assertIn("Мутации:", text)
 
     def test_parse_branch_extracts_path_snps_ages_children_and_samples(self) -> None:
         branch = parse_yfull_branch_html(

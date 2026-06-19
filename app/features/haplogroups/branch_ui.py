@@ -38,10 +38,16 @@ def _copy(lang: str, ru: str, en: str) -> str:
     return en if lang == "en" else ru
 
 
-def branch_lookup_prompt_text(lang: str = "ru") -> str:
+def branch_lookup_prompt_text(lang: str = "ru", *, tree_type: str = "y") -> str:
+    is_mt = tree_type == "mt"
+    examples = (
+        ("H1a1", "U1b2d", "https://www.yfull.com/mtree/U1b2d/")
+        if is_mt
+        else ("G-Z31455", "R-Y23968", "https://www.yfull.com/tree/R-Y23968/")
+    )
     return "\n".join(
         [
-            f"<b>{_copy(lang, 'Поиск ветки Y-DNA', 'Y-DNA branch lookup')}</b>",
+            f"<b>{_copy(lang, 'Поиск ветви mtDNA' if is_mt else 'Поиск ветви Y-DNA', 'mtDNA branch lookup' if is_mt else 'Y-DNA branch lookup')}</b>",
             "",
             _copy(
                 lang,
@@ -49,34 +55,38 @@ def branch_lookup_prompt_text(lang: str = "ru") -> str:
                 "Send a full branch name or a public YFull tree URL.",
             ),
             "",
-            "<code>G-Z31455</code>",
-            "<code>R-Y23968</code>",
-            "<code>https://www.yfull.com/tree/R-Y23968/</code>",
+            f"<code>{examples[0]}</code>",
+            f"<code>{examples[1]}</code>",
+            f"<code>{examples[2]}</code>",
         ]
     )
 
 
-def branch_lookup_loading_text(query: str, lang: str = "ru") -> str:
+def branch_lookup_loading_text(query: str, lang: str = "ru", *, tree_type: str = "y") -> str:
+    tree_name = "MTree" if tree_type == "mt" else "YTree"
     return "\n".join(
         [
-            f"<b>{_copy(lang, 'Ищу ветку в YFull YTree', 'Looking up the branch in YFull YTree')}</b>",
+            f"<b>{_copy(lang, f'Ищу ветвь в YFull {tree_name}', f'Looking up the branch in YFull {tree_name}')}</b>",
             "",
             f"<code>{html.escape(query[:120])}</code>",
         ]
     )
 
 
-def branch_lookup_error_text(reason: str, lang: str = "ru") -> str:
+def branch_lookup_error_text(reason: str, lang: str = "ru", *, tree_type: str = "y") -> str:
+    is_mt = tree_type == "mt"
+    tree_name = "MTree" if is_mt else "YTree"
+    example = "H1a1" if is_mt else "G-Z31455"
     messages = {
         "invalid_query": _copy(
             lang,
-            "Не понял название ветки. Пришлите полный код вроде G-Z31455 или ссылку YFull.",
-            "I could not understand the branch name. Send a full code such as G-Z31455 or a YFull URL.",
+            f"Не понял название ветви. Пришлите полный код вроде {example} или ссылку YFull.",
+            f"I could not understand the branch name. Send a full code such as {example} or a YFull URL.",
         ),
         "not_found": _copy(
             lang,
-            "Ветка не найдена в публичном YFull YTree. Проверьте код и попробуйте снова.",
-            "The branch was not found in the public YFull YTree. Check the code and try again.",
+            f"Ветвь не найдена в публичном YFull {tree_name}. Проверьте код и попробуйте снова.",
+            f"The branch was not found in the public YFull {tree_name}. Check the code and try again.",
         ),
         "unavailable": _copy(
             lang,
@@ -98,10 +108,12 @@ def branch_lookup_error_text(reason: str, lang: str = "ru") -> str:
     return "\n".join([f"<b>{_copy(lang, 'Поиск ветки', 'Branch lookup')}</b>", "", message])
 
 
-def branch_lookup_result_text(result: YFullLookupResult, lang: str = "ru") -> str:
+def branch_lookup_result_text(result: YFullLookupResult, lang: str = "ru", *, tree_type: str | None = None) -> str:
     branch = result.branch
+    is_mt = tree_type == "mt" if tree_type is not None else "/mtree/" in branch.source_url
+    tree_name = "MTree" if is_mt else "YTree"
     lines = [f"<b>{html.escape(branch.name)}</b>"]
-    version = f"YFull YTree {_short_tree_version(branch.tree_version)}" if branch.tree_version else "YFull YTree"
+    version = f"YFull {tree_name} {_short_tree_version(branch.tree_version)}" if branch.tree_version else f"YFull {tree_name}"
     if branch.release_date:
         version += f" · {_format_release_date(branch.release_date, lang)}"
     lines.extend([html.escape(version), ""])
@@ -112,7 +124,8 @@ def branch_lookup_result_text(result: YFullLookupResult, lang: str = "ru") -> st
         path = _compact_path(branch.path)
         lines.append(f"{_copy(lang, 'Линия', 'Lineage')}: <code>{html.escape(' › '.join(path))}</code>")
     if branch.snps:
-        lines.append(f"SNP: <code>{html.escape(_compact_values(branch.snps, 4))}</code>")
+        marker_label = _copy(lang, "Мутации", "Mutations") if is_mt else "SNP"
+        lines.append(f"{marker_label}: <code>{html.escape(_compact_values(branch.snps, 4))}</code>")
     if branch.formed_ybp is not None:
         lines.append(
             f"{_copy(lang, 'Возраст ветви', 'Branch age')}: "

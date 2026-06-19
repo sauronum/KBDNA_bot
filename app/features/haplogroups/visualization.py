@@ -131,10 +131,11 @@ def _draw_header(
     result: YFullLookupResult,
 ) -> None:
     branch = result.branch
-    draw.text((42, 20), "YFULL YTREE", fill=(*theme.cyan, 255), font=fonts["label"])
+    is_mt = _is_mtdna_branch(branch)
+    draw.text((42, 20), "YFULL MTREE" if is_mt else "YFULL YTREE", fill=(*theme.cyan, 255), font=fonts["label"])
     draw.text((42, 43), _ellipsize(draw, branch.name, fonts["title"], 750), fill=(*theme.text, 255), font=fonts["title"])
     snps = "  ·  ".join(branch.snps[:4])
-    snp_line = f"SNP  {snps}" if snps else "terminal branch"
+    snp_line = f"{'MUTATIONS' if is_mt else 'SNP'}  {snps}" if snps else "terminal branch"
     draw.text((44, 100), _ellipsize(draw, snp_line, fonts["small"], 760), fill=(*theme.muted, 255), font=fonts["small"])
 
     version = f"v{branch.tree_version}" if branch.tree_version else "YTREE"
@@ -310,7 +311,8 @@ def _draw_children_panel(
         return
 
     header_y = y + 122
-    draw.text((x + 347, header_y), "SNP", fill=(*theme.faint, 255), font=fonts["label"])
+    marker_header = _copy(lang, "МУТАЦИИ", "MUTATIONS") if _is_mtdna_branch(branch) else "SNP"
+    draw.text((x + 347, header_y), marker_header, fill=(*theme.faint, 255), font=fonts["label"])
     draw.text((x + 562, header_y), _copy(lang, "TMRCA, ЛЕТ", "TMRCA, YBP"), fill=(*theme.faint, 255), font=fonts["label"])
     samples_header = _copy(lang, "ОБРАЗЦЫ", "SAMPLES")
     draw.text(
@@ -383,7 +385,7 @@ def _draw_metrics_panel(
         (_copy(lang, "Образцы", "Samples"), str(branch.public_sample_count), theme.green),
         (_copy(lang, "Ветви", "Children"), str(len(children)), theme.cyan),
         (_copy(lang, "Базальные", "Basal"), str(basal), theme.gold),
-        ("SNP", str(len(branch.snps)), theme.pink),
+        (_copy(lang, "Мутации", "Mutations") if _is_mtdna_branch(branch) else "SNP", str(len(branch.snps)), theme.pink),
     )
     card_w = 174
     for index, (label, value, color) in enumerate(metrics):
@@ -433,7 +435,8 @@ def _draw_footer(
 ) -> None:
     y = 836 + extra_height
     draw.line((42, y, 1238, y), fill=(*theme.border, 180), width=1)
-    left = _copy(lang, "Источник: публичный YFull YTree", "Source: public YFull YTree")
+    tree_name = "MTree" if _is_mtdna_branch(result.branch) else "YTree"
+    left = _copy(lang, f"Источник: публичный YFull {tree_name}", f"Source: public YFull {tree_name}")
     draw.text((44, y + 19), left, fill=(*theme.muted, 255), font=fonts["tiny"])
     fetched = result.branch.fetched_at[:10] if result.branch.fetched_at else "-"
     right = f"{fetched}  ·  {result.cache_status.upper()}"
@@ -495,6 +498,10 @@ def _compact_path(path: tuple[str, ...]) -> tuple[str, ...]:
     if len(path) <= 6:
         return path
     return (path[0], "...", *path[-4:])
+
+
+def _is_mtdna_branch(branch: YFullBranch) -> bool:
+    return "/mtree/" in branch.source_url.lower()
 
 
 def _short_age(value: int) -> str:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 import unittest
 from tempfile import TemporaryDirectory
@@ -31,6 +32,7 @@ from app.features.haplogroups.menu import (
     haplogroups_text_input_handler,
     parse_haplogroup_input,
     show_branch_lookup_prompt,
+    show_branch_trees_menu,
     show_haplogroups_menu,
 )
 from app.features.haplogroups.storage import HaplogroupRecord, HaplogroupStore
@@ -456,9 +458,13 @@ class HaplogroupTests(unittest.TestCase):
         record_id = "20260501090012345678-12345678"
         callbacks = [
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:mt",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:0123456789ab",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:mt:0123456789ab",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:bv:0123456789ab",
+            f"{HAPLOGROUPS_CALLBACK_PREFIX}:bv:mt:0123456789ab",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
             f"{HAPLOGROUPS_CALLBACK_PREFIX}:detect",
@@ -538,9 +544,11 @@ class _DocumentMessage:
 
 class _MenuMessage:
     def __init__(self) -> None:
+        self.text = ""
         self.reply_markup = None
 
     async def reply_text(self, text: str, **kwargs):
+        self.text = text
         self.reply_markup = kwargs.get("reply_markup")
         return SimpleNamespace(message_id=10)
 
@@ -606,6 +614,22 @@ class _YFullServiceStub:
             fetched_at="2026-06-18T00:00:00+00:00",
         )
         return YFullLookupResult(branch=branch, cache_status="live")
+
+
+class _MTreeServiceStub:
+    def lookup(self, query: str) -> YFullLookupResult:
+        result = _YFullServiceStub().lookup(query)
+        child = replace(result.branch.children[0], name="H1a1a", snps=("T16189C",))
+        branch = replace(
+            result.branch,
+            name="H1a1",
+            parent="H1",
+            path=("H", "H1", "H1a1"),
+            snps=("A73G", "C146T"),
+            children=(child,),
+            source_url="https://www.yfull.com/mtree/H1a1/",
+        )
+        return replace(result, branch=branch)
 
 
 class _MyDataStub:
@@ -725,6 +749,35 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(url_buttons[0].url, "https://www.yfull.com/tree/R-Y100/")
 
+    async def test_mtdna_branch_lookup_uses_mtree_service_and_copy(self) -> None:
+        flow = HaplogroupFlowStore()
+        flow.expect(10, 123, {"tree_type": "mt"}, action=_BRANCH_LOOKUP_ACTION)
+        context = SimpleNamespace(
+            application=SimpleNamespace(bot_data={"haplogroup_flow_store": flow})
+        )
+        message = _TextMessage("H1a1")
+        update = SimpleNamespace(
+            message=message,
+            effective_chat=SimpleNamespace(id=10),
+            effective_user=SimpleNamespace(id=123),
+        )
+
+        with patch("app.features.haplogroups.menu._yfull_mtree_service", return_value=_MTreeServiceStub()):
+            with self.assertRaises(ApplicationHandlerStop):
+                await haplogroups_text_input_handler(update, context)
+
+        self.assertIsNone(flow.get(10, 123))
+        self.assertIn("YFull MTree", message.status.text)
+        self.assertIn("Мутации:", message.status.text)
+        callbacks = [
+            button.callback_data
+            for row in message.status.reply_markup.inline_keyboard
+            for button in row
+            if button.callback_data
+        ]
+        self.assertTrue(any(callback.startswith(f"{HAPLOGROUPS_CALLBACK_PREFIX}:bn:mt:") for callback in callbacks))
+        self.assertTrue(any(callback.startswith(f"{HAPLOGROUPS_CALLBACK_PREFIX}:bv:mt:") for callback in callbacks))
+
     async def test_branch_lookup_prompt_sets_expected_text_flow(self) -> None:
         flow = HaplogroupFlowStore()
         context = SimpleNamespace(
@@ -735,6 +788,19 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
         await show_branch_lookup_prompt(message, context, 123, 10, lang="ru")
 
         self.assertEqual(flow.get(10, 123)["action"], _BRANCH_LOOKUP_ACTION)
+
+    async def test_mtdna_branch_lookup_prompt_sets_mtree_flow(self) -> None:
+        flow = HaplogroupFlowStore()
+        context = SimpleNamespace(
+            application=SimpleNamespace(bot_data={"haplogroup_flow_store": flow})
+        )
+        message = _MenuMessage()
+
+        await show_branch_lookup_prompt(message, context, 123, 10, tree_type="mt", lang="ru")
+
+        self.assertEqual(flow.get(10, 123)["tree_type"], "mt")
+        self.assertIn("mtDNA", message.text)
+        self.assertIn("/mtree/", message.text)
 
     async def test_root_menu_does_not_show_saved_by_sample_section(self) -> None:
         message = _MenuMessage()
@@ -749,11 +815,32 @@ class HaplogroupDocumentHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             callbacks,
             [
-                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:trees",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:y",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:mt",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:str",
                 "main:root",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:cancel",
+            ],
+        )
+
+    async def test_haplogroup_trees_menu_offers_y_and_mt_trees(self) -> None:
+        message = _MenuMessage()
+
+        await show_branch_trees_menu(message, lang="ru")
+
+        self.assertIn("Деревья гаплогрупп", message.text)
+        callbacks = [
+            button.callback_data
+            for row in message.reply_markup.inline_keyboard
+            for button in row
+        ]
+        self.assertEqual(
+            callbacks,
+            [
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:y",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:branch:mt",
+                f"{HAPLOGROUPS_CALLBACK_PREFIX}:root",
                 f"{HAPLOGROUPS_CALLBACK_PREFIX}:cancel",
             ],
         )

@@ -23,8 +23,20 @@ _CACHE_SCHEMA_VERSION = 2
 _DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
 _MAX_HTML_BYTES = 3 * 1024 * 1024
 _BRANCH_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9*._-]{0,79}")
-_TREE_PATH_RE = re.compile(r"/(?:live/|sc/|chart/)?tree/([^/?#]+)/?", re.IGNORECASE)
 _MACRO_BRANCHES = set("ABCDEFGHIJKLMNOPQRST")
+TREE_YDNA = "ytree"
+TREE_MTDNA = "mtree"
+_TREE_CONFIG = {
+    TREE_YDNA: ("tree", "YTree"),
+    TREE_MTDNA: ("mtree", "MTree"),
+}
+
+
+def _tree_config(tree_type: str) -> tuple[str, str]:
+    try:
+        return _TREE_CONFIG[tree_type]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported YFull tree type: {tree_type}") from exc
 
 
 class YFullLookupError(RuntimeError):
@@ -93,8 +105,9 @@ class _LiContext:
 
 
 class _YFullTreeParser(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, *, path_segment: str = "tree") -> None:
         super().__init__(convert_charrefs=True)
+        self.path_segment = path_segment
         self.breadcrumbs: list[str] = []
         self.nodes: list[_ParsedNode] = []
         self.public_sample_count = 0
@@ -151,7 +164,7 @@ class _YFullTreeParser(HTMLParser):
         node = self._current_node()
         if node is None:
             return
-        if tag == "a" and ("yf-root" in classes or "/tree/" in str(attributes.get("href") or "")):
+        if tag == "a" and ("yf-root" in classes or f"/{self.path_segment}/" in str(attributes.get("href") or "")):
             self._start_capture(tag, "name", node)
         elif tag == "span" and "yf-snpforhg" in classes:
             self._start_capture(tag, "snps", node)
@@ -210,7 +223,8 @@ class _YFullTreeParser(HTMLParser):
         self._capture_text = []
 
 
-def normalize_yfull_branch_query(value: str) -> str:
+def normalize_yfull_branch_query(value: str, *, tree_type: str = TREE_YDNA) -> str:
+    path_segment, _ = _tree_config(tree_type)
     clean = value.strip().strip("<>")
     if not clean:
         raise YFullLookupError("invalid_query")
@@ -220,7 +234,8 @@ def normalize_yfull_branch_query(value: str) -> str:
         host = (parsed.hostname or "").lower()
         if host not in {"yfull.com", "www.yfull.com"}:
             raise YFullLookupError("invalid_query")
-        match = _TREE_PATH_RE.search(parsed.path)
+        tree_path_re = re.compile(rf"/(?:live/|sc/|chart/)?{re.escape(path_segment)}/([^/?#]+)/?", re.IGNORECASE)
+        match = tree_path_re.search(parsed.path)
         if match is None:
             raise YFullLookupError("invalid_query")
         clean = unquote(match.group(1))
@@ -228,7 +243,7 @@ def normalize_yfull_branch_query(value: str) -> str:
     clean = clean.strip().strip("/")
     if _BRANCH_RE.fullmatch(clean) is None or ".." in clean:
         raise YFullLookupError("invalid_query")
-    if not any(character.isdigit() for character in clean) and clean.upper() not in _MACRO_BRANCHES:
+    if tree_type == TREE_YDNA and not any(character.isdigit() for character in clean) and clean.upper() not in _MACRO_BRANCHES:
         raise YFullLookupError("invalid_query")
     if "-" in clean:
         prefix, suffix = clean.split("-", 1)
@@ -236,8 +251,9 @@ def normalize_yfull_branch_query(value: str) -> str:
     return clean[:1].upper() + clean[1:]
 
 
-def parse_yfull_branch_html(html_text: str, *, source_url: str) -> YFullBranch:
-    parser = _YFullTreeParser()
+def parse_yfull_branch_html(html_text: str, *, source_url: str, tree_type: str = TREE_YDNA) -> YFullBranch:
+    path_segment, tree_label = _tree_config(tree_type)
+    parser = _YFullTreeParser(path_segment=path_segment)
     try:
         parser.feed(html_text)
         parser.close()
@@ -246,11 +262,11 @@ def parse_yfull_branch_html(html_text: str, *, source_url: str) -> YFullBranch:
 
     root = next((node for node in parser.nodes if not node.parent_id and node.name), None)
     if root is None:
-        raise YFullLookupError("not_found" if "YTree" in html_text else "parse_error")
+        raise YFullLookupError("not_found" if tree_label in html_text else "parse_error")
 
     text = " ".join(parser.all_text)
-    version_match = re.search(r"YTree\s+v([0-9.]+)", text, flags=re.IGNORECASE)
-    release_match = re.search(r"Haplogroup\s+YTree\s+v?([0-9.]+)\s*\(([^)]+)\)", text, flags=re.IGNORECASE)
+    version_match = re.search(rf"{re.escape(tree_label)}\s+v([0-9.]+)", text, flags=re.IGNORECASE)
+    release_match = re.search(rf"(?:Haplogroup\s+)?{re.escape(tree_label)}\s+v?([0-9.]+)\s*\(([^)]+)\)", text, flags=re.IGNORECASE)
     children = tuple(
         YFullChildBranch(
             name=node.name or node.branch_id,
@@ -265,7 +281,7 @@ def parse_yfull_branch_html(html_text: str, *, source_url: str) -> YFullBranch:
         if node.parent_id == root.branch_id and (node.name or node.branch_id)
     )
     path = tuple(parser.breadcrumbs) + (root.name,)
-    canonical_url = f"{YFULL_BASE_URL}/tree/{quote(root.name, safe='-*._')}/"
+    canonical_url = f"{YFULL_BASE_URL}/{path_segment}/{quote(root.name, safe='-*._')}/"
     return YFullBranch(
         name=root.name,
         parent=parser.breadcrumbs[-1] if parser.breadcrumbs else "",
@@ -317,23 +333,26 @@ class YFullBranchService:
         *,
         cache_ttl_seconds: int = _DEFAULT_CACHE_TTL_SECONDS,
         fetch_html: Callable[[str], str] = fetch_yfull_html,
+        tree_type: str = TREE_YDNA,
     ) -> None:
+        self.path_segment, self.tree_label = _tree_config(tree_type)
+        self.tree_type = tree_type
         self.cache_dir = cache_dir
         self.cache_ttl_seconds = max(0, int(cache_ttl_seconds))
         self.fetch_html = fetch_html
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def lookup(self, query: str, *, force_refresh: bool = False) -> YFullLookupResult:
-        branch_name = normalize_yfull_branch_query(query)
+        branch_name = normalize_yfull_branch_query(query, tree_type=self.tree_type)
         cache_path = self._cache_path(branch_name)
         cached = self._read_cache(cache_path)
         if cached is not None and not force_refresh and self._is_fresh(cache_path):
             return YFullLookupResult(branch=cached, cache_status="cache")
 
-        source_url = f"{YFULL_BASE_URL}/tree/{quote(branch_name, safe='-*._')}/"
+        source_url = f"{YFULL_BASE_URL}/{self.path_segment}/{quote(branch_name, safe='-*._')}/"
         try:
             html_text = self.fetch_html(source_url)
-            branch = parse_yfull_branch_html(html_text, source_url=source_url)
+            branch = parse_yfull_branch_html(html_text, source_url=source_url, tree_type=self.tree_type)
             if not _branch_matches_query(branch_name, branch):
                 raise YFullLookupError("parse_error")
         except YFullLookupError as exc:
@@ -344,7 +363,8 @@ class YFullBranchService:
         return YFullLookupResult(branch=branch, cache_status="live")
 
     def _cache_path(self, branch_name: str) -> Path:
-        digest = hashlib.sha256(branch_name.encode("utf-8")).hexdigest()[:24]
+        identity = branch_name if self.tree_type == TREE_YDNA else f"{self.tree_type}:{branch_name}"
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
         return self.cache_dir / f"{digest}.json"
 
     def _is_fresh(self, path: Path) -> bool:
